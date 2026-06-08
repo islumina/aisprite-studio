@@ -1,0 +1,21 @@
+# AI agent workspace dirs
+.claude/
+.gemini/
+.ag-sprite-cache/
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+
+# Dependency directories
+node_modules/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db

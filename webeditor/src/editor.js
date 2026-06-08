@@ -1,0 +1,905 @@
+// AIPLAYBOOK — editor controller
+//
+// Wires the panels together. Responsibilities: load an atlas (served reimu, a
+// dropped file, or the procedural mock), drive the PixiJS preview through the
+// aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
+// instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
+// and reload the spritesheet after Antigravity regenerates it.
+import { bus, EV } from './bus.js';
+import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll } from './atlas-model.js';
+import { startFsm, ANIM_END } from './fsm.js';
+import { renderPoses, getFocusedPose } from './poses.js';
+import { generateMockSheet } from './mock.js';
+import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
+import * as preview from './preview.js';
+import { setupTimeline } from './timeline.js';
+import { initKeyboard } from './keyboard.js';
+import { keyGreen } from './chroma.js';
+
+// --- Utilities ---
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// --- DOM ---
+const $ = (id) => document.getElementById(id);
+const els = {
+  canvas: $('canvas-container'), crosshair: $('crosshair'), json: $('json-editor'),
+  unitSelect: $('unit-select'), poses: $('poses-panel'),
+  sourceBadge: $('source-badge'), typeBadge: $('assettype-badge'), stateBadge: $('current-state-badge'),
+  speed: $('speed-slider'), durationVal: $('duration-val'),
+  endLoop: $('end-loop'), endHold: $('end-hold'), endReturn: $('end-return'), endTarget: $('end-return-target'),
+  pivot: $('show-pivot'), apply: $('btn-apply'), exportBtn: $('btn-export'), reload: $('btn-reload'),
+  characterSelect: $('character-select'),
+  refPoseImg: $('reference-pose-img'),
+  refPoseInfo: $('reference-pose-info'),
+  refPoseFilename: $('ref-pose-filename'),
+  refPosePlaceholder: $('reference-pose-placeholder'),
+  tposeGenerated: $('tpose-generated'),
+  tposeImg: $('tpose-img'),
+  btnCopyTposeUrl: $('btn-copy-tpose-url'),
+  tposePromptText: $('tpose-prompt-text'),
+  btnCopyTposePrompt: $('btn-copy-tpose-prompt'),
+  tposePlaceholder: $('tpose-placeholder'),
+  // Animation prompt
+  animPromptText: $('anim-prompt-text'),
+  btnCopyAnimPrompt: $('btn-copy-anim-prompt'),
+  // Frame prompt
+  framePromptDetails: $('frame-prompt-details'),
+  framePromptIdx: $('frame-prompt-idx'),
+  framePromptText: $('frame-prompt-text'),
+  btnCopyFramePrompt: $('btn-copy-frame-prompt'),
+  wasdCard: $('wasd-card'),
+  canvasSizeSeg: $('canvas-size-seg'),
+  anchorX: $('anchor-x'),
+  anchorY: $('anchor-y'),
+  // Frame inspector
+  frameBar: $('frame-bar'),
+  framePrev: $('frame-prev'),
+  framePlayPause: $('frame-playpause'),
+  frameNext: $('frame-next'),
+  frameLabel: $('frame-label'),
+  frameRegen: $('frame-regen'),
+  frameCopyPath: $('frame-copy-path'),
+  btnSaveFramePrompt: $('btn-save-frame-prompt'),
+  btnSaveAnimPrompt: $('btn-save-anim-prompt'),
+  autoReload: $('auto-reload'),
+  chromaToggle: $('chroma-toggle'),
+  chromaSim: $('chroma-sim'),
+  chromaSimVal: $('chroma-sim-val'),
+  btnExportSheet: $('btn-export-sheet'),
+  previewLock: $('preview-lock'),
+  btnSaveDisk: $('btn-save-disk'),
+  onionSkin: $('onion-skin'),
+  applyAllAnchors: $('btn-apply-all-anchors'),
+  timelineList: $('timeline-list'),
+};
+
+// --- State ---
+let atlas = null;
+let baseImageUrl = null; // sheet url without cache-bust, for reload
+let fsm = null; // aifsmjs driver (character mode) or null (object mode)
+let currentUnit = null;
+let currentChar = null; // current character folder name
+let currentSpec = null; // parsed spec.json for the current character (drives prompt synthesis)
+let currentPb = null; // current active playback config
+let reloadCount = 0;
+let promptTemplate = ''; // prompts/generation-agent.md, fetched once
+let jsonDirty = false; // in-memory atlas diverges from disk (tuning/edits) → auto-reload keeps it
+let lastSheetMtime = 0; // for auto-reload polling
+let pollTimer = null;
+let curFrameIdx = 0;
+let curFrameTotal = 1;
+let previewLock = true; // When true, selected animation loops regardless of onEnd — prevents FSM returning to idle
+
+// --- Prompt loading ---
+/** Fetch a saved prompt via the dev-server API (always 200 → no console 404). */
+async function fetchSavedPrompt(charName, name) {
+  try {
+    const r = await fetch(`/api/prompt?char=${encodeURIComponent(charName)}&name=${encodeURIComponent(name)}`);
+    if (r.ok) {
+      const j = await r.json();
+      if (j.exists) return j.text.trim();
+    }
+  } catch { /* plain static host without the API — fall through to synthesis */ }
+  return null;
+}
+
+async function loadAnimPrompt(charName, animName) {
+  if (!els.animPromptText) return;
+  const saved = await fetchSavedPrompt(charName, animName);
+  els.animPromptText.textContent = saved ?? synthAnimPrompt(animName);
+}
+
+async function loadFramePrompt(charName, animName, frameIdx) {
+  if (!els.framePromptDetails) return;
+  els.framePromptIdx.textContent = frameIdx;
+  const frameName = `${animName}_${String(frameIdx).padStart(2, '0')}`;
+  const saved = await fetchSavedPrompt(charName, frameName);
+  els.framePromptText.textContent = saved ?? synthFramePrompt(animName, frameIdx, curFrameTotal);
+  els.framePromptDetails.style.display = '';
+}
+
+// Pose images are stored relative to the atlas; resolve them against the sheet's directory
+// so a dropped or served atlas keeps its thumbnails portable.
+function resolveSrc(path) {
+  if (!path || /^(data:|https?:|blob:|\/)/.test(path)) return path;
+  const dir = (baseImageUrl || '').replace(/[^/]+$/, '');
+  return dir + path;
+}
+
+// --- Boot ---
+async function start() {
+  await preview.initPreview(els.canvas, els.crosshair);
+
+  // Fetch the generation prompt template once (SPOT for synthesised prompts).
+  try { const tr = await fetch('prompts/generation-agent.md'); if (tr.ok) promptTemplate = await tr.text(); } catch { /* synth shows a notice */ }
+
+  // Populate character dropdown from /api/assets
+  try {
+    const assetsRes = await fetch('/api/assets');
+    if (assetsRes.ok) {
+      const assets = await assetsRes.json();
+      els.characterSelect.innerHTML = '';
+      for (const a of assets) {
+        const opt = document.createElement('option');
+        opt.value = a.name;
+        opt.textContent = a.name + (a.hasAtlas ? '' : ' (no atlas)');
+        opt.disabled = !a.hasAtlas;
+        opt.dataset.prefix = a.atlasPrefix || '';
+        els.characterSelect.appendChild(opt);
+      }
+      // Select first available
+      const first = assets.find(a => a.hasAtlas);
+      if (first) els.characterSelect.value = first.name;
+    }
+  } catch (e) {
+    console.warn('Could not load asset list:', e);
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedChar = urlParams.get('char');
+  if (requestedChar && els.characterSelect.querySelector(`option[value="${requestedChar}"]`)) {
+    els.characterSelect.value = requestedChar;
+  }
+  
+  const charName = els.characterSelect?.value || 'reimu';
+  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
+  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
+  try {
+    const res = await fetch(`${atlasBase}/atlas.json`);
+    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
+    
+    const atlasData = await res.json();
+    const imageName = atlasData.meta?.image || `${charName}.png`;
+    
+    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
+    currentChar = charName;
+    updateReferencePose(charName);
+    updateTpose(charName);
+    await afterCharLoaded(charName);
+  } catch (e) {
+    console.info('Falling back to procedural mock:', e.message);
+    const m = generateMockSheet();
+    await loadAtlas(m.atlas, m.imageUrl, 'Mock Mode');
+  }
+}
+
+/** Show the user's original input.png as Reference Pose. */
+async function updateReferencePose(charName) {
+  const src = `assets/${charName}/input.png`;
+  try {
+    const res = await fetch(src, { method: 'HEAD' });
+    if (res.ok) {
+      els.refPoseImg.src = src;
+      els.refPoseImg.style.display = 'block';
+      els.refPoseInfo.style.display = 'block';
+      els.refPosePlaceholder.style.display = 'none';
+      els.refPoseFilename.textContent = 'input.png';
+      return;
+    }
+  } catch { /* ignore */ }
+  els.refPoseImg.style.display = 'none';
+  els.refPoseInfo.style.display = 'none';
+  els.refPosePlaceholder.style.display = 'block';
+}
+
+/** Show generated tpose.png in the T-Pose Grid section + load prompt. */
+async function updateTpose(charName) {
+  const src = `assets/${charName}/tpose.png`;
+  try {
+    const res = await fetch(src, { method: 'HEAD' });
+    if (res.ok) {
+      const bustUrl = src + `?_t=${Date.now()}`;
+      els.tposeGenerated.style.display = 'block';
+      els.tposePlaceholder.style.display = 'none';
+      els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
+      
+      if (els.chromaToggle && els.chromaToggle.checked) {
+        try {
+          const blob = await (await fetch(bustUrl)).blob();
+          const bmp = await createImageBitmap(blob);
+          const keyed = keyGreen(bmp, {
+            similarity: parseFloat(els.chromaSim.value),
+            smoothness: 0.10,
+            key: [0, 255, 0]
+          });
+          els.tposeImg.src = keyed.toDataURL();
+        } catch (e) {
+          console.warn('Failed to chroma key tpose.png:', e);
+          els.tposeImg.src = bustUrl;
+        }
+      } else {
+        els.tposeImg.src = bustUrl;
+      }
+
+      // Load generation prompt if available
+      try {
+        const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
+        if (promptRes.ok) {
+          const promptTxt = await promptRes.text();
+          els.tposePromptText.textContent = promptTxt.trim();
+        } else {
+          els.tposePromptText.textContent = '(no tpose-prompt.txt found)';
+        }
+      } catch {
+        els.tposePromptText.textContent = '(failed to load prompt)';
+      }
+      return;
+    }
+  } catch { /* ignore */ }
+  els.tposeGenerated.style.display = 'none';
+  els.tposePlaceholder.style.display = 'block';
+}
+
+/** Load an atlas object + its sheet image, then render every panel. */
+async function loadAtlas(atlasObj, imageUrl, badge) {
+  atlas = normaliseAtlas(atlasObj);
+  baseImageUrl = imageUrl;
+  // Use PixiJS Spritesheet for correct trim/anchor handling
+  await preview.loadSheet(imageUrl, atlasObj);
+
+  els.sourceBadge.textContent = badge;
+  els.sourceBadge.classList.add('active');
+  els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
+
+  jsonDirty = false; // fresh load — in sync with disk
+  writeJson();
+  renderUnitSelect();
+  if (els.poses) renderPoses(atlas, els.poses, resolveSrc);
+
+  fsm?.dispose();
+  const units = getUnits(atlas);
+  if (atlas.assetType === 'character' && atlas.states?.definitions) {
+    fsm = startFsm(atlas, onFsmState);
+  } else {
+    fsm = null;
+    if (units[0]) playState(units[0].name);
+  }
+  kbHandler?.updateFsm(fsm);
+}
+
+// --- Playback ---
+/** Play one unit's animation and reflect it in the controls. Single render path. */
+function playState(name) {
+  const pb = resolvePlayback(atlas, name);
+  if (!pb) return;
+  currentUnit = name;
+  currentPb = pb;
+  // When previewLock is on, force-loop the animation so FSM transitions don't fire
+  const effectiveOnEnd = previewLock ? 'loop' : pb.onEnd;
+  
+  // Render timeline scrubber
+  renderTimeline(pb);
+  
+  // Pass animation name — preview.js resolves textures from the parsed Spritesheet
+  preview.playUnit(
+    { animName: pb.animation, anchor: pb.anchor, durationMs: pb.durationMs, onEnd: effectiveOnEnd, sourceSize: pb.sourceSize, frameDurations: pb.frameDurations },
+    { onAnimEnd: () => fsm?.send(ANIM_END), onFrameChange: (idx, total) => {
+      curFrameIdx = idx; curFrameTotal = total;
+      updateFrameLabel(idx, total);
+      highlightTimelineFrame(idx);
+      // Only refresh the per-frame prompt when its panel is open (avoid per-frame spam during playback).
+      if (currentChar && els.framePromptDetails?.open) loadFramePrompt(currentChar, pb.animation, idx);
+    }},
+  );
+  updatePlayPauseBtn(true);
+  reflectUnitUI(name, pb);
+  // Load animation-level prompt
+  if (currentChar) loadAnimPrompt(currentChar, pb.animation);
+}
+
+// --- Frame inspector helpers ---
+
+const timeline = setupTimeline(
+  els,
+  () => atlas,
+  () => curFrameIdx,
+  () => updatePlayPauseBtn(false)
+);
+
+function renderTimeline(pb) {
+  timeline.render(pb);
+}
+
+function highlightTimelineFrame(idx) {
+  timeline.highlight(idx);
+}
+
+function updateFrameLabel(current, total) {
+  if (els.frameLabel) {
+    els.frameLabel.innerHTML = `<strong>${current + 1}</strong> / ${total}`;
+  }
+}
+
+function updatePlayPauseBtn(playing) {
+  if (!els.framePlayPause) return;
+  els.framePlayPause.innerHTML = playing ? '<i data-lucide="pause" class="icon-md"></i>' : '<i data-lucide="play" class="icon-md"></i>';
+  if (window.lucide) window.lucide.createIcons({ root: els.framePlayPause });
+  els.framePlayPause.classList.toggle('active', playing);
+}
+
+/** FSM entered a state → play it. */
+function onFsmState(stateName) {
+  playState(stateName);
+}
+
+/** Character: jump straight to a state for inspection by reseating the FSM there. */
+function seekUnit(name) {
+  if (fsm) {
+    fsm.dispose();
+    fsm = startFsm(atlas, onFsmState, name);
+  } else {
+    playState(name);
+  }
+}
+
+// --- UI rendering ---
+function renderUnitSelect() {
+  if (!els.unitSelect) return;
+  els.unitSelect.innerHTML = '';
+  for (const u of getUnits(atlas)) {
+    const opt = document.createElement('option');
+    opt.value = u.name;
+    opt.textContent = u.name;
+    if (u.name === currentUnit) opt.selected = true;
+    els.unitSelect.appendChild(opt);
+  }
+}
+
+els.unitSelect?.addEventListener('change', () => {
+  const name = els.unitSelect.value;
+  if (!name) return;
+  // When user manually picks an animation, enable preview-lock so it stays on that state
+  previewLock = true;
+  if (els.previewLock) els.previewLock.checked = true;
+  seekUnit(name);
+});
+
+function reflectUnitUI(name, pb) {
+  els.stateBadge.textContent = name;
+  if (els.unitSelect) els.unitSelect.value = name;
+  // End-behaviour segmented control
+  const isLoop = pb.onEnd === 'loop';
+  const isHold = pb.onEnd === 'hold';
+  els.endLoop.classList.toggle('active', isLoop);
+  els.endHold.classList.toggle('active', isHold);
+  els.endReturn.classList.toggle('active', !isLoop && !isHold);
+  populateReturnTargets(name, !isLoop && !isHold ? pb.onEnd : null);
+  els.endTarget.style.display = !isLoop && !isHold ? '' : 'none';
+  // Duration
+  els.speed.value = pb.durationMs;
+  els.durationVal.textContent = `${pb.durationMs}ms`;
+  // Anchor
+  if (els.anchorX) els.anchorX.value = pb.anchor?.x?.toFixed(2) ?? '0.50';
+  if (els.anchorY) els.anchorY.value = pb.anchor?.y?.toFixed(2) ?? '0.86';
+}
+
+/** Fill the "Return to…" dropdown with the other states (character mode). */
+function populateReturnTargets(current, selected) {
+  els.endTarget.innerHTML = '';
+  const others = getUnits(atlas).map((u) => u.name).filter((n) => n !== current);
+  for (const n of others) {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = `→ ${n}`;
+    if (n === selected) opt.selected = true;
+    els.endTarget.appendChild(opt);
+  }
+  if (!others.length) {
+    const opt = document.createElement('option');
+    opt.textContent = '(no other state)';
+    els.endTarget.appendChild(opt);
+  }
+}
+
+// Write in-memory state back to JSON editor
+function writeJson() {
+  if (document.activeElement === els.json) return; // don't fight the user's cursor
+  els.json.value = JSON.stringify(atlas, null, 2);
+}
+const debouncedWriteJson = debounce(writeJson, 250);
+
+// --- Controls ---
+els.endLoop.onclick = () => currentUnit && setOnEnd(atlas, currentUnit, 'loop');
+els.endHold.onclick = () => currentUnit && setOnEnd(atlas, currentUnit, 'hold');
+els.endReturn.onclick = () => {
+  if (!currentUnit) return;
+  const target = els.endTarget.value || getUnits(atlas).map((u) => u.name).find((n) => n !== currentUnit);
+  if (target) setOnEnd(atlas, currentUnit, target);
+};
+els.endTarget.onchange = () => currentUnit && setOnEnd(atlas, currentUnit, els.endTarget.value);
+
+// Preview lock: when checked, selected animation force-loops; when unchecked, onEnd from atlas applies
+els.previewLock?.addEventListener('change', () => {
+  previewLock = els.previewLock.checked;
+  if (currentUnit) playState(currentUnit);
+});
+
+els.speed.oninput = (e) => {
+  const ms = parseInt(e.target.value, 10);
+  els.durationVal.textContent = `${ms}ms`;
+  preview.setSpeed(ms); // live, no restart
+  if (currentUnit) setDuration(atlas, currentUnit, ms);
+};
+
+els.pivot.onchange = () => {
+  const pb = currentUnit && resolvePlayback(atlas, currentUnit);
+  preview.positionCrosshair(pb ? pb.anchor : { x: 0.5, y: 0.72 }, els.pivot.checked);
+};
+
+// Canvas size selector
+els.canvasSizeSeg?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-size]');
+  if (!btn) return;
+  const size = parseInt(btn.dataset.size, 10);
+  els.canvasSizeSeg.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  await preview.setCanvasSize(size, els.canvas, els.crosshair);
+  // Re-load the spritesheet into the new canvas
+  if (atlas && baseImageUrl) {
+    const imgUrl = baseImageUrl.startsWith('data:') ? baseImageUrl : `${baseImageUrl}?_t=${++reloadCount}`;
+    await preview.loadSheet(imgUrl, atlas);
+  }
+  if (currentUnit) playState(currentUnit);
+});
+
+// Anchor inputs
+function onAnchorInput() {
+  const x = parseFloat(els.anchorX.value) || 0.5;
+  const y = parseFloat(els.anchorY.value) || 0.5;
+  preview.setAnchor(x, y);
+  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+}
+els.anchorX?.addEventListener('change', onAnchorInput);
+els.anchorY?.addEventListener('change', onAnchorInput);
+
+els.apply.onclick = () => applyJsonText(true);
+els.json.addEventListener('input', debounce(() => applyJsonText(false), 400));
+
+/** Parse the JSON textarea and rebuild. `rewrite`=true echoes formatted JSON back. */
+async function applyJsonText(rewrite) {
+  let parsed;
+  const errEl = $('json-error-msg');
+  try {
+    parsed = JSON.parse(els.json.value);
+    if (errEl) {
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    }
+  } catch (err) {
+    els.json.classList.add('json-invalid');
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = err.message;
+    }
+    return;
+  }
+  els.json.classList.remove('json-invalid');
+  jsonDirty = true; // user-edited atlas; auto-reload must not clobber it
+  atlas = normaliseAtlas(parsed);
+  renderUnitSelect();
+  if (els.poses) renderPoses(atlas, els.poses, resolveSrc);
+  els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
+  fsm?.dispose();
+  fsm = atlas.assetType === 'character' && atlas.states?.definitions ? startFsm(atlas, onFsmState) : null;
+  if (!fsm && currentUnit) playState(currentUnit);
+  if (rewrite) {
+    writeJson();
+    if (errEl) {
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    }
+  }
+}
+
+els.exportBtn.onclick = () => {
+  const blob = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(atlas, null, 2));
+  const a = document.createElement('a');
+  a.href = blob;
+  a.download = 'atlas.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+// --- Green-screen chroma key ---
+async function reloadSheetForChroma() {
+  preview.setChroma({ enabled: els.chromaToggle.checked, similarity: parseFloat(els.chromaSim.value) });
+  if (baseImageUrl) {
+    await preview.loadSheet(baseImageUrl, atlas);
+    if (currentUnit) playState(currentUnit);
+  }
+  if (currentChar) updateTpose(currentChar);
+}
+els.chromaToggle?.addEventListener('change', reloadSheetForChroma);
+els.chromaSim?.addEventListener('input', () => { els.chromaSimVal.textContent = parseFloat(els.chromaSim.value).toFixed(2); });
+els.chromaSim?.addEventListener('change', reloadSheetForChroma);
+
+els.btnExportSheet?.addEventListener('click', () => {
+  const cv = preview.getKeyedCanvas();
+  if (!cv) { alert('Enable the green-screen key first, then export.'); return; }
+  cv.toBlob((blob) => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sheet.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }, 'image/png');
+});
+
+// Reload the sheet image from disk (Antigravity regenerated it) — keep JSON edits.
+els.reload.onclick = async () => {
+  if (!baseImageUrl) return;
+  els.reload.classList.add('busy');
+  await preview.loadSheet(baseImageUrl, atlas);
+  if (currentUnit) playState(currentUnit);
+  els.reload.classList.remove('busy');
+  els.sourceBadge.textContent = `Reloaded ×${++reloadCount}`;
+};
+
+// --- Bus: model changes reflect everywhere ---
+bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
+  jsonDirty = true; // tuning diverges from disk; auto-reload keeps it
+  
+  // Debounce writing back to textarea for high-frequency events to maintain 60 FPS performance
+  if (reason.startsWith('anchor:') || reason.startsWith('frame-duration:')) {
+    debouncedWriteJson();
+  } else {
+    writeJson();
+  }
+  
+  if (reason.startsWith('frame-duration:')) {
+    if (currentUnit) {
+      const pb = resolvePlayback(atlas, currentUnit);
+      if (pb) {
+        preview.updateFrameDurations(pb.frameDurations);
+      }
+    }
+  } else if ((reason.startsWith('onEnd') || reason === 'anchor:all') && currentUnit) {
+    playState(currentUnit); // apply loop/hold live
+  }
+});
+bus.on(EV.POSE_FOCUS, () => renderUnitSelect()); // dim/undim actions by source T-Pose
+bus.on(EV.ANCHOR_DRAGGED, ({ x, y }) => {
+  if (els.anchorX) els.anchorX.value = x.toFixed(2);
+  if (els.anchorY) els.anchorY.value = y.toFixed(2);
+  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+});
+
+// --- Character switch ---
+els.characterSelect?.addEventListener('change', async () => {
+  const charName = els.characterSelect.value;
+  if (!charName) return;
+  const prefix = els.characterSelect.selectedOptions[0]?.dataset.prefix || '';
+  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
+  try {
+    const res = await fetch(`${atlasBase}/atlas.json`);
+    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
+    
+    const atlasData = await res.json();
+    const imageName = atlasData.meta?.image || `${charName}.png`;
+    
+    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
+    currentChar = charName;
+    updateReferencePose(charName);
+    updateTpose(charName);
+    await afterCharLoaded(charName);
+  } catch (e) {
+    console.warn('Failed to load character:', charName, e);
+  }
+});
+
+// --- Copy + interaction handlers ---
+function copyToClipboard(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = orig; }, 1200);
+  });
+}
+els.btnCopyTposeUrl?.addEventListener('click', (e) => {
+  copyToClipboard(e.currentTarget.dataset.url, e.currentTarget);
+});
+els.btnCopyTposePrompt?.addEventListener('click', (e) => {
+  copyToClipboard(els.tposePromptText?.textContent || '', e.currentTarget);
+});
+els.btnCopyAnimPrompt?.addEventListener('click', (e) => {
+  copyToClipboard(els.animPromptText?.textContent || '', e.currentTarget);
+});
+els.btnCopyFramePrompt?.addEventListener('click', (e) => {
+  copyToClipboard(els.framePromptText?.textContent || '', e.currentTarget);
+});
+els.refPoseImg?.addEventListener('click', () => {
+  if (els.refPoseImg.src) window.open(els.refPoseImg.src, '_blank');
+});
+els.tposeImg?.addEventListener('click', () => {
+  if (els.tposeImg.src) window.open(els.tposeImg.src, '_blank');
+});
+
+// --- Keyboard (character movement → FSM events) ---
+function highlightKey(k, on) {
+  const map = { w: 'key-w', a: 'key-a', s: 'key-s', d: 'key-d', ' ': 'key-space' };
+  const el = $(map[k]);
+  if (el) el.classList.toggle('key-active', on);
+}
+const kbHandler = initKeyboard(null, highlightKey);
+
+
+// --- Frame inspector bar ---
+els.framePrev?.addEventListener('click', () => {
+  preview.prevFrame();
+  updatePlayPauseBtn(false);
+});
+els.frameNext?.addEventListener('click', () => {
+  preview.nextFrame();
+  updatePlayPauseBtn(false);
+});
+els.framePlayPause?.addEventListener('click', () => {
+  const playing = preview.togglePlayPause();
+  updatePlayPauseBtn(playing);
+});
+
+// Arrow keys for frame stepping (only when not in text input)
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); preview.prevFrame(); updatePlayPauseBtn(false); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); preview.nextFrame(); updatePlayPauseBtn(false); }
+  else if (e.key === ',') { const p = preview.togglePlayPause(); updatePlayPauseBtn(p); }
+});
+
+// --- Prompt synthesis (fallback when no saved prompt file) ---
+/** A spec for the prompt builder: the real spec.json, or one derived from the atlas. */
+function effectiveSpec() {
+  if (currentSpec) return currentSpec;
+  let frameSize = [256, 256];
+  const u0 = getUnits(atlas)[0];
+  const pb0 = u0 && resolvePlayback(atlas, u0.name);
+  if (pb0?.sourceSize) frameSize = [pb0.sourceSize.w, pb0.sourceSize.h];
+  const movesets = Object.keys(atlas.animations || {}).map((n) => ({
+    name: n, frames: atlas.animations[n].length,
+    onEnd: atlas.animationConfig?.[n]?.onEnd, fps: atlas.animationConfig?.[n]?.fps,
+  }));
+  return { character_id: currentChar || 'character', frame_size: frameSize, movesets, states: atlas.states };
+}
+
+function frameRefs(animName, frameIdx) {
+  const c = currentChar || 'character';
+  const pad = (i) => String(i).padStart(2, '0');
+  return {
+    tpose: `assets/${c}/tpose.png`,
+    input: `assets/${c}/input.png`,
+    first: `assets/${c}/frames/${animName}_00.png`,
+    prev: frameIdx > 0 ? `assets/${c}/frames/${animName}_${pad(frameIdx - 1)}.png` : undefined,
+    frameSize: effectiveSpec().frame_size,
+  };
+}
+
+function synthAnimPrompt(animName) {
+  if (!promptTemplate) return '(prompt template not loaded — serve via serve.py)';
+  return buildAnimPrompt(promptTemplate, effectiveSpec(), animName, frameRefs(animName, 0)) + '\n\n— synthesised by AIPLAYBOOK —';
+}
+function synthFramePrompt(animName, frameIdx, total) {
+  if (!promptTemplate) return '(prompt template not loaded — serve via serve.py)';
+  return buildFramePrompt(promptTemplate, effectiveSpec(), animName, frameIdx, total, frameRefs(animName, frameIdx)) + '\n\n— synthesised by AIPLAYBOOK —';
+}
+
+// --- After a character loads: spec, mtime seed, polling ---
+async function afterCharLoaded(charName) {
+  currentSpec = null;
+  try { const r = await fetch(`assets/${charName}/spec.json`); if (r.ok) currentSpec = await r.json(); }
+  catch { /* mock / no spec — effectiveSpec() derives from atlas */ }
+  await seedMtime(charName);
+  startPolling();
+}
+
+async function seedMtime(charName) {
+  try { const r = await fetch(`/api/status?char=${encodeURIComponent(charName)}`); if (r.ok) lastSheetMtime = (await r.json()).sheetMtime || 0; }
+  catch { lastSheetMtime = 0; }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(checkForUpdates, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// Pause polling entirely when the tab is hidden to save CPU/network
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopPolling();
+  else if (currentChar) startPolling();
+});
+
+async function checkForUpdates() {
+  if (!els.autoReload?.checked || !currentChar) return;
+  try {
+    const r = await fetch(`/api/status?char=${encodeURIComponent(currentChar)}`);
+    if (!r.ok) return;
+    const s = await r.json();
+    if (s.sheetMtime && s.sheetMtime > lastSheetMtime) {
+      lastSheetMtime = s.sheetMtime;
+      await autoReloadAssets();
+    }
+  } catch { /* no API server (plain static host) */ }
+}
+
+async function autoReloadAssets() {
+  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
+  const atlasBase = prefix ? `assets/${currentChar}/${prefix}` : `assets/${currentChar}`;
+  if (jsonDirty) {
+    const imageName = atlas.meta?.image || `${currentChar}.png`;
+    await preview.loadSheet(`${atlasBase}/${imageName}`, atlas);
+    if (currentUnit) playState(currentUnit);
+    els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
+  } else {
+    try {
+      const res = await fetch(`${atlasBase}/atlas.json`);
+      if (res.ok) {
+        const atlasData = await res.json();
+        const imageName = atlasData.meta?.image || `${currentChar}.png`;
+        await loadAtlas(atlasData, `${atlasBase}/${imageName}`, '↻ auto-reloaded');
+      }
+    } catch { /* ignore */ }
+  }
+}
+
+// --- Regenerate + save prompt handlers ---
+function flashLabel(btn, label, ok = true) {
+  if (!btn) return;
+  const orig = btn.dataset.orig || btn.textContent;
+  btn.dataset.orig = orig;
+  btn.textContent = label;
+  btn.classList.toggle('copied', ok);
+  setTimeout(() => { btn.textContent = btn.dataset.orig || label; btn.classList.remove('copied'); btn.dataset.orig = ''; }, 1600);
+}
+
+els.frameRegen?.addEventListener('click', () => {
+  if (!currentUnit) return;
+  const pb = resolvePlayback(atlas, currentUnit);
+  if (!pb) return;
+  preview.pauseAnimation?.();
+  updatePlayPauseBtn(false);
+  const prompt = synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal);
+  if (els.framePromptDetails) { els.framePromptDetails.style.display = ''; els.framePromptDetails.open = true; }
+  if (els.framePromptText) els.framePromptText.textContent = prompt;
+  if (els.framePromptIdx) els.framePromptIdx.textContent = curFrameIdx;
+  navigator.clipboard?.writeText(prompt);
+  flashLabel(els.frameRegen, '✓ Copied — paste into Antigravity');
+});
+
+els.frameCopyPath?.addEventListener('click', () => {
+  if (!currentUnit || !currentChar) return;
+  const pb = resolvePlayback(atlas, currentUnit);
+  if (!pb) return;
+  const paddedIdx = String(curFrameIdx).padStart(2, '0');
+  const frameName = `${pb.animation}_${paddedIdx}.png`;
+  const filePath = `assets/${currentChar}/frames/${frameName}`;
+  navigator.clipboard?.writeText(filePath);
+  flashLabel(els.frameCopyPath, `✓ ${frameName}`);
+});
+
+async function savePrompt(name, text, btn) {
+  if (!currentChar) { flashLabel(btn, '✗ no character', false); return; }
+  try {
+    const r = await fetch('/api/prompt', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ char: currentChar, name, text }),
+    });
+    const j = await r.json();
+    flashLabel(btn, j.ok ? '✓ Saved' : '✗ ' + (j.error || 'failed'), j.ok);
+  } catch { flashLabel(btn, '✗ no dev server', false); }
+}
+
+els.btnSaveFramePrompt?.addEventListener('click', (e) => {
+  const pb = currentUnit && resolvePlayback(atlas, currentUnit);
+  if (!pb) return;
+  savePrompt(`${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`, els.framePromptText?.textContent || '', e.currentTarget);
+});
+els.btnSaveAnimPrompt?.addEventListener('click', (e) => {
+  const pb = currentUnit && resolvePlayback(atlas, currentUnit);
+  if (!pb) return;
+  savePrompt(pb.animation, els.animPromptText?.textContent || '', e.currentTarget);
+});
+
+// Populate the frame prompt the moment its panel is opened.
+els.framePromptDetails?.addEventListener('toggle', () => {
+  if (els.framePromptDetails.open && currentChar && currentUnit) {
+    const pb = resolvePlayback(atlas, currentUnit);
+    if (pb) loadFramePrompt(currentChar, pb.animation, curFrameIdx);
+  }
+});
+
+els.btnSaveDisk?.addEventListener('click', async () => {
+  if (!currentChar) { flashLabel(els.btnSaveDisk, '✗ no character', false); return; }
+  els.btnSaveDisk.classList.add('busy');
+  
+  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
+  const payload = {
+    char: currentChar,
+    prefix: prefix,
+    atlas: atlas,
+    keyedImage: null
+  };
+
+  if (els.chromaToggle && els.chromaToggle.checked) {
+    const cv = preview.getKeyedCanvas();
+    if (cv) {
+      payload.keyedImage = cv.toDataURL('image/png');
+    }
+  }
+
+  try {
+    const r = await fetch('/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+    flashLabel(els.btnSaveDisk, j.ok ? '✓ Saved to disk' : '✗ ' + (j.error || 'failed'), j.ok);
+    if (j.ok) {
+      jsonDirty = false;
+    }
+  } catch (e) {
+    flashLabel(els.btnSaveDisk, '✗ save failed', false);
+  } finally {
+    els.btnSaveDisk.classList.remove('busy');
+  }
+});
+
+// Onion Skin toggle
+els.onionSkin?.addEventListener('change', () => {
+  preview.setOnionSkin(els.onionSkin.checked);
+});
+
+// Apply anchor to all animations
+els.applyAllAnchors?.addEventListener('click', () => {
+  const x = parseFloat(els.anchorX.value) || 0.5;
+  const y = parseFloat(els.anchorY.value) || 0.5;
+  setAnchorAll(atlas, { x, y });
+  flashLabel(els.applyAllAnchors, '✓ Applied to all');
+});
+
+// Anchor inputs keyboard nudge
+const nudge = (el, amount) => {
+  let val = parseFloat(el.value) || 0;
+  val = Math.max(0, Math.min(1, val + amount));
+  el.value = val.toFixed(2);
+  onAnchorInput();
+};
+els.anchorX?.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); nudge(els.anchorX, 0.01); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); nudge(els.anchorX, -0.01); }
+});
+els.anchorY?.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); nudge(els.anchorY, 0.01); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); nudge(els.anchorY, -0.01); }
+});
+
+start();

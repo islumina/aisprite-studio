@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "image": "reimu_sheet.webp",
+    "size": { "w": 2048, "h": 2048 },
+    "scale": "1"
+  },
+  "assetType": "character",
+  "inputs": {
+    "speed": {
+      "type": "number",
+      "default": 0
+    },
+    "isGrounded": {
+      "type": "boolean",
+      "default": true
+    },
+    "attackTrigger": {
+      "type": "trigger"
+    }
+  },
+  "states": {
+    "idle": { "animation": "idle", "loop": true },
+    "walk": { "animation": "walk", "loop": true },
+    "run": { "animation": "run", "loop": true },
+    "jump": { "animation": "jump", "loop": false, "onEnd": "idle" },
+    "attack": { "animation": "attack", "loop": false, "onEnd": "idle" }
+  },
+  "transitions": [
+    {
+      "from": "*",
+      "to": "attack",
+      "priority": 2,
+      "when": [
+        { "input": "attackTrigger", "op": "Trigger" }
+      ]
+    },
+    {
+      "from": "*",
+      "to": "jump",
+      "priority": 1,
+      "when": [
+        { "input": "isGrounded", "op": "Equals", "value": false }
+      ]
+    },
+    {
+      "from": "*",
+      "to": "run",
+      "priority": 0,
+      "when": [
+        { "input": "speed", "op": "GreaterThan", "value": 5 },
+        { "input": "isGrounded", "op": "Equals", "value": true }
+      ]
+    },
+    {
+      "from": "*",
+      "to": "walk",
+      "priority": 0,
+      "when": [
+        { "input": "speed", "op": "GreaterThan", "value": 0 },
+        { "input": "speed", "op": "LessThan", "value": 5 },
+        { "input": "isGrounded", "op": "Equals", "value": true }
+      ]
+    },
+    {
+      "from": "*",
+      "to": "idle",
+      "priority": 0,
+      "when": [
+        { "input": "speed", "op": "Equals", "value": 0 },
+        { "input": "isGrounded", "op": "Equals", "value": true }
+      ]
+    }
+  ],
+  "initial": "idle",
+  "animations": {
+    "idle": ["idle_00", "idle_01"],
+    "walk": ["walk_00", "walk_01"],
+    "run": ["run_00", "run_01"],
+    "jump": ["jump_00"],
+    "attack": ["attack_00", "attack_01"]
+  },
+  "frames": {
+    "idle_00": {
+      "frame": { "x": 0, "y": 0, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 10, "y": 20, "w": 492, "h": 492 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 160
+    },
+    "idle_01": {
+      "frame": { "x": 512, "y": 0, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 10, "y": 18, "w": 492, "h": 494 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 160
+    },
+    "walk_00": {
+      "frame": { "x": 1024, "y": 0, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 8, "y": 20, "w": 496, "h": 492 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 133
+    },
+    "walk_01": {
+      "frame": { "x": 1536, "y": 0, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 8, "y": 22, "w": 496, "h": 490 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 133
+    },
+    "run_00": {
+      "frame": { "x": 0, "y": 512, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 5, "y": 25, "w": 502, "h": 487 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 100
+    },
+    "run_01": {
+      "frame": { "x": 512, "y": 512, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 5, "y": 24, "w": 502, "h": 488 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 100
+    },
+    "jump_00": {
+      "frame": { "x": 1024, "y": 512, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 12, "y": 15, "w": 488, "h": 497 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 133
+    },
+    "attack_00": {
+      "frame": { "x": 0, "y": 1024, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 15, "y": 20, "w": 482, "h": 492 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 80
+    },
+    "attack_01": {
+      "frame": { "x": 512, "y": 1024, "w": 512, "h": 512 },
+      "rotated": false,
+      "trimmed": true,
+      "spriteSourceSize": { "x": 15, "y": 20, "w": 482, "h": 492 },
+      "sourceSize": { "w": 512, "h": 512 },
+      "anchor": { "x": 0.5, "y": 0.5 },
+      "duration": 120
+    }
+  }
+}

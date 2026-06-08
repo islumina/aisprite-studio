@@ -1,0 +1,12 @@
+character: chest
+style: Dark fantasy ancient treasure chest with glowing magical runes, highly detailed 3D next-gen game asset style, rich cinematic textures
+frame_size: 1024
+asset_type: object
+
+animations:
+  - action: open
+    direction: front
+    frames: 6
+  - action: shine
+    direction: front
+    frames: 4

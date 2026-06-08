@@ -1,0 +1,311 @@
+{
+  "asset": "chest",
+  "timestamp": "2026-06-02T07:52:23.899336+00:00",
+  "overall": "fail",
+  "frames": {
+    "open_front_00": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.492,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.1941,
+          "detail": "OK"
+        }
+      }
+    },
+    "open_front_01": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.491,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.1358,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "open_front_02": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.534,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": false,
+          "halo_ratio": 0.4257,
+          "detail": "Edge halo: 42.6% of edge pixels retain chroma key (2172/5102)"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "open_front_03": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.493,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": false,
+          "halo_ratio": 0.7127,
+          "detail": "Edge halo: 71.3% of edge pixels retain chroma key (11651/16347)"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "open_front_04": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.556,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.2834,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "open_front_05": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.556,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.2079,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "shine_front_00": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.492,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.224,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "shine_front_01": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.491,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": true,
+          "halo_ratio": 0.2666,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "shine_front_02": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.482,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": false,
+          "halo_ratio": 0.6865,
+          "detail": "Edge halo: 68.6% of edge pixels retain chroma key (5574/8120)"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    },
+    "shine_front_03": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 1024,
+          "h": 1024,
+          "pass": true
+        },
+        "alpha_coverage": {
+          "ratio": 0.49,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_halo": {
+          "pass": false,
+          "halo_ratio": 0.3985,
+          "detail": "Edge halo: 39.8% of edge pixels retain chroma key (1595/4003)"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0,
+          "detail": "OK"
+        }
+      }
+    }
+  }
+}

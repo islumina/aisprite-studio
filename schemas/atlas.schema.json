@@ -1,0 +1,233 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SpriteAtlas",
+  "description": "PixiJS v8 compatible spritesheet atlas with optional FSM state definitions",
+  "type": "object",
+  "properties": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Filename of the spritesheet image"
+        },
+        "size": {
+          "type": "object",
+          "properties": {
+            "w": { "type": "integer" },
+            "h": { "type": "integer" }
+          },
+          "required": ["w", "h"],
+          "additionalProperties": false
+        },
+        "scale": {
+          "type": "string",
+          "description": "Texture scale factor as string (PixiJS convention)",
+          "default": "1"
+        }
+      },
+      "required": ["image", "size", "scale"],
+      "additionalProperties": true
+    },
+    "assetType": {
+      "type": "string",
+      "enum": ["character", "object", "effect"],
+      "default": "character",
+      "description": "character = directional movesets + FSM; object = icon/prop animations (chest, door) with loop/hold only; effect = VFX (flame, explosion) with palette + bounding box consistency"
+    },
+    "poses": {
+      "type": "object",
+      "description": "T-Pose reference catalogue. Each pose is the reference image an action is generated from; the artist opts a pose in via `enabled`.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "direction": { "type": "string", "description": "front | back | left | right | none" },
+          "image": { "type": "string", "description": "Path to the T-Pose reference image, relative to the atlas" },
+          "enabled": { "type": "boolean", "default": true }
+        },
+        "required": ["image"],
+        "additionalProperties": true
+      }
+    },
+    "animationConfig": {
+      "type": "object",
+      "description": "Per-animation playback config, primarily for object/icon assets that carry no FSM `states` block.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "loop": { "type": "boolean" },
+          "onEnd": { "type": "string", "description": "'loop' (repeat), 'hold' (freeze last frame), or a target state name" },
+          "fps": { "type": "integer", "minimum": 1 },
+          "sourcePose": { "type": "string", "description": "Originating T-Pose id from `poses`" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "frames": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "frame": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer" },
+              "y": { "type": "integer" },
+              "w": { "type": "integer" },
+              "h": { "type": "integer" }
+            },
+            "required": ["x", "y", "w", "h"],
+            "additionalProperties": false
+          },
+          "rotated": {
+            "type": "boolean",
+            "default": false
+          },
+          "trimmed": {
+            "type": "boolean",
+            "default": false
+          },
+          "spriteSourceSize": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer" },
+              "y": { "type": "integer" },
+              "w": { "type": "integer" },
+              "h": { "type": "integer" }
+            },
+            "required": ["x", "y", "w", "h"],
+            "additionalProperties": false
+          },
+          "sourceSize": {
+            "type": "object",
+            "properties": {
+              "w": { "type": "integer" },
+              "h": { "type": "integer" }
+            },
+            "required": ["w", "h"],
+            "additionalProperties": false
+          },
+          "anchor": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1 },
+              "y": { "type": "number", "minimum": 0, "maximum": 1 }
+            },
+            "required": ["x", "y"],
+            "additionalProperties": false
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Frame duration in milliseconds"
+          }
+        },
+        "required": ["frame", "rotated", "trimmed", "spriteSourceSize", "sourceSize", "anchor", "duration"],
+        "additionalProperties": false
+      }
+    },
+    "animations": {
+      "type": "object",
+      "description": "Animation name → ordered array of frame keys",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "states": {
+      "type": "object",
+      "description": "State declarations keyed by state name, mapping to animations and speed configs",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["animation"],
+        "properties": {
+          "animation": { "type": "string" },
+          "loop": { "type": "boolean" },
+          "speed": { "type": "number", "exclusiveMinimum": 0 },
+          "onEnd": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Input parameter declarations keyed by input name",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "const": "number" },
+              "default": { "type": "number" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "const": "boolean" },
+              "default": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "const": "trigger" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "description": "Transition edges evaluated on every update",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Source state name, or '*' for an Any-State transition"
+          },
+          "to": { "type": "string" },
+          "priority": { "type": "integer" },
+          "when": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["input", "op"],
+              "properties": {
+                "input": { "type": "string" },
+                "op": {
+                  "enum": ["Equals", "NotEquals", "GreaterThan", "LessThan", "Trigger"]
+                },
+                "value": {
+                  "type": ["number", "boolean"]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "initial": {
+      "type": "string",
+      "description": "Initial state name. Defaults to the first declared state."
+    },
+    "defaultFrameDuration": {
+      "type": "number",
+      "description": "Fallback frame duration in ms for frames without explicit timing",
+      "exclusiveMinimum": 0
+    }
+  },
+  "required": ["meta", "frames", "animations"],
+  "additionalProperties": false
+}

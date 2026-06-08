@@ -1,0 +1,158 @@
+==========================================================
+提示：本地腳本不包含 API Key，因此不會自動執行生圖。
+這套專案設計為「由 Antigravity AI 助理在聊天室代勞」。
+
+您可以複製以下對話發送給助理（或 Subagent）：
+「請幫我為 reimu 生成所有剩餘的影格」
+
+--- 助理專用生圖計畫 (Generation Plan) ---
+Target Asset: reimu
+Asset Type: character
+Style: 3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing
+Reference Images Required:
+  - Priority 1: assets/{name}/tpose.png
+  - Priority 2 (Continuity): Frame 00 of the same animation
+  - Priority 3 (Continuity): The immediately previous frame (N-1)
+
+Pending Frames to Generate:
+
+[idle_front_00]
+Generate animation frame 1 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, clothes and skirt begin to flutter very slightly in the gentle breeze
+This is the FIRST FRAME. Establish the size, framing, and palette based on the reference image.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_01]
+Generate animation frame 2 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, slight inhale, chest rises slightly, cloth drifts leftward
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_00) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_02]
+Generate animation frame 3 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, breathing in, skirt ripples slightly more in the breeze
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_01) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_03]
+Generate animation frame 4 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, peak of breath, a touch taller, clothes fluttering gracefully
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_02) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_04]
+Generate animation frame 5 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, beginning to exhale, cloth drifting back toward center
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_03) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_05]
+Generate animation frame 6 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, mid-exhale, skirt settling down slightly
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_04) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_06]
+Generate animation frame 7 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, exhaling further, chest lowering
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_05) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[idle_front_07]
+Generate animation frame 8 of 8 for a "idle" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: neutral resting pose, arms relaxed at sides, returning to neutral, clothes settle (transitional frame before restarting loop, do NOT duplicate frame 0)
+This is NOT the first frame. You MUST heavily reference the previous frame (idle_front_06) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_00]
+Generate animation frame 1 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: contact — lead foot forward, opposite arm forward
+This is the FIRST FRAME. Establish the size, framing, and palette based on the reference image.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_01]
+Generate animation frame 2 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: passing/down — legs crossing, body low
+This is NOT the first frame. You MUST heavily reference the previous frame (walk_front_00) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_02]
+Generate animation frame 3 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: opposite contact — other foot forward
+This is NOT the first frame. You MUST heavily reference the previous frame (walk_front_01) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_03]
+Generate animation frame 4 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: passing/down — legs crossing
+This is NOT the first frame. You MUST heavily reference the previous frame (walk_front_02) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_04]
+Generate animation frame 5 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: high point of the stride
+This is NOT the first frame. You MUST heavily reference the previous frame (walk_front_03) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+
+[walk_front_05]
+Generate animation frame 6 of 6 for a "walk" animation.
+Subject: reimu (3D photorealistic real person, highly detailed, realistic human body proportions, clean green screen background, stable clothing, character).
+Facing: front
+The attached T-Pose or reference images are for DETAIL REFERENCE ONLY (to copy clothing, colors, style, and proportions). DO NOT generate the character standing in a T-Pose. Animate the character into the specified pose below.
+Pose/State: recovery — bridging back into frame 0 (transitional frame, do NOT duplicate frame 0)
+This is NOT the first frame. You MUST heavily reference the previous frame (walk_front_04) to generate the next coherent motion in the sequence.
+Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. No shadows or ground plane.
+Frame the subject centred with ~10% padding. Output only the image.
+==========================================================

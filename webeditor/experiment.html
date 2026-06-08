@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aispritejs Local Experiment — Reimu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js": "./vendor/pixi.min.mjs",
+      "aispritejs": "./vendor/aispritejs/index.js",
+      "aispritejs/pixi": "./vendor/aispritejs/pixi/index.js"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: #27272a;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --primary: #ec4899;
+      --primary-glow: rgba(236, 72, 153, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem;
+      overflow-y: auto;
+    }
+
+    @media (min-height: 700px) {
+      body {
+        justify-content: center;
+      }
+    }
+
+    .container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 40px var(--primary-glow);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      text-align: center;
+      background: linear-gradient(135deg, var(--text) 30%, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .viewport-box {
+      width: 100%;
+      height: 320px;
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .slider-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      cursor: pointer;
+    }
+
+    .val-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .info-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .info-label {
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+    }
+
+    .info-val {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.8rem;
+      width: 100%;
+    }
+
+    .btn {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--text-muted);
+    }
+
+    .btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>aispritejs Experiment</h1>
+    
+    <div class="viewport-box" id="canvas-container">
+      <!-- PixiJS Canvas will be attached here -->
+    </div>
+
+    <div class="controls">
+      <div class="control-row">
+        <label for="speed-slider">Speed Input</label>
+        <div class="slider-container">
+          <input type="range" id="speed-slider" min="0" max="10" step="0.1" value="0">
+          <span class="val-display" id="speed-val">0.0</span>
+        </div>
+      </div>
+      <div class="control-row" style="flex-direction: column; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem;">
+        <label>Quick State Transitions</label>
+        <div class="btn-group">
+          <button class="btn active" id="btn-idle">Switch to Idle (speed = 0)</button>
+          <button class="btn" id="btn-walk">Switch to Walk (speed = 5)</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <div class="info-item">
+        <span class="info-label">Active State</span>
+        <span class="info-val" id="state-val">idle</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Active Frame</span>
+        <span class="info-val" id="frame-val">idle_front_00</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as PIXI from 'pixi.js';
+    import { createPixiSpriteAnimator } from 'aispritejs/pixi';
+
+    async function init() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      // 1. Initialize PixiJS App
+      const app = new PIXI.Application();
+      await app.init({
+        width: width,
+        height: height,
+        backgroundAlpha: 0,
+        antialias: true
+      });
+      container.appendChild(app.canvas);
+
+      // 2. Load Reimu's Rive-augmented Atlas
+      const atlasUrl = './assets/reimu/output/atlas.json';
+      const sheet = await PIXI.Assets.load(atlasUrl);
+
+      // 3. Create a Sprite
+      const sprite = new PIXI.Sprite();
+      sprite.anchor.set(0.5);
+      sprite.scale.set(0.28); // Scale down so 1024px sprite fits inside 320px viewport
+      sprite.x = width / 2;
+      sprite.y = height / 2;
+      app.stage.addChild(sprite);
+
+      // 4. Create the aispritejs Animator
+      const graph = sheet.data;
+      const animator = createPixiSpriteAnimator(sprite, graph, sheet);
+
+      // 5. Connect UI Controls
+      const speedSlider = document.getElementById('speed-slider');
+      const speedVal = document.getElementById('speed-val');
+      const stateVal = document.getElementById('state-val');
+      const frameVal = document.getElementById('frame-val');
+      const btnIdle = document.getElementById('btn-idle');
+      const btnWalk = document.getElementById('btn-walk');
+
+      function setSpeed(val) {
+        speedSlider.value = val;
+        speedVal.textContent = val.toFixed(1);
+        animator.setInput('speed', val);
+      }
+
+      speedSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        setSpeed(val);
+      });
+
+      btnIdle.addEventListener('click', () => {
+        setSpeed(0);
+      });
+
+      btnWalk.addEventListener('click', () => {
+        setSpeed(5);
+      });
+
+      // 6. Hook ticker to tick the Animator and update UI status
+      app.ticker.add((ticker) => {
+        animator.update(ticker.deltaMS);
+        
+        // Update debug UI
+        stateVal.textContent = animator.activeState;
+        frameVal.textContent = animator.activeFrameKey;
+
+        // Sync button active styling with active state
+        if (animator.activeState === 'idle') {
+          btnIdle.classList.add('active');
+          btnWalk.classList.remove('active');
+        } else if (animator.activeState === 'walk') {
+          btnIdle.classList.remove('active');
+          btnWalk.classList.add('active');
+        }
+      });
+    }
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>

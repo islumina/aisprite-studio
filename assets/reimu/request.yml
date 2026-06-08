@@ -1,0 +1,14 @@
+# Reimu sprite generation request - 3D photorealistic version
+
+character: reimu
+style: 3D photorealistic real person, highly detailed, realistic human body proportions, clean blue screen background, stable clothing
+frame_size: 1024
+asset_type: character
+
+animations:
+  - action: idle
+    direction: front
+    frames: 8
+  - action: walk
+    direction: front
+    frames: 6

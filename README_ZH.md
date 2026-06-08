@@ -1,0 +1,183 @@
+# AI Playbook — 互動式 Sprite 編輯器與合圖打包工具
+
+> [!NOTE]
+> 本專案為一個建立在 Google **antigravity** SDK 上的玩具專案。
+
+AI Playbook 是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
+
+---
+
+## 核心功能
+
+1. **AI 輔助動態影格生成**：使用 Google Antigravity 基於參考姿勢（T-Pose）進行逐幀 PNG 生成。
+2. **自動 QA 驗證器**：檢驗圖片完整性、尺寸、alpha 覆蓋率以及 LLM 視覺一致性。
+3. **高效合圖打包器**：將獨立影格打包為 spritesheet，搭配 `atlas.json` 設定檔，自動輸出 WebP 壓縮版本。
+4. **互動式 PixiJS Web 編輯器**：
+   - **可視化時間軸**：支援單影格自訂播放時長，即時預覽。
+   - **錨點微調**：拖曳與鍵盤方向鍵微調 anchor。
+   - **畫布平移與縮放**：滾輪縮放、右鍵拖曳畫布。
+   - **綠幕去背（Chroma Key）**：即時綠幕去背預覽與容差調節。
+   - **FSM 狀態機串接**：整合 `aifsmjs` 運行時，支援非循環動畫結束自動轉移至循環動畫。
+   - **本地直寫存檔**：一鍵存檔，同步儲存 atlas.json 與去背透明 PNG。
+
+---
+
+## 快速開始
+
+### 1. 環境準備與 AI 助理設定
+
+要運行與建置此專案，您需要一個具備命令列執行與生圖能力的 AI 助理（例如 Google Antigravity Agent 或其他 AI 程式編寫助理）。
+
+您只需在工作區中與您的 AI 助理開啟新對話，並發送**第一個啟動提示詞**（見下方的 [AI 助理協同指南](#ai-助理協同指南適用於新-session)）。
+
+AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完成以下第一次安裝：
+* **Python 虛擬環境** 與依賴套件（`requirements.txt`）
+* 用於圖片處理與壓縮的 **Homebrew 套件**（`webp`、`oxipng`、`optipng`）
+
+*（若您需要手動安裝步驟，請參閱 [SKILL.md](./SKILL.md) 檔案中的命令。）*
+
+### 2. 快速預覽現有範例（無需重複生成）
+
+本專案已隨附預先生成好且打包完畢的展示資產（例如 `reimu`、`sakuya`、`chest`、`fireball`）。您可以直接啟動 Web 編輯器直接把玩與預覽：
+
+```bash
+# 啟動本地後端伺服器
+python3 serve.py
+```
+在瀏覽器中開啟 `http://localhost:8080/?char=reimu`。您可以拖曳時間軸、微調錨點（Pivot）或調整綠幕去背參數。
+
+---
+
+### 3. 自訂 Sprite 製作工作流（AI 協作）
+
+若要利用本專案的 AI 協作工具鏈，為您自己客製化的人物或物品製作雪碧圖合圖，請遵循以下步驟：
+
+#### 步驟 A：準備資產資料夾
+1. 在 `assets/` 目錄下建立子目錄（例如 `assets/my_hero`）。
+2. 新增 `assets/my_hero/request.yml` 指定您要的動畫動作（格式見下方範例）。
+3. 放入原初參考圖 `assets/my_hero/tpose.png`（需為乾淨的正面站立姿勢、綠幕背景）。
+
+#### 步驟 B：生成生圖計畫 (Generation Plan)
+在本地終端機執行 generate 指令：
+```bash
+python3 -m tools.ag-sprite.cli generate assets/my_hero
+```
+腳本將分析您的 `request.yml`，並在終端機印出給 AI 助理專用的**生圖計畫文字**。
+
+#### 步驟 C：交給 Antigravity AI 助理繪製
+複製剛才印出的生圖計畫文字，將其發送給您的 Antigravity AI 助理（請將子代理程式類型設定為 `self` 以獲得寫入權限）。助理會依序呼叫 `generate_image` 工具繪製所有影格，並直接存入本地的 `assets/my_hero/frames/` 目錄。
+
+#### 步驟 D：QA 檢驗與打包合圖
+當助理回報生圖完成後，執行品質檢驗與合圖編譯：
+```bash
+# 驗證圖片尺寸、去背透明度等
+python3 -m tools.ag-sprite.cli qa assets/my_hero --skip-vision
+
+# 打包原始影格為單張 spritesheet 與 atlas.json 檔案
+python3 -m tools.ag-sprite.cli pack assets/my_hero
+```
+
+在瀏覽器中開啟 `http://localhost:8080/?char=my_hero` 即可預覽並微調您全新的客製化合圖！
+
+---
+
+## AI 助理協同指南（適用於新 Session）
+
+> [!IMPORTANT]
+> **平台支援**：目前本專案僅在 **macOS** 系統上進行過實行與驗證。
+
+當您在工作區中開啟新的 AI 助理（如 Gemini、Claude）對話 Session 時，您可以使用以下提示詞來快速啟動專案與進行日常協作。
+
+### 1. 新 Session 啟動提示詞
+開啟新對話時，直接複製並發送以下提示詞，引導 AI 助理快速進入狀況：
+```
+我們正在開發這個基於 Google `antigravity` SDK 的 sprite 製作專案。請先閱讀 SKILL.md 了解專案的開發規範。閱讀完畢後，請執行 SKILL.md 第 1 節中的「啟動診斷與工具檢查清單」。如果發現缺少任何依賴（不論是 Python 套件，或是 Homebrew 套件如 cwebp、oxipng），請直接在終端機幫我自動執行安裝（例如執行 pip install 或 brew install），不需再向我確認，完成後向我回報診斷與安裝結果。
+```
+
+### 2. 後續常用協作提示詞（非常適合美術或非開發人員）
+美術人員或不熟悉終端機指令的成員，可以直接將以下口語提示詞發送給 AI 助理，讓助理在背景自動執行對應的工作：
+
+* **啟動編輯器伺服器**：
+  ```
+  請幫我啟動本地的 Web 編輯器伺服器 (serve.py)。啟動成功後，請直接提供 localhost 開啟連結給我，以便我點擊網址打開編輯器。
+  ```
+* **開始進行 AI 影格生圖**：
+  ```
+  我已經在 "assets/my_char/" 目錄下放置了 request.yml 以及 tpose.png。請先幫我分析並產出生圖計畫，然後開始依序繪製所有剩餘的影格。
+  ```
+* **打包雪碧圖合圖**：
+  ```
+  生成的影格看起來沒問題了，請幫我執行 QA 品質檢驗並打包成合圖（pack）。打包完成後，請告訴我該如何重新載入並在編輯器中預覽。
+  ```
+
+---
+
+## 目錄結構
+
+```
+├── assets/                  # 遊戲資產
+│   ├── chest/               # 3D 卡通寶箱 (open → shine FSM)
+│   ├── flame/               # 火焰特效 (burn loop)
+│   ├── reimu/               # 靈夢角色 (idle, walk, attack)
+│   └── sakuya/              # 咲夜角色 (idle)
+│       ├── frames/          # 原始 PNG 影格
+│       ├── output/          # 合圖、atlas.json、WebP
+│       ├── input.png        # 使用者原始參考圖
+│       ├── tpose.png        # T-Pose / 原初參考圖
+│       └── request.yml      # 動畫規格設定
+├── webeditor/               # Web 編輯器
+│   ├── index.html           # 編輯器首頁
+│   ├── style.css            # 編輯器樣式 (已抽出)
+│   ├── src/                 # JS 模組
+│   │   ├── editor.js        # 主控制器
+│   │   ├── preview.js       # PixiJS 畫布、縮放
+│   │   ├── fsm.js           # aifsmjs 狀態機綁定
+│   │   ├── prompt-builder.js # 再生成提示詞合成
+│   │   └── ...              # bus, timeline, keyboard, chroma 等
+│   └── vendor/              # Vendored 依賴 (PixiJS, ai*js)
+├── tools/ag-sprite/         # Python 工具 (QA + Packer)
+├── prompts/                 # Agent 提示詞範本
+├── schemas/                 # JSON schema (atlas.schema.json)
+├── docs/                    # 文件與測試清單
+├── serve.py                 # 後端 HTTP 伺服器
+├── AGENTS.md                # Agent pipeline 規格
+└── SKILL.md                 # Agent session 啟動指引
+```
+
+---
+
+## FSM 狀態配置範例
+
+將開箱與開箱後閃爍兩個動畫無縫串接，在 `atlas.json` 配置：
+
+```json
+"states": {
+  "initial": "open",
+  "definitions": {
+    "open": {
+      "animation": "open_front",
+      "onEnd": "shine",
+      "transitions": {}
+    },
+    "shine": {
+      "animation": "shine_front",
+      "onEnd": "loop",
+      "transitions": {}
+    }
+  }
+}
+```
+
+**運作效果**：初始播放開箱 `open_front`，動畫結束時發送 `ANIM_END`，狀態機無縫轉移至 `shine` 並無限循環閃爍。
+
+---
+
+## 智慧財產權與授權條款
+
+### 東方 Project 版權聲明
+本專案 `assets/` 目錄中包含的多數角色範例（例如 `reimu`、`sakuya`）均源自於**東方 Project**（東方Project）。這些角色的智慧財產權與版權均屬於 **上海愛麗絲幻樂團**（上海アリス幻樂団）與 **ZUN**。此處僅作為非商業性開發範例展示之用。
+
+### 授權條款
+本專案採用 MIT 授權條款，詳見 [LICENSE](./LICENSE) 檔案。
+
+作者：ysl

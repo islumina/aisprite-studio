@@ -1,0 +1,14 @@
+# Sakuya sprite generation request
+# This file defines what frames to generate for the sakuya character asset.
+
+character: sakuya
+style: High-end 2D fighting game sprite style, intricate details, sharp anime cel shading, dynamic shading, masterpiece, Guilty Gear style
+frame_size: 1024
+
+animations:
+  - action: idle
+    direction: front
+    frames: 8
+  - action: idle
+    direction: left
+    frames: 8

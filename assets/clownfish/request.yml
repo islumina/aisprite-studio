@@ -1,0 +1,10 @@
+character: clownfish
+style: spine animation
+frame_size: 220
+animations:
+  - action: swim
+    direction: ""
+    frames: 101
+  - action: die
+    direction: ""
+    frames: 50

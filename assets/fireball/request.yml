@@ -1,0 +1,9 @@
+character: fireball
+style: Intense magical blue-flame fireball effect with sparks and arcane aura, high-end VFX, dark fantasy game effect
+frame_size: 1024
+asset_type: effect
+
+animations:
+  - action: idle
+    direction: loop
+    frames: 6
