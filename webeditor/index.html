@@ -24,7 +24,11 @@
   </script>
 
   <link rel="stylesheet" href="./style.css">
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script
+    src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"
+    integrity="sha384-LtmWBcrD5iuFIR4sFphS8IiiaftkypL5dJzLKywbyd9ATLB7ZbPz3JYnI9nvXHkV"
+    crossorigin="anonymous"
+  ></script>
 </head>
 <body>
   <div class="glow"></div>
@@ -110,6 +114,21 @@
         </div>
         <div style="text-align: center; margin-top: 6px;"><kbd id="key-space" style="padding: 6px 24px;">SPACE</kbd></div>
         <p style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">WASD = Move · Space = Attack</p>
+      </div>
+
+      <div class="sidebar-title">AI Agent Handoff</div>
+      <div class="card" id="agent-card">
+        <p id="agent-status" class="muted-note" style="margin-top: 0;">Checking local MCP bridge…</p>
+        <div style="display: grid; gap: 0.4rem;">
+          <select id="agent-client" aria-label="AI client">
+            <option value="json">Claude / Gemini / MCP JSON</option>
+            <option value="codex">Codex config.toml</option>
+            <option value="manual">Antigravity / manual handoff</option>
+          </select>
+          <button class="btn btn-sm" id="btn-copy-agent-config">Copy MCP config</button>
+          <button class="btn btn-sm" id="btn-copy-agent-task">Copy active frame task</button>
+        </div>
+        <p class="muted-note" style="margin-bottom: 0;">MCP-capable AI can read references, submit a PNG, and run deterministic QA. Visual approval remains a separate gate.</p>
       </div>
 
       <div class="sidebar-title">Canvas</div>

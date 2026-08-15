@@ -158,6 +158,12 @@ Here are handy prompts you (or your team's artists) can send to the assistant wi
 
 The `webeditor/vendor/` directory contains ESM snapshots of the `islumina/*` packages so the editor runs without a build step. Run `bash tools/vendor_update.sh` after building the sibling ai*js repositories; the script prefers those local builds and falls back to the published npm packages.
 
+## AI agent connection (MCP)
+
+The optional [`mcp-server`](./mcp-server/) lets MCP-capable AI clients participate in the editor workflow without putting a model API key in the browser. It exposes declared assets, reference repair, exact frame prompts, PNG references, validated image submission, and deterministic QA over local stdio. Existing generated images are explicitly treated as failed and unapproved. Run `cd mcp-server && npm install && npm run check`, then copy the generated client configuration from the editor's **AI Agent Handoff** card.
+
+The hosted Playground is read-only. Write access remains local and constrained to declared `assets/{asset}/frames/{frame}.png` paths; deterministic QA never counts as visual approval.
+
 ---
 
 ## Sprite State Tuning Example

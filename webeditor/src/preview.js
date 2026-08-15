@@ -134,7 +134,11 @@ export async function loadSheet(imageUrl, atlasData) {
     _sheet = null;
   }
   // Bust cache for hot-reload
-  const bustUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?') + `_t=${Date.now()}`;
+  // Query strings corrupt data URLs. Hosted/demo sheets are generated in-memory,
+  // while file-backed sheets still need cache busting for regeneration previews.
+  const bustUrl = /^(data:|blob:)/.test(imageUrl)
+    ? imageUrl
+    : imageUrl + (imageUrl.includes('?') ? '&' : '?') + `_t=${Date.now()}`;
 
   let baseTexture;
   if (_chroma.enabled) {

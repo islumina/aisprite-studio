@@ -157,6 +157,12 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 
 `webeditor/vendor/` 保存 `islumina/*` 套件的 ESM snapshot，讓 editor 不需 build step 即可執行。更新相鄰的 ai*js repos 並完成 build 後，執行 `bash tools/vendor_update.sh`；腳本會優先採用本機 build，找不到時才回退到 npm 發行版。
 
+## AI agent 接入（MCP）
+
+可選的 [`mcp-server`](./mcp-server/) 讓支援 MCP 的 AI client 參與 editor 流程，瀏覽器不需要保存模型 API key。它透過本機 stdio 提供 asset 清單、reference 修復、精確 frame prompt、PNG references、受驗證的圖片提交與 deterministic QA。既有生圖會明確視為失敗且尚未核准。執行 `cd mcp-server && npm install && npm run check`，再從 editor 的 **AI Agent Handoff** 卡片複製 client config。
+
+官網 Playground 維持 read-only。寫入只在本機進行，而且限制於 request.yml 已宣告的 `assets/{asset}/frames/{frame}.png`；deterministic QA 仍不等於 visual approval。
+
 ---
 
 ## Sprite 狀態配置範例

@@ -92,6 +92,23 @@ let pollTimer = null;
 let curFrameIdx = 0;
 let curFrameTotal = 1;
 let previewLock = true; // When true, selected animation loops regardless of onEnd — prevents FSM returning to idle
+const staticMode = new URLSearchParams(window.location.search).get('mode') === 'static';
+
+function configureStaticUi() {
+  for (const element of [
+    els.btnSaveAnimPrompt,
+    els.btnSaveFramePrompt,
+    els.btnSaveDisk,
+    els.reload,
+    els.frameRegen,
+  ]) {
+    if (element) element.style.display = 'none';
+  }
+  if (els.autoReload) {
+    els.autoReload.checked = false;
+    els.autoReload.closest('label')?.remove();
+  }
+}
 
 // --- Prompt loading ---
 /** Fetch a saved prompt via the dev-server API (always 200 → no console 404). */
@@ -132,6 +149,17 @@ function resolveSrc(path) {
 // --- Boot ---
 async function start() {
   await preview.initPreview(els.canvas, els.crosshair);
+
+  if (staticMode) {
+    configureStaticUi();
+    configureAgentHandoff();
+    const m = generateMockSheet();
+    els.characterSelect.innerHTML = '<option value="demo">Procedural demo</option>';
+    els.characterSelect.disabled = true;
+    await loadAtlas(m.atlas, m.imageUrl, 'Hosted read-only demo');
+    currentChar = 'demo';
+    return;
+  }
 
   // Fetch the generation prompt template once (SPOT for synthesised prompts).
   try { const tr = await fetch('prompts/generation-agent.md'); if (tr.ok) promptTemplate = await tr.text(); } catch { /* synth shows a notice */ }
@@ -184,6 +212,67 @@ async function start() {
     const m = generateMockSheet();
     await loadAtlas(m.atlas, m.imageUrl, 'Mock Mode');
   }
+  configureAgentHandoff();
+}
+
+async function configureAgentHandoff() {
+  const status = $('agent-status');
+  const configButton = $('btn-copy-agent-config');
+  const taskButton = $('btn-copy-agent-task');
+  const clientSelect = $('agent-client');
+  if (staticMode) {
+    status.textContent = 'Hosted demo is read-only. Clone aiplaybook and connect its local MCP server to generate or submit frames.';
+    configButton.textContent = 'Copy local setup template';
+  } else {
+    try {
+      const response = await fetch('/api/agent-config');
+      const payload = await response.json();
+      configButton.dataset.config = JSON.stringify(payload.config ?? {}, null, 2);
+      configButton.dataset.codex = payload.codexToml || '';
+      status.textContent = payload.ok ? 'Local MCP bridge is built and ready.' : `MCP needs build: ${payload.buildCommand}`;
+    } catch {
+      status.textContent = 'MCP config unavailable. Start the editor with python3 serve.py.';
+    }
+  }
+  configButton.onclick = async () => {
+    const fallback = {
+      mcpServers: {
+        aiplaybook: {
+          command: 'node',
+          args: ['/absolute/path/to/aiplaybook/mcp-server/dist/index.js'],
+          env: { AIPLAYBOOK_ROOT: '/absolute/path/to/aiplaybook' },
+        },
+      },
+    };
+    const manual = 'Use “Copy active frame task”, give its prompt and references to the image-capable AI, then submit the resulting PNG through a local MCP-capable agent.';
+    const selected = clientSelect?.value || 'json';
+    const value = selected === 'codex'
+      ? (configButton.dataset.codex || '[mcp_servers.aiplaybook]\ncommand = "node"\nargs = ["/absolute/path/to/aiplaybook/mcp-server/dist/index.js"]')
+      : selected === 'manual'
+        ? manual
+        : (configButton.dataset.config || JSON.stringify(fallback, null, 2));
+    await navigator.clipboard.writeText(value);
+    flashLabel(configButton, selected === 'manual' ? '✓ handoff copied' : '✓ MCP config copied');
+  };
+  taskButton.onclick = async () => {
+    if (!atlas || !currentUnit) return flashLabel(taskButton, '✗ no active frame', false);
+    const pb = resolvePlayback(atlas, currentUnit);
+    if (!pb) return flashLabel(taskButton, '✗ invalid state', false);
+    const frameName = `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`;
+    const refs = frameRefs(pb.animation, curFrameIdx);
+    const task = {
+      schema: 'https://github.com/islumina/aiplaybook/tree/main/mcp-server',
+      asset: currentChar,
+      frame: frameName,
+      prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
+      references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
+      note: staticMode
+        ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
+        : 'Prefer aiplaybook_get_generation_task through MCP; it returns the actual PNG references.',
+    };
+    await navigator.clipboard.writeText(JSON.stringify(task, null, 2));
+    flashLabel(taskButton, '✓ task copied');
+  };
 }
 
 /** Show the user's original input.png as Reference Pose. */
@@ -707,12 +796,24 @@ function frameRefs(animName, frameIdx) {
 }
 
 function synthAnimPrompt(animName) {
-  if (!promptTemplate) return '(prompt template not loaded — serve via serve.py)';
+  if (!promptTemplate) {
+    return `Preview-only demo: create a coherent ${animName} animation for the same subject. Keep identity, scale, palette, framing, and baseline stable across every frame. Use a flat chroma background, even lighting, no shadows, no scenery, and no detached effects. The hosted Playground cannot accept files; use the local MCP server for a real asset task.`;
+  }
   return buildAnimPrompt(promptTemplate, effectiveSpec(), animName, frameRefs(animName, 0)) + '\n\n— synthesised by AIPLAYBOOK —';
 }
 function synthFramePrompt(animName, frameIdx, total) {
-  if (!promptTemplate) return '(prompt template not loaded — serve via serve.py)';
+  if (!promptTemplate) {
+    const size = effectiveSpec().frame_size;
+    return `Preview-only demo: generate ${animName}_${String(frameIdx).padStart(2, '0')}.png, frame ${frameIdx + 1} of ${total}. ${poseForDemo(animName, frameIdx, total)} Output exactly ${size[0]}x${size[1]} PNG on a flat chroma background with even lighting, no shadows, no scenery, and no detached effects. Keep identity, scale, palette, framing, and baseline stable. The hosted Playground cannot accept files; use the local MCP server for a validated task.`;
+  }
   return buildFramePrompt(promptTemplate, effectiveSpec(), animName, frameIdx, total, frameRefs(animName, frameIdx)) + '\n\n— synthesised by AIPLAYBOOK —';
+}
+
+function poseForDemo(animName, frameIdx, total) {
+  if (animName === 'idle') return 'Show a subtle breathing or bobbing phase that loops cleanly.';
+  if (animName === 'run') return 'Show a distinct running stride phase with continuous forward motion.';
+  if (animName === 'hit') return 'Show a readable impact reaction without changing the subject identity.';
+  return `Show the intended ${animName} motion at phase ${frameIdx + 1} of ${total}.`;
 }
 
 // --- After a character loads: spec, mtime seed, polling ---

@@ -1,0 +1,76 @@
+import * as z from "zod/v4";
+declare const RequestSchema: z.ZodObject<{
+    character: z.ZodOptional<z.ZodString>;
+    style: z.ZodDefault<z.ZodString>;
+    frame_size: z.ZodDefault<z.ZodNumber>;
+    asset_type: z.ZodDefault<z.ZodEnum<{
+        character: "character";
+        effect: "effect";
+        object: "object";
+    }>>;
+    animations: z.ZodArray<z.ZodObject<{
+        action: z.ZodString;
+        direction: z.ZodString;
+        frames: z.ZodDefault<z.ZodNumber>;
+    }, z.core.$strict>>;
+}, z.core.$loose>;
+export type AssetRequest = z.infer<typeof RequestSchema>;
+export interface FrameSpec {
+    name: string;
+    action: string;
+    direction: string;
+    index: number;
+    total: number;
+}
+export interface AssetSummary {
+    name: string;
+    asset_type: AssetRequest["asset_type"];
+    frame_size: number;
+    expected_frames: number;
+    generated_frames: number;
+    qa_status: string;
+    has_reference: boolean;
+}
+export interface GenerationTask {
+    asset: string;
+    frame: FrameSpec;
+    request: AssetRequest;
+    prompt: string;
+    reference_paths: string[];
+}
+export interface ReferenceTask {
+    asset: string;
+    request: AssetRequest;
+    prompt: string;
+    reference_paths: string[];
+    known_asset_status: string;
+    reference_warning: string;
+}
+export declare function assetDirectory(root: string, asset: string): string;
+export declare function loadRequest(root: string, asset: string): Promise<AssetRequest>;
+export declare function frameSpecs(request: AssetRequest): FrameSpec[];
+export declare function listAssets(root: string): Promise<AssetSummary[]>;
+export declare function getReferenceTask(root: string, asset: string): Promise<ReferenceTask>;
+export declare function getGenerationTask(root: string, asset: string, requestedFrame?: string): Promise<GenerationTask>;
+export declare function parsePng(buffer: Buffer): {
+    width: number;
+    height: number;
+};
+export declare function submitFrame(root: string, asset: string, frameName: string, encoded: string, replace: boolean): Promise<{
+    path: string;
+    bytes: number;
+    width: number;
+    height: number;
+}>;
+export declare function submitReference(root: string, asset: string, encoded: string, replace: boolean): Promise<{
+    path: string;
+    bytes: number;
+    width: number;
+    height: number;
+}>;
+export declare function runDeterministicQa(root: string, asset: string): Promise<{
+    exit_code: number;
+    output: string;
+}>;
+export declare function readQaReport(root: string, asset: string): Promise<unknown>;
+export {};

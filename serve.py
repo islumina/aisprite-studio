@@ -44,6 +44,8 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
             return self._handle_api_status()
         if self.path.startswith('/api/prompt'):
             return self._handle_api_prompt_get()
+        if self.path == '/api/agent-config':
+            return self._handle_api_agent_config()
         # Override to prevent conditional responses
         if 'If-Modified-Since' in self.headers:
             del self.headers['If-Modified-Since']
@@ -268,6 +270,31 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
                     'hasReference': has_tpose or has_input,
                 })
         self._send_json(result)
+
+    def _handle_api_agent_config(self):
+        """Return a local-only stdio MCP configuration for agent handoff."""
+        if self.client_address[0] not in ('127.0.0.1', '::1'):
+            return self._send_json({'ok': False, 'error': 'Agent config is available only from localhost.'}, 403)
+        entrypoint = os.path.join(PROJECT_ROOT, 'mcp-server', 'dist', 'index.js')
+        self._send_json({
+            'ok': os.path.isfile(entrypoint),
+            'buildCommand': 'cd mcp-server && npm install && npm run check',
+            'codexToml': (
+                '[mcp_servers.aiplaybook]\n'
+                f'command = "node"\nargs = ["{entrypoint}"]\n\n'
+                '[mcp_servers.aiplaybook.env]\n'
+                f'AIPLAYBOOK_ROOT = "{PROJECT_ROOT}"\n'
+            ),
+            'config': {
+                'mcpServers': {
+                    'aiplaybook': {
+                        'command': 'node',
+                        'args': [entrypoint],
+                        'env': {'AIPLAYBOOK_ROOT': PROJECT_ROOT},
+                    },
+                },
+            },
+        })
 
 if __name__ == '__main__':
     host = os.environ.get('AIPLAYBOOK_HOST', '127.0.0.1')
