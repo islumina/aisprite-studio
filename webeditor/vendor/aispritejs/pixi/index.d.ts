@@ -1,5 +1,5 @@
 import { Sprite, Texture, Spritesheet } from 'pixi.js';
-import { b as SpriteGraph } from '../types-DKMFvfx9.js';
+import { C as CompleteHandler, L as ListenerOptions, U as Unsubscribe, d as StateChangeHandler, b as SpriteGraph } from '../types-BS72pefJ.js';
 
 /**
  * Thrown by {@link createPixiSpriteAnimator} when the supplied textures are
@@ -52,6 +52,10 @@ interface PixiSpriteAnimator {
     readonly activeFrameKey: string;
     /** `true` once disposed. */
     readonly disposed: boolean;
+    /** Subscribe to non-looping clip completions. Returns an unsubscribe. */
+    onComplete(handler: CompleteHandler, options?: ListenerOptions): Unsubscribe;
+    /** Subscribe to state changes. Returns an unsubscribe. */
+    onStateChange(handler: StateChangeHandler, options?: ListenerOptions): Unsubscribe;
 }
 /**
  * Bind an input-driven {@link SpriteGraph} to a PixiJS `Sprite`.

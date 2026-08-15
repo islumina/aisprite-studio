@@ -89,6 +89,36 @@ def _build_frame_specs(request: dict) -> list[dict]:
     return specs
 
 
+def _require_pack_approval(asset_dir: Path) -> None:
+    """Block packaging until deterministic and visual QA both pass."""
+    report_path = asset_dir / "qa-report.json"
+    if not report_path.is_file():
+        raise SystemExit(f"Packing blocked: {report_path} is missing. Run QA first.")
+
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Packing blocked: invalid QA report: {exc}") from exc
+
+    if not isinstance(report, dict):
+        raise SystemExit("Packing blocked: QA report must be a JSON object.")
+
+    if report.get("overall") != "pass":
+        raise SystemExit(
+            f"Packing blocked: QA overall is {report.get('overall', 'missing')!r}, expected 'pass'."
+        )
+
+    visual_qa = report.get("visual_qa")
+    if not isinstance(visual_qa, dict):
+        raise SystemExit("Packing blocked: visual_qa must be a JSON object.")
+
+    visual_status = visual_qa.get("status")
+    if visual_status != "pass":
+        raise SystemExit(
+            "Packing blocked: visual_qa.status must be 'pass'; deterministic checks alone are insufficient."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -153,6 +183,7 @@ async def _cmd_qa(args: argparse.Namespace) -> None:
         frame_names=frame_names,
         expected_size=expected_size,
         skip_vision=args.skip_vision,
+        asset_type=request.get("asset_type", "character"),
     )
 
     out_path = args.asset_dir / "qa-report.json"
@@ -167,6 +198,7 @@ async def _cmd_qa(args: argparse.Namespace) -> None:
 def _cmd_pack(args: argparse.Namespace) -> None:
     from . import packer
 
+    _require_pack_approval(args.asset_dir)
     frames_dir = args.asset_dir / "frames"
     out_dir = args.asset_dir / "output"
 

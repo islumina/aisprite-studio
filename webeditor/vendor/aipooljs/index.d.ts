@@ -45,6 +45,13 @@ interface PoolOptions<T> {
      * loop megamorphic.
      *
      * Prefer `obj.x = 0; obj.visible = false;` over `delete obj.x`.
+     *
+     * **Throwing reset permanently shrinks the pool (POL-R-01):**
+     * `release()` and `drain()` both delete the object from the alive set
+     * _before_ calling `reset()`. If `reset()` throws, the object is left in
+     * neither the alive set nor the available stack — `alive + available` drops
+     * below `size` permanently for that slot. This behaviour is intentional and
+     * test-locked; guard `reset()` with a try/catch if slot loss is unacceptable.
      */
     reset: (obj: T) => void;
     /**
@@ -181,6 +188,15 @@ declare class PoolDisposedError extends Error {
 /**
  * Construct a fixed-size object pool configured to return `null` on overflow
  * (instead of throwing). The returned {@link NullPool} has `acquire(): T | null`.
+ *
+ * **Overload narrowing is literal-only (POL-B-02):** this overload matches only
+ * when `onOverflow` is the string literal `"null"` — i.e. when TypeScript can
+ * see the value at the call site. If you build a config object dynamically
+ * (`const cfg = { ..., onOverflow: userSetting }`), the type of `onOverflow`
+ * widens to `OverflowHandler<T>`, which matches the base `Pool<T>` overload
+ * instead. In that case `acquire()` is typed as `T` even though it may return
+ * `null` at runtime. Use `as const satisfies PoolOptions<T>` or an explicit
+ * type cast to preserve the narrowing.
  *
  * @public
  */

@@ -2,12 +2,12 @@
 //
 // Wires the panels together. Responsibilities: load an atlas (served reimu, a
 // dropped file, or the procedural mock), drive the PixiJS preview through the
-// aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
+// aispritejs/aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
 // instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
 // and reload the spritesheet after Antigravity regenerates it.
 import { bus, EV } from './bus.js';
 import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll } from './atlas-model.js';
-import { startFsm, ANIM_END } from './fsm.js';
+import { startRuntime, validateRuntime } from './runtime.js';
 import { renderPoses, getFocusedPose } from './poses.js';
 import { generateMockSheet } from './mock.js';
 import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
@@ -79,7 +79,7 @@ const els = {
 // --- State ---
 let atlas = null;
 let baseImageUrl = null; // sheet url without cache-bust, for reload
-let fsm = null; // aifsmjs driver (character mode) or null (object mode)
+let fsm = null; // aispritejs runtime, legacy aifsmjs driver, or null
 let currentUnit = null;
 let currentChar = null; // current character folder name
 let currentSpec = null; // parsed spec.json for the current character (drives prompt synthesis)
@@ -271,13 +271,10 @@ async function loadAtlas(atlasObj, imageUrl, badge) {
 
   fsm?.dispose();
   const units = getUnits(atlas);
-  if (atlas.assetType === 'character' && atlas.states?.definitions) {
-    fsm = startFsm(atlas, onFsmState);
-  } else {
-    fsm = null;
-    if (units[0]) playState(units[0].name);
-  }
+  fsm = startRuntime(atlas, onFsmState);
+  if (!fsm && units[0]) playState(units[0].name);
   kbHandler?.updateFsm(fsm);
+  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
 }
 
 // --- Playback ---
@@ -296,7 +293,7 @@ function playState(name) {
   // Pass animation name — preview.js resolves textures from the parsed Spritesheet
   preview.playUnit(
     { animName: pb.animation, anchor: pb.anchor, durationMs: pb.durationMs, onEnd: effectiveOnEnd, sourceSize: pb.sourceSize, frameDurations: pb.frameDurations },
-    { onAnimEnd: () => fsm?.send(ANIM_END), onFrameChange: (idx, total) => {
+    { onAnimEnd: () => fsm?.complete(), onFrameChange: (idx, total) => {
       curFrameIdx = idx; curFrameTotal = total;
       updateFrameLabel(idx, total);
       highlightTimelineFrame(idx);
@@ -349,7 +346,8 @@ function onFsmState(stateName) {
 function seekUnit(name) {
   if (fsm) {
     fsm.dispose();
-    fsm = startFsm(atlas, onFsmState, name);
+    fsm = startRuntime(atlas, onFsmState, name);
+    kbHandler?.updateFsm(fsm);
   } else {
     playState(name);
   }
@@ -484,6 +482,8 @@ async function applyJsonText(rewrite) {
   const errEl = $('json-error-msg');
   try {
     parsed = JSON.parse(els.json.value);
+    parsed = normaliseAtlas(parsed);
+    validateRuntime(parsed);
     if (errEl) {
       errEl.style.display = 'none';
       errEl.textContent = '';
@@ -498,12 +498,14 @@ async function applyJsonText(rewrite) {
   }
   els.json.classList.remove('json-invalid');
   jsonDirty = true; // user-edited atlas; auto-reload must not clobber it
-  atlas = normaliseAtlas(parsed);
+  atlas = parsed;
   renderUnitSelect();
   if (els.poses) renderPoses(atlas, els.poses, resolveSrc);
   els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
   fsm?.dispose();
-  fsm = atlas.assetType === 'character' && atlas.states?.definitions ? startFsm(atlas, onFsmState) : null;
+  fsm = startRuntime(atlas, onFsmState);
+  kbHandler?.updateFsm(fsm);
+  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
   if (!fsm && currentUnit) playState(currentUnit);
   if (rewrite) {
     writeJson();
@@ -580,7 +582,12 @@ bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
         preview.updateFrameDurations(pb.frameDurations);
       }
     }
-  } else if ((reason.startsWith('onEnd') || reason === 'anchor:all') && currentUnit) {
+  } else if (reason.startsWith('onEnd') && currentUnit) {
+    fsm?.dispose();
+    fsm = startRuntime(atlas, onFsmState, currentUnit);
+    kbHandler?.updateFsm(fsm);
+    if (!fsm) playState(currentUnit);
+  } else if (reason === 'anchor:all' && currentUnit) {
     playState(currentUnit); // apply loop/hold live
   }
 });

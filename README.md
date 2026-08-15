@@ -5,6 +5,8 @@
 
 AI Playbook is a workflow-optimised development platform for game sprite generation, QA validation, spritesheet packing, and interactive PixiJS-based animation tuning with FSM state machine support.
 
+> The bundled generated assets are known failure fixtures for pipeline and editor testing. They are not visual-quality references, and deterministic file checks alone must not be treated as visual approval.
+
 ---
 
 ## Key Features
@@ -17,8 +19,10 @@ AI Playbook is a workflow-optimised development platform for game sprite generat
    - **Pivot Tuning**: Drag-and-drop anchor adjustment with keyboard fine-tuning.
    - **Viewport Pan & Zoom**: Scroll wheel zoom and right-click viewport dragging.
    - **Chroma Key Transparency**: Live green-screen keying with tolerance configuration.
-   - **FSM State Machine**: `aifsmjs` runtime for sequential state transitions (e.g. non-looping `open` → looping `shine`).
+   - **Sprite Runtime**: `aispritejs` drives input-based visual states and deterministic frame timing; legacy event-based atlases remain supported through `aifsmjs`.
    - **Direct Disk Save**: `POST /api/save` persists atlas JSON and exports transparent `{char}_keyed.png` in one click.
+
+The CLI pack step is gated: `qa-report.json` must contain both `overall: "pass"` and `visual_qa.status: "pass"`. Deterministic checks or `--skip-vision` alone cannot approve generated art.
 
 ---
 
@@ -41,10 +45,11 @@ The agent will read [SKILL.md](./SKILL.md) and automatically set up the environm
 The repository comes with pre-generated, bundled demonstration assets (e.g., `reimu`, `sakuya`, `chest`, `fireball`). You can spin up the interactive web editor instantly to play with them:
 
 ```bash
-# Start local backend server (Listens on all network interfaces by default)
+# Start the local-only backend server
 python3 serve.py
 ```
-> **Warning**: The dev server binds to `0.0.0.0` and is visible to other devices on your local network. It is intentionally designed this way for LAN testing, but it has no authentication. Please do not run it on untrusted public networks.
+
+The server binds to `127.0.0.1` by default. For deliberate LAN testing, set `AIPLAYBOOK_HOST=0.0.0.0`; the development server has no authentication, so do not expose it on an untrusted network.
 
 Open `http://localhost:8080/?char=reimu` in your browser. Use the timeline scrubber, pivot adjustments, and chroma key panel.
 
@@ -133,7 +138,8 @@ Here are handy prompts you (or your team's artists) can send to the assistant wi
 │   ├── src/                 # JS modules
 │   │   ├── editor.js        # Main controller
 │   │   ├── preview.js       # PixiJS renderer, zoom, viewport
-│   │   ├── fsm.js           # aifsmjs state machine binder
+│   │   ├── runtime.js       # aispritejs runtime + legacy aifsmjs compatibility
+│   │   ├── fsm.js           # legacy aifsmjs state machine binder
 │   │   ├── prompt-builder.js # Prompt synthesis for regeneration
 │   │   └── ...              # bus, timeline, keyboard, chroma, etc.
 │   └── vendor/              # Vendored libs (PixiJS, ai*js)
@@ -150,33 +156,25 @@ Here are handy prompts you (or your team's artists) can send to the assistant wi
 
 ## Vendor Dependencies
 
-The `webeditor/vendor/` directory contains minified ESM snapshots of `yshengliao/*` npm packages. These are vendored directly to allow the editor to run without a build step. If updates are needed, please fetch from the upstream npm repository rather than modifying the vendored files manually.
+The `webeditor/vendor/` directory contains ESM snapshots of the `islumina/*` packages so the editor runs without a build step. Run `bash tools/vendor_update.sh` after building the sibling ai*js repositories; the script prefers those local builds and falls back to the published npm packages.
 
 ---
 
-## FSM State Tuning Example
+## Sprite State Tuning Example
 
-For composite animations (e.g. treasure chest), configure sequential FSM states in `atlas.json`:
+New atlases use the `aispritejs` input-driven graph. A non-looping state can return to another state with `onEnd`:
 
 ```json
 "states": {
-  "initial": "open",
-  "definitions": {
-    "open": {
-      "animation": "open_front",
-      "onEnd": "shine",
-      "transitions": {}
-    },
-    "shine": {
-      "animation": "shine_front",
-      "onEnd": "loop",
-      "transitions": {}
-    }
-  }
-}
+  "open": { "animation": "open_front", "loop": false, "onEnd": "shine" },
+  "shine": { "animation": "shine_front", "loop": true }
+},
+"inputs": {},
+"transitions": [],
+"initial": "open"
 ```
 
-**Result**: The chest plays the opening sequence once, then auto-transitions to the looping sparkle animation via `ANIM_END`.
+**Result**: `aispritejs` plays the opening sequence once, then deterministically enters the looping sparkle state.
 
 ---
 

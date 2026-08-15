@@ -1,6 +1,6 @@
 {
   "name": "aifsmjs",
-  "version": "0.5.1",
+  "version": "0.5.9",
   "description": "Small, strict FSM library for deterministic, replayable state machines in any TypeScript/JS app — multi-step forms, checkout funnels, auth flows, tutorials, scene flow. Pure step() lifecycle, opt-in effects, inspect, replay, and a fast-check property-based testing adapter. Browser / Node / Bun / Deno / WebView / Worker friendly.",
   "keywords": [
     "fsm",
@@ -20,13 +20,13 @@
   ],
   "author": "yshengliao",
   "license": "MIT",
-  "homepage": "https://github.com/yshengliao/aifsmjs#readme",
+  "homepage": "https://github.com/islumina/aifsmjs#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yshengliao/aifsmjs.git"
+    "url": "git+https://github.com/islumina/aifsmjs.git"
   },
   "bugs": {
-    "url": "https://github.com/yshengliao/aifsmjs/issues"
+    "url": "https://github.com/islumina/aifsmjs/issues"
   },
   "type": "module",
   "sideEffects": false,
@@ -84,7 +84,9 @@
     "test:watch": "vitest",
     "lint": "biome check src test",
     "format": "biome format --write src test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "verify:docs": "node scripts/verify-docs.mjs",
+    "verify:dist": "node scripts/check-dist-subpaths.mjs",
     "verify:exports": "node scripts/verify-exports.mjs",
     "check:size": "node scripts/check-size.mjs",
     "build:llms": "node scripts/build-llms-full.mjs",
@@ -94,7 +96,7 @@
     "example:approval": "tsx examples/02-approval-workflow/index.ts",
     "example:checkout-funnel": "tsx examples/03-checkout-funnel/index.ts",
     "example:form-wizard": "tsx examples/04-form-wizard/index.ts",
-    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm coverage && pnpm build && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm verify:docs && pnpm coverage && pnpm build && pnpm verify:dist && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
   },
   "peerDependencies": {
     "fast-check": "^3.20.0 || ^4.0.0"

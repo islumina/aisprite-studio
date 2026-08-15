@@ -14,6 +14,14 @@ from PIL import Image
 log = logging.getLogger(__name__)
 
 
+def _is_chroma_key(r: int, g: int, b: int, threshold: int = 100, margin: int = 30) -> bool:
+    """Return whether an RGB pixel belongs to the supported green/blue key."""
+    return (
+        (g > threshold and g > r + margin and g > b + margin)
+        or (b > threshold and b > r + margin and b > g + margin)
+    )
+
+
 def is_valid_png(path: Path) -> bool:
     """Check if a file is a readable PNG with non-zero size."""
     if not path.exists() or path.stat().st_size == 0:
@@ -48,14 +56,11 @@ def alpha_coverage(path: Path) -> float | None:
             if pixels == 0:
                 return None
             non_green_non_trans = 0
-            for r, g, b, a in img.getdata():
+            pixel_data = img.get_flattened_data() if hasattr(img, "get_flattened_data") else img.getdata()
+            for r, g, b, a in pixel_data:
                 if a == 0:
                     continue
-                # Filter out typical green screen colors (G is dominant)
-                if g > 100 and g > r + 30 and g > b + 30:
-                    continue
-                # Filter out typical blue screen colors (B is dominant)
-                if b > 100 and b > r + 30 and b > g + 30:
+                if _is_chroma_key(r, g, b):
                     continue
                 non_green_non_trans += 1
             return non_green_non_trans / pixels
@@ -163,11 +168,12 @@ def detect_centroid_drift(
                 sx, sy, count = 0.0, 0.0, 0
                 for y in range(h):
                     for x in range(w):
-                        _, _, _, a = img.getpixel((x, y))
-                        if a > 10:
-                            sx += x
-                            sy += y
-                            count += 1
+                        r, g, b, a = img.getpixel((x, y))
+                        if a <= 10 or _is_chroma_key(r, g, b):
+                            continue
+                        sx += x
+                        sy += y
+                        count += 1
                 if count == 0:
                     return None
                 return (sx / count, sy / count)
@@ -190,4 +196,3 @@ def detect_centroid_drift(
         "drift_ratio": round(drift_ratio, 4),
         "detail": "OK" if ok else f"Centroid drift {drift_px:.1f}px ({drift_ratio:.1%} of frame)",
     }
-

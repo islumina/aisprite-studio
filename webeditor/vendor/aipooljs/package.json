@@ -1,6 +1,6 @@
 {
   "name": "aipooljs",
-  "version": "0.5.1",
+  "version": "0.5.9",
   "description": "Tiny, strict object pool for high-frequency acquire/release patterns — PixiJS sprite pools, bullet pools, particle pools, DOM node recyclers, worker job slots. Fixed-size, fail-fast on overflow, double-release detection.",
   "keywords": [
     "object-pool",
@@ -14,13 +14,13 @@
   ],
   "author": "yshengliao",
   "license": "MIT",
-  "homepage": "https://github.com/yshengliao/aipooljs#readme",
+  "homepage": "https://github.com/islumina/aipooljs#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yshengliao/aipooljs.git"
+    "url": "git+https://github.com/islumina/aipooljs.git"
   },
   "bugs": {
-    "url": "https://github.com/yshengliao/aipooljs/issues"
+    "url": "https://github.com/islumina/aipooljs/issues"
   },
   "type": "module",
   "sideEffects": false,
@@ -49,12 +49,13 @@
     "lint": "biome check src test",
     "format": "biome format --write src test",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "verify:docs": "node scripts/verify-docs.mjs",
     "verify:exports": "node scripts/verify-exports.mjs",
     "check:size": "node scripts/check-size.mjs",
     "build:llms": "node scripts/build-llms-full.mjs",
     "verify:llms": "node scripts/build-llms-full.mjs --check",
     "coverage": "vitest run --coverage",
-    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm coverage && pnpm build && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm verify:docs && pnpm coverage && pnpm build && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",

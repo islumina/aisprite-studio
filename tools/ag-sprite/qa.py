@@ -79,6 +79,26 @@ def _check_alpha(frame_path: Path) -> dict:
     }
 
 
+def _repair_hint(checks: dict[str, Any], asset_type: str) -> str | None:
+    """Return the first actionable repair, ordered by QA cost."""
+    if not checks.get("exists", {}).get("pass", True):
+        return "Regenerate the missing or invalid PNG frame."
+    if not checks.get("dimensions", {}).get("pass", True):
+        return "Regenerate at the exact square frame_size declared in request.yml."
+    if not checks.get("alpha_coverage", {}).get("pass", True):
+        subject = {"character": "character", "object": "object", "effect": "effect"}.get(asset_type, "subject")
+        return f"Reframe the {subject} so its non-chroma area covers 5-95% of the canvas."
+    if not checks.get("edge_halo", {}).get("pass", True):
+        return "Remove green/blue colour spill at the silhouette edge while preserving original colours."
+    if not checks.get("inter_frame_drift", {}).get("pass", True):
+        if asset_type == "object":
+            return "Realign the static object body to the previous frame; change only dynamic parts."
+        if asset_type == "effect":
+            return "Restore the effect's shared bounding box and centre while preserving particle variation."
+        return "Realign the character scale, baseline, and body centre to the previous frame."
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Full QA suite
 # ---------------------------------------------------------------------------
@@ -90,6 +110,7 @@ async def check_frame(
     direction: str,
     expected_size: int = 512,
     skip_vision: bool = False,
+    asset_type: str = "character",
 ) -> dict:
     """Run all QA checks on a single frame.
 
@@ -100,7 +121,9 @@ async def check_frame(
     # 1. Existence
     checks["exists"] = _check_exists(frame_path)
     if not checks["exists"]["pass"]:
-        return _frame_report("fail", checks)
+        result = _frame_report("fail", checks)
+        result["repair_hint"] = _repair_hint(checks, asset_type)
+        return result
 
     # 2. Dimensions
     checks["dimensions"] = _check_dimensions(frame_path, expected_size)
@@ -114,16 +137,16 @@ async def check_frame(
         checks["edge_halo"] = halo
 
     # Determine if we should run vision QA
-    critical_fail = (
-        not checks["dimensions"]["pass"]
-    )
+    critical_fail = not checks["dimensions"]["pass"] or not checks["alpha_coverage"]["pass"]
 
     # 4. Vision QA (skip if early failures or explicitly disabled)
     if not critical_fail and not skip_vision:
-        # Note: Local analyze_frame using google.antigravity.Agent has been removed 
-        # to avoid GEMINI_API_KEY requirements. 
-        # Vision QA should now be performed directly by the AI Assistant via chat tools.
-        checks["vision_qa"] = {"pass": True, "detail": "Skipped (run via chat assistant)"}
+        # Vision QA is intentionally external. Never report a visual pass when
+        # only deterministic checks have run.
+        checks["vision_qa"] = {
+            "status": "pending",
+            "detail": "Pending visual review by the AI assistant",
+        }
 
     # Derive status
     has_fail = any(
@@ -131,9 +154,18 @@ async def check_frame(
         for c in checks.values()
         if isinstance(c, dict) and "pass" in c
     )
-    status = "fail" if has_fail else "pass"
+    has_pending = any(
+        c.get("status") == "pending"
+        for c in checks.values()
+        if isinstance(c, dict)
+    )
+    status = "fail" if has_fail else "warn" if has_pending else "pass"
 
-    return _frame_report(status, checks)
+    result = _frame_report(status, checks)
+    hint = _repair_hint(checks, asset_type)
+    if hint:
+        result["repair_hint"] = hint
+    return result
 
 
 async def run_suite(
@@ -141,6 +173,7 @@ async def run_suite(
     frame_names: list[str],
     expected_size: int = 512,
     skip_vision: bool = False,
+    asset_type: str = "character",
 ) -> dict:
     """Run QA on all frames in an asset directory.
 
@@ -157,11 +190,13 @@ async def run_suite(
     frames_dir = asset_dir / "frames"
     frame_reports: dict[str, dict] = {}
     prev_frame_path: Path | None = None
+    prev_animation: str | None = None
 
     for name in frame_names:
         frame_path = frames_dir / f"{name}.png"
         # Parse action and direction from name: "walk_front_00" → walk, front
         parts = name.rsplit("_", 1)  # ["walk_front", "00"]
+        animation = parts[0] if len(parts) == 2 and parts[1].isdigit() else name
         if len(parts) == 2:
             action_dir = parts[0]  # "walk_front"
             ad_parts = action_dir.split("_", 1)
@@ -174,15 +209,19 @@ async def run_suite(
             tpose_path, frame_path, action, direction,
             expected_size=expected_size,
             skip_vision=skip_vision,
+            asset_type=asset_type,
         )
 
         # Inter-frame centroid drift check (between consecutive frames in same animation)
-        if prev_frame_path is not None and frame_path.exists():
+        if prev_frame_path is not None and prev_animation == animation and frame_path.exists():
             drift = image_ops.detect_centroid_drift(
                 prev_frame_path, frame_path, frame_size=expected_size,
             )
             if drift is not None:
                 report["checks"]["inter_frame_drift"] = drift
+                if not drift.get("pass", True):
+                    report["status"] = "fail"
+                    report["repair_hint"] = _repair_hint(report["checks"], asset_type)
 
         frame_reports[name] = report
         log.info("QA %s: %s", name, report["status"])
@@ -190,12 +229,11 @@ async def run_suite(
         # Track previous frame for drift detection (reset on animation boundary)
         if frame_path.exists():
             prev_frame_path = frame_path
-        # Reset on animation group change
-        if parts[1] == "00":
-            prev_frame_path = frame_path
+            prev_animation = animation
 
     return {
         "asset": asset_dir.name,
+        "asset_type": asset_type,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "overall": _overall_status(frame_reports),
         "frames": frame_reports,

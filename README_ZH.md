@@ -5,6 +5,8 @@
 
 AI Playbook 是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
 
+> 專案內附的生圖是已知失敗案例，只供 pipeline 與 editor 功能測試，不可當作視覺品質基準；deterministic file checks 通過也不代表 visual QA 通過。
+
 ---
 
 ## 核心功能
@@ -17,8 +19,10 @@ AI Playbook 是一個專為遊戲美術資產設計的開發平台，支援 AI �
    - **錨點微調**：拖曳與鍵盤方向鍵微調 anchor。
    - **畫布平移與縮放**：滾輪縮放、右鍵拖曳畫布。
    - **綠幕去背（Chroma Key）**：即時綠幕去背預覽與容差調節。
-   - **FSM 狀態機串接**：整合 `aifsmjs` 運行時，支援非循環動畫結束自動轉移至循環動畫。
+   - **Sprite runtime**：以 `aispritejs` 驅動 input-based 視覺狀態與 deterministic frame timing，舊版 event-based atlas 則保留 `aifsmjs` 相容路徑。
    - **本地直寫存檔**：一鍵存檔，同步儲存 atlas.json 與去背透明 PNG。
+
+CLI pack 設有品質 gate：`qa-report.json` 必須同時具備 `overall: "pass"` 與 `visual_qa.status: "pass"`。僅通過 deterministic checks 或使用 `--skip-vision`，都不能視為生圖已核准。
 
 ---
 
@@ -41,9 +45,11 @@ AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完�
 本專案已隨附預先生成好且打包完畢的展示資產（例如 `reimu`、`sakuya`、`chest`、`fireball`）。您可以直接啟動 Web 編輯器直接把玩與預覽：
 
 ```bash
-# 啟動本地後端伺服器
+# 啟動僅限本機的後端伺服器
 python3 serve.py
 ```
+伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AIPLAYBOOK_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。
+
 在瀏覽器中開啟 `http://localhost:8080/?char=reimu`。您可以拖曳時間軸、微調錨點（Pivot）或調整綠幕去背參數。
 
 ---
@@ -131,7 +137,8 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 │   ├── src/                 # JS 模組
 │   │   ├── editor.js        # 主控制器
 │   │   ├── preview.js       # PixiJS 畫布、縮放
-│   │   ├── fsm.js           # aifsmjs 狀態機綁定
+│   │   ├── runtime.js       # aispritejs runtime + 舊版 aifsmjs 相容層
+│   │   ├── fsm.js           # 舊版 aifsmjs 狀態機綁定
 │   │   ├── prompt-builder.js # 再生成提示詞合成
 │   │   └── ...              # bus, timeline, keyboard, chroma 等
 │   └── vendor/              # Vendored 依賴 (PixiJS, ai*js)
@@ -146,29 +153,27 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 
 ---
 
-## FSM 狀態配置範例
+## Vendor 依賴
 
-將開箱與開箱後閃爍兩個動畫無縫串接，在 `atlas.json` 配置：
+`webeditor/vendor/` 保存 `islumina/*` 套件的 ESM snapshot，讓 editor 不需 build step 即可執行。更新相鄰的 ai*js repos 並完成 build 後，執行 `bash tools/vendor_update.sh`；腳本會優先採用本機 build，找不到時才回退到 npm 發行版。
+
+---
+
+## Sprite 狀態配置範例
+
+新 atlas 採用 `aispritejs` input-driven graph。非循環狀態可透過 `onEnd` 回到另一個狀態：
 
 ```json
 "states": {
-  "initial": "open",
-  "definitions": {
-    "open": {
-      "animation": "open_front",
-      "onEnd": "shine",
-      "transitions": {}
-    },
-    "shine": {
-      "animation": "shine_front",
-      "onEnd": "loop",
-      "transitions": {}
-    }
-  }
-}
+  "open": { "animation": "open_front", "loop": false, "onEnd": "shine" },
+  "shine": { "animation": "shine_front", "loop": true }
+},
+"inputs": {},
+"transitions": [],
+"initial": "open"
 ```
 
-**運作效果**：初始播放開箱 `open_front`，動畫結束時發送 `ANIM_END`，狀態機無縫轉移至 `shine` 並無限循環閃爍。
+**運作效果**：`aispritejs` 播放一次 `open_front`，結束後 deterministic 地切換至 `shine` 並循環播放。
 
 ---
 

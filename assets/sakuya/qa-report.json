@@ -1,7 +1,12 @@
 {
   "asset": "sakuya",
   "timestamp": "2026-06-02T07:43:17.597367+00:00",
-  "overall": "pass",
+  "overall": "fail",
+  "visual_qa": {
+    "status": "fail",
+    "detail": "User-confirmed visual generation failure; deterministic file checks do not constitute visual approval."
+  },
+  "repair_hint": "Regenerate the animation rows from the canonical reference, then rerun deterministic and visual QA.",
   "frames": {
     "idle_front_00": {
       "status": "pass",

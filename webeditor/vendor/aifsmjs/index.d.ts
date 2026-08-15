@@ -1,12 +1,13 @@
-import { M as MachineDef, I as Implementations, l as RuntimeOptions, i as Runtime, S as Snapshot, n as StateDef, o as StepResult, A as Action, e as GuardRef, G as Guard, T as TransitionDef } from './types-CGKk6Rur.js';
-export { a as ActionRef, E as Effect, b as EffectHandler, c as Enqueuer, d as GuardArgs, f as Middleware, g as MiddlewareContext, R as RESET_EVENT_TYPE, h as ResetEvent, j as RuntimeErrorEvent, k as RuntimeEventMap, m as RuntimeTransitionEvent, p as SubMachineDef } from './types-CGKk6Rur.js';
+import { f as MachineDef, I as Implementations, m as RuntimeOptions, j as Runtime, M as MachineConfig, S as Snapshot, o as StateDef, p as StepResult, A as Action, e as GuardRef, G as Guard, T as TransitionConfig, r as TransitionDef } from './types-DIM7QTtf.js';
+export { a as ActionRef, E as Effect, b as EffectHandler, c as Enqueuer, d as GuardArgs, g as Middleware, h as MiddlewareContext, R as RESET_EVENT_TYPE, i as ResetEvent, k as RuntimeErrorEvent, l as RuntimeEventMap, n as RuntimeTransitionEvent, q as SubMachineDef } from './types-DIM7QTtf.js';
 
 declare class InvalidDefinitionError extends Error {
     constructor(message: string);
 }
 /**
- * Validate a machine definition shape and return it. Same reference is
- * returned; no cloning happens. Validation is intentionally shallow.
+ * Validate a machine definition shape and return it. When `context` is
+ * provided the same reference is returned; when it is omitted a shallow copy
+ * with `context: {}` is returned. Validation is intentionally shallow.
  *
  * Two call forms:
  *
@@ -18,9 +19,11 @@ declare class InvalidDefinitionError extends Error {
  *     Curried form. Lets `States` be inferred from `keyof states`, so you
  *     can omit it. Recommended for typical usage.
  */
-declare function defineMachine<Ctx, Evt extends {
+declare function defineMachine<Ctx = Record<string, never>, Evt extends {
     type: string;
-}, States extends string>(def: MachineDef<Ctx, Evt, States>): MachineDef<Ctx, Evt, States>;
+} = {
+    type: string;
+}, States extends string = string>(def: MachineConfig<Ctx, Evt, States>): MachineDef<Ctx, Evt, States>;
 /**
  * Curried builder so `States` can be inferred from `keyof states` without
  * `initial` collapsing it to a single literal. Pass `Ctx` and `Evt` as the
@@ -33,15 +36,20 @@ declare function defineMachine<Ctx, Evt extends {
  *     states: { a: {...}, b: {...} },  // States inferred as "a" | "b"
  *   });
  */
-declare function setup<Ctx, Evt extends {
+declare function setup<Ctx = Record<string, never>, Evt extends {
+    type: string;
+} = {
     type: string;
 }>(): {
-    defineMachine: <const States extends string>(def: {
-        readonly id: string;
-        readonly initial: NoInfer<States>;
+    defineMachine: <const States extends string>(def: Readonly<{
+        id: string;
+        initial: NoInfer<States>;
+        states: Readonly<Record<States, StateDef<Ctx, Evt, States>>>;
+    }> & (Record<string, never> extends Ctx ? {
+        readonly context?: Ctx;
+    } : {
         readonly context: Ctx;
-        readonly states: Readonly<Record<States, StateDef<Ctx, Evt, States>>>;
-    }) => MachineDef<Ctx, Evt, States>;
+    })) => MachineDef<Ctx, Evt, States>;
 };
 /**
  * Build the initial snapshot for a machine.
@@ -172,8 +180,26 @@ declare function resolveGuard<Ctx, Evt>(ref: GuardRef<Ctx, Evt>, impl: Implement
 declare function evalGuard<Ctx, Evt>(ref: GuardRef<Ctx, Evt>, context: Ctx, event: Evt, impl: Implementations<Ctx, Evt>, value?: string): boolean;
 
 /**
+ * Normalize a single transition config into its object form. The string
+ * shorthand `"targetState"` (à la XState) becomes `{ target: "targetState" }`;
+ * the object form is returned unchanged. Centralised here so every consumer
+ * (`step`, `resolveTransitions`, `can`, validation) sees the same shape.
+ *
+ * @since 0.5.3
+ */
+declare function normalizeTransition<Ctx, Evt, States extends string>(entry: TransitionConfig<Ctx, Evt, States>): TransitionDef<Ctx, Evt, States>;
+/**
+ * Normalize the raw `state.on[eventType]` value (object, string shorthand, or
+ * an array mixing both) into an ordered list of {@link TransitionDef} objects.
+ * Declaration order is preserved.
+ *
+ * @since 0.5.3
+ */
+declare function normalizeTransitions<Ctx, Evt, States extends string>(entry: TransitionConfig<Ctx, Evt, States> | readonly TransitionConfig<Ctx, Evt, States>[] | undefined): readonly TransitionDef<Ctx, Evt, States>[];
+/**
  * Return all transition candidates for (state, eventType). Order is preserved
- * from the declaration so that guard fallthrough behaves predictably.
+ * from the declaration so that guard fallthrough behaves predictably. String
+ * shorthands are normalized to `{ target }` objects.
  *
  * If the event has no entry under the given state, an empty array is returned.
  */
@@ -194,4 +220,4 @@ declare function createSnapshot<C, S extends string>(args: {
     status?: "active" | "final";
 }): Snapshot<C, S>;
 
-export { Action, AsyncGuardError, Guard, GuardRef, Implementations, InvalidDefinitionError, MachineDef, Runtime, RuntimeDisposedError, RuntimeOptions, Snapshot, StateDef, StepResult, SubMachineError, TransitionDef, UnknownActionError, UnknownGuardError, assign, createMachine, createRuntime, createSnapshot, deepFreeze, defineMachine, evalGuard, freezeSnapshot, initialSnapshot, isAsyncGuardFn, mergeContext, resolveGuard, resolveTransitions, setup, step };
+export { Action, AsyncGuardError, Guard, GuardRef, Implementations, InvalidDefinitionError, MachineDef, Runtime, RuntimeDisposedError, RuntimeOptions, Snapshot, StateDef, StepResult, SubMachineError, TransitionConfig, TransitionDef, UnknownActionError, UnknownGuardError, assign, createMachine, createRuntime, createSnapshot, deepFreeze, defineMachine, evalGuard, freezeSnapshot, initialSnapshot, isAsyncGuardFn, mergeContext, normalizeTransition, normalizeTransitions, resolveGuard, resolveTransitions, setup, step };

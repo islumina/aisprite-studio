@@ -5,7 +5,7 @@
 ## 前置
 
 ```bash
-cd /Volumes/MiniBackup/Projects/aiplaybook
+cd /Volumes/MiniBackup/sys/aiplaybook
 python3 -c "import py_compile; py_compile.compile('serve.py', doraise=True); print('serve.py OK')"
 python3 -c "import py_compile; py_compile.compile('tools/ag-sprite/packer.py', doraise=True); print('packer.py OK')"
 python3 serve.py &
@@ -17,7 +17,7 @@ python3 serve.py &
 ### 1. 頁面載入
 - [ ] `http://localhost:8080` 回應 200
 - [ ] `style.css` 外連載入（頁面有深色主題、紫色 accent）
-- [ ] Header 顯示 `AIPLAYBOOK` + 三個 badge
+- [ ] Header 顯示 `AIPLAYBOOK` 與 `aispritejs · aifsmjs · aipooljs · aieventjs` badge
 - [ ] 預設角色自動載入（select 非空）
 
 ### 2. 資產切換 — 每個都切一次
@@ -51,7 +51,7 @@ python3 serve.py &
 
 ### 7. Console 檢查
 - [ ] 無 JS runtime error（`list_console_messages types=["error"]`）
-- [ ] 預期的 404：`pixi.min.mjs.map`、`spec.json`（optional）、`prompts/tpose.txt`（optional）
+- [ ] Optional 的 `spec.json`、`prompts/tpose.txt` 不存在時仍無 runtime error
 
 ### 8. API 驗證
 ```bash

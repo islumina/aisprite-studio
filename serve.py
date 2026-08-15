@@ -270,5 +270,13 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json(result)
 
 if __name__ == '__main__':
-    print("Dev server on http://0.0.0.0:8080 (Listening on all network interfaces, no-cache)")
-    ThreadedHTTPServer(('', 8080), NoCacheHandler).serve_forever()
+    host = os.environ.get('AIPLAYBOOK_HOST', '127.0.0.1')
+    try:
+        port = int(os.environ.get('AIPLAYBOOK_PORT', '8080'))
+    except ValueError as exc:
+        raise SystemExit('AIPLAYBOOK_PORT must be an integer') from exc
+    if not 1 <= port <= 65535:
+        raise SystemExit('AIPLAYBOOK_PORT must be between 1 and 65535')
+
+    print(f"Dev server on http://{host}:{port} (no-cache)")
+    ThreadedHTTPServer((host, port), NoCacheHandler).serve_forever()

@@ -79,6 +79,8 @@ python3 -m tools.ag-sprite.cli pack assets/{character_name}
 # → 若 PATH 上有 cwebp，自動輸出 .webp 壓縮版
 ```
 
+Packer 只接受 `qa-report.json` 同時滿足 `overall: pass` 與 `visual_qa.status: pass`。`--skip-vision` 只代表 deterministic checks 完成，不能視為視覺核准。
+
 ### C. 額外壓縮（可選）
 ```bash
 # PNG 無損壓縮

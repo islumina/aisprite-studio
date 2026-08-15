@@ -91,6 +91,17 @@ export function getUnits(atlas) {
       kind: 'state',
     }));
   }
+  if (atlas.states && !defs) {
+    return Object.entries(atlas.states).map(([name, def]) => ({
+      name,
+      animation: def.animation,
+      // aispritejs defaults `loop` to false when it is omitted.
+      onEnd: def.loop === true ? 'loop' : (def.onEnd ?? 'hold'),
+      sourcePose: undefined,
+      transitions: {},
+      kind: 'state',
+    }));
+  }
   return Object.keys(atlas.animations).map((name) => {
     const cfg = atlas.animationConfig[name] || {};
     return {
@@ -119,15 +130,22 @@ export function resolvePlayback(atlas, unitName) {
   const first = atlas.frames[frameKeys[0]] || {};
   const cfg = atlas.animationConfig[unit.animation] || {};
   const stateDur = atlas.states?.definitions?.[unitName]?.duration;
-  const durationMs = stateDur ? stateDur : (cfg.fps ? Math.round(1000 / (cfg.fps || 8)) : (first.duration || 125));
+  const spriteState = !atlas.states?.definitions ? atlas.states?.[unitName] : undefined;
+  const speed = spriteState?.speed ?? 1;
+  const rawDurationMs = stateDur
+    ? stateDur
+    : (cfg.fps ? Math.round(1000 / (cfg.fps || 8)) : (first.duration || atlas.defaultFrameDuration || 125));
+  const durationMs = Math.max(1, Math.round(rawDurationMs / speed));
 
   return {
     animation: unit.animation,
     frames: frameKeys,
     onEnd: unit.onEnd ?? 'loop',
     loop: (unit.onEnd ?? 'loop') === 'loop',
-    durationMs: stateDur || durationMs,
-    frameDurations: frameKeys.map(fk => atlas.frames[fk]?.duration || durationMs),
+    durationMs,
+    frameDurations: frameKeys.map((fk) => Math.max(1, Math.round(
+      (atlas.frames[fk]?.duration || rawDurationMs) / speed,
+    ))),
     anchor: first.anchor || { x: 0.5, y: 0.5 },
     sourceSize: first.sourceSize || { w: 256, h: 256 },
   };
@@ -141,6 +159,11 @@ export function setOnEnd(atlas, unitName, onEnd) {
   if (def) {
     def.onEnd = onEnd;
     def.loop = onEnd === 'loop'; // keep the legacy boolean coherent for PixiJS consumers
+  } else if (atlas.states?.[unitName]) {
+    const state = atlas.states[unitName];
+    state.loop = onEnd === 'loop';
+    if (onEnd === 'loop' || onEnd === 'hold') delete state.onEnd;
+    else state.onEnd = onEnd;
   } else {
     const cfg = (atlas.animationConfig[unitName] = atlas.animationConfig[unitName] || {});
     cfg.onEnd = onEnd;
@@ -153,8 +176,10 @@ export function setOnEnd(atlas, unitName, onEnd) {
 export function setDuration(atlas, unitName, durationMs) {
   const unit = getUnits(atlas).find((u) => u.name === unitName);
   if (!unit) return;
+  const spriteState = !atlas.states?.definitions ? atlas.states?.[unitName] : undefined;
+  const storedDuration = Math.max(1, Math.round(durationMs * (spriteState?.speed ?? 1)));
   for (const fk of atlas.animations[unit.animation] || []) {
-    if (atlas.frames[fk]) atlas.frames[fk].duration = durationMs;
+    if (atlas.frames[fk]) atlas.frames[fk].duration = storedDuration;
   }
   const def = atlas.states?.definitions?.[unitName];
   if (def) def.duration = durationMs;

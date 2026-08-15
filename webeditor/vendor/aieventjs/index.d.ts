@@ -65,12 +65,20 @@ interface OnOptions {
      */
     sampleRate?: number;
     /**
-     * Wildcard "*" only. Minimum milliseconds between successive calls.
-     * Leading-edge: the first dispatch after subscription always fires;
+     * Per-handler leading-edge throttle. Minimum milliseconds between successive
+     * calls to this handler. The first dispatch after subscription always fires;
      * subsequent dispatches within `throttleMs` are dropped (not queued).
-     * Uses Date.now(). 0 = no throttle. Negative values are rejected.
+     * Uses `performance.now()` (monotonic). 0 = no throttle. Non-finite or
+     * negative values are rejected at `on()` time.
      *
-     * Throws EmitterError if set on a typed handler.
+     * Valid on both typed and wildcard `"*"` subscriptions (since v0.5.3); each
+     * handler keeps its own throttle clock. Useful for per-event HUD throttling,
+     * e.g. a `credits/change` event that fires every frame.
+     *
+     * @remarks
+     * The throttle clock uses `performance.now()`, which is monotonic and
+     * unaffected by system-clock corrections (NTP step-backs, manual adjustments).
+     * This ensures handlers are never silently muted by a wall-clock regression.
      */
     throttleMs?: number;
 }
@@ -97,7 +105,15 @@ interface Emitter<Events extends Record<string, unknown>> {
     /**
      * Subscribe and auto-remove after the first dispatch. Equivalent to
      * `on(type, handler, { once: true })`.
+     *
+     * @remarks
+     * **`"*"` is not a valid `type` argument for `once()`.** The wildcard is
+     * handled by the `on("*", handler, { once: true })` overload instead.
+     * The explicit rejection overload below ensures `once("*", ...)` is a
+     * compile-time error (handler typed as `never`). (EVT-B-02)
      */
+    /** @internal — compile-time rejection: `once("*", handler)` is a type error. */
+    once(type: "*", handler: never): never;
     once<K extends keyof Events>(type: K, handler: EventHandler<Events[K]>): () => void;
     /**
      * Imperative unsubscribe. Prefer the unsubscribe function returned by
@@ -134,8 +150,8 @@ interface Emitter<Events extends Record<string, unknown>> {
 /**
  * Recoverable emitter error. Thrown by `on()` when `OnOptions` violates a
  * precondition: `captureErrors` set on a wildcard `"*"` subscription;
- * `sampleRate` / `throttleMs` set on a typed subscription; `sampleRate`
- * outside `(0, 1]`; or `throttleMs` negative.
+ * `sampleRate` set on a typed subscription; `sampleRate` outside `(0, 1]`; or
+ * `throttleMs` non-finite or negative.
  *
  * @public
  */
@@ -152,6 +168,25 @@ declare class EmitterDisposedError extends Error {
 }
 /**
  * Construct a strongly-typed event emitter.
+ *
+ * @remarks
+ * Declare the event map with a `type` alias, not an `interface`. The `Events`
+ * generic is constrained to `Record<string, unknown>`, and a *plain* TypeScript
+ * `interface` has no implicit index signature, so it fails the constraint with
+ * *"Index signature for type 'string' is missing in type ..."*. A `type` object
+ * literal satisfies the constraint structurally. (An `interface` with an explicit
+ * index signature or `extends Record<string, unknown>` also compiles, but widens
+ * `keyof Events` to `string`, losing strict event-name checking.)
+ *
+ * ```ts
+ * // ❌ interface — fails the Record<string, unknown> constraint
+ * interface Events { "user:login": { id: string } }
+ * const bus = createEmitter<Events>(); // TS2344
+ *
+ * // ✅ type — satisfies the constraint
+ * type Events = { "user:login": { id: string } };
+ * const bus = createEmitter<Events>();
+ * ```
  *
  * @example
  * ```ts

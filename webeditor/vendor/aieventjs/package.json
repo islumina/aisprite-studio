@@ -1,6 +1,6 @@
 {
   "name": "aieventjs",
-  "version": "0.5.1",
+  "version": "0.5.9",
   "description": "Small, strict, typed event emitter — on() returns an unsubscribe function, once is built-in, AbortSignal is first-class, dispose() is idempotent, wildcard '*' handlers preserved. Mitt-shaped API; ai*js conventions everywhere else.",
   "keywords": [
     "event-emitter",
@@ -15,13 +15,13 @@
   ],
   "author": "yshengliao",
   "license": "MIT",
-  "homepage": "https://github.com/yshengliao/aieventjs#readme",
+  "homepage": "https://github.com/islumina/aieventjs#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yshengliao/aieventjs.git"
+    "url": "git+https://github.com/islumina/aieventjs.git"
   },
   "bugs": {
-    "url": "https://github.com/yshengliao/aieventjs/issues"
+    "url": "https://github.com/islumina/aieventjs/issues"
   },
   "type": "module",
   "sideEffects": false,
@@ -49,13 +49,14 @@
     "test:watch": "vitest",
     "lint": "biome check src test",
     "format": "biome format --write src test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "verify:docs": "node scripts/verify-docs.mjs",
     "verify:exports": "node scripts/verify-exports.mjs",
     "check:size": "node scripts/check-size.mjs",
     "build:llms": "node scripts/build-llms-full.mjs",
     "verify:llms": "node scripts/build-llms-full.mjs --check",
     "coverage": "vitest run --coverage",
-    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm coverage && pnpm build && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm verify:docs && pnpm coverage && pnpm build && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",
