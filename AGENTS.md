@@ -47,7 +47,7 @@ If omitted, defaults to `character`.
 - MUST output 1:1 square aspect ratio matching `frame_size` from `request.yml`
 - MUST NOT modify files outside `assets/{name}/frames/`
 - MUST NOT deploy, publish, or run production commands
-- Use content-hash cache (`.ag-sprite-cache/`) to skip already-generated frames
+- Use content-hash cache (`.sprite-pipeline-cache/`) to skip already-generated frames
 - On API failure (429/5xx): retry 3× with exponential backoff, then mark frame as failed
 
 **Reference image priority** (pass up to 3 via `ImagePaths`):
@@ -146,5 +146,4 @@ animations:
 
 ## Previewing with MCP
 
-When using MCP (e.g. `chrome-devtools`) to preview the output or test the flow, **always navigate to the project root URL (`http://localhost:8080/`)**, NOT `/webeditor/`. The Python server (`serve.py`) routes the root URL to the web editor directory automatically.
-
+When using MCP (e.g. `chrome-devtools`) to preview the output or test the flow, **always navigate to the project root URL (`http://localhost:8080/`)**, NOT `/webeditor/`. The Node.js server (`server.mjs`) routes the root URL to the web editor directory automatically.

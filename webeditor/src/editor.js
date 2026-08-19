@@ -15,6 +15,7 @@ import * as preview from './preview.js';
 import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
 import { keyGreen } from './chroma.js';
+import { createStudioHostBridge } from './host-bridge.js';
 
 // --- Utilities ---
 function debounce(fn, ms) {
@@ -88,6 +89,36 @@ let reloadCount = 0;
 let promptTemplate = ''; // prompts/generation-agent.md, fetched once
 let jsonDirty = false; // in-memory atlas diverges from disk (tuning/edits) → auto-reload keeps it
 let lastSheetMtime = 0; // for auto-reload polling
+let hostBridge = null;
+
+function studioContext() {
+  return {
+    mode: staticMode ? 'static' : 'local',
+    asset: currentChar,
+    unit: currentUnit,
+    frameIndex: curFrameIdx,
+    frameCount: curFrameTotal,
+    readOnly: staticMode,
+  };
+}
+
+function publishStudioContext() {
+  hostBridge?.context(studioContext());
+}
+
+function configureHostBridge() {
+  hostBridge = createStudioHostBridge({
+    onCommand(command) {
+      if (command.type === 'request-context') return publishStudioContext();
+      if (command.type === 'reload-assets') return els.reload?.click();
+      const option = Array.from(els.characterSelect?.options ?? [])
+        .find((candidate) => candidate.value === command.asset && !candidate.disabled);
+      if (!option) return;
+      els.characterSelect.value = command.asset;
+      els.characterSelect.dispatchEvent(new Event('change'));
+    },
+  });
+}
 let pollTimer = null;
 let curFrameIdx = 0;
 let curFrameTotal = 1;
@@ -148,6 +179,7 @@ function resolveSrc(path) {
 
 // --- Boot ---
 async function start() {
+  configureHostBridge();
   await preview.initPreview(els.canvas, els.crosshair);
 
   if (staticMode) {
@@ -158,6 +190,7 @@ async function start() {
     els.characterSelect.disabled = true;
     await loadAtlas(m.atlas, m.imageUrl, 'Hosted read-only demo');
     currentChar = 'demo';
+    await hostBridge?.ready(studioContext());
     return;
   }
 
@@ -213,6 +246,7 @@ async function start() {
     await loadAtlas(m.atlas, m.imageUrl, 'Mock Mode');
   }
   configureAgentHandoff();
+  await hostBridge?.ready(studioContext());
 }
 
 async function configureAgentHandoff() {
@@ -231,7 +265,7 @@ async function configureAgentHandoff() {
       configButton.dataset.codex = payload.codexToml || '';
       status.textContent = payload.ok ? 'Local MCP bridge is built and ready.' : `MCP needs build: ${payload.buildCommand}`;
     } catch {
-      status.textContent = 'MCP config unavailable. Start the editor with python3 serve.py.';
+      status.textContent = 'MCP config unavailable. Start the editor with npm run serve.';
     }
   }
   configButton.onclick = async () => {
@@ -705,6 +739,7 @@ els.characterSelect?.addEventListener('change', async () => {
     updateReferencePose(charName);
     updateTpose(charName);
     await afterCharLoaded(charName);
+    publishStudioContext();
   } catch (e) {
     console.warn('Failed to load character:', charName, e);
   }

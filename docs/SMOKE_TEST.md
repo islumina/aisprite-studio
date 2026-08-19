@@ -6,9 +6,12 @@
 
 ```bash
 cd /Volumes/MiniBackup/sys/aiplaybook
-python3 -c "import py_compile; py_compile.compile('serve.py', doraise=True); print('serve.py OK')"
-python3 -c "import py_compile; py_compile.compile('tools/ag-sprite/packer.py', doraise=True); print('packer.py OK')"
-python3 serve.py &
+node --check server.mjs
+node --check tools/vendor-update.mjs
+npm run test:server
+npm run vendor:check
+python3 -c "import py_compile; py_compile.compile('tools/sprite_pipeline/packer.py', doraise=True); print('packer.py OK')"
+npm run serve &
 # → 等待 "Dev server on http://localhost:8080"
 ```
 
@@ -17,7 +20,7 @@ python3 serve.py &
 ### 1. 頁面載入
 - [ ] `http://localhost:8080` 回應 200
 - [ ] `style.css` 外連載入（頁面有深色主題、紫色 accent）
-- [ ] Header 顯示 `AIPLAYBOOK` 與 `aispritejs · aifsmjs · aipooljs · aieventjs` badge
+- [ ] Header 顯示 `AI SPRITE STUDIO` 與 `aispritejs · aifsmjs · aipooljs · aieventjs · aibridgejs` badge
 - [ ] 預設角色自動載入（select 非空）
 
 ### 2. 資產切換 — 每個都切一次
@@ -59,7 +62,7 @@ python3 serve.py &
 curl -s http://localhost:8080/api/assets | python3 -m json.tool | head -5
 
 # 路徑穿越應被擋
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/assets/../serve.py
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/assets/../server.mjs
 # → 應回 404
 ```
 
@@ -80,5 +83,5 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/assets/../serve.py
 ## 清理
 
 ```bash
-kill %1  # 關閉 serve.py
+kill %1  # 關閉 server.mjs
 ```

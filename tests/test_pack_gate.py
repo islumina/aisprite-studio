@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 
-cli = importlib.import_module("tools.ag-sprite.cli")
+cli = importlib.import_module("tools.sprite_pipeline.cli")
 
 
 class PackGateTests(unittest.TestCase):

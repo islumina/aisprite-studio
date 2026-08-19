@@ -282,7 +282,7 @@ export async function submitReference(root, asset, encoded, replace) {
 export async function runDeterministicQa(root, asset) {
     await loadRequest(root, asset);
     await assertDirectoryIfPresent(path.join(assetDirectory(root, asset), "frames"), `Asset '${asset}' frames path`);
-    const args = ["-m", "tools.ag-sprite.cli", "qa", path.join("assets", asset), "--skip-vision"];
+    const args = ["-m", "tools.sprite_pipeline.cli", "qa", path.join("assets", asset), "--skip-vision"];
     return await new Promise((resolve, reject) => {
         const child = spawn("python3", args, {
             cwd: root,

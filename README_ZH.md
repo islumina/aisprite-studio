@@ -1,9 +1,9 @@
-# AI Playbook — 互動式 Sprite 編輯器與合圖打包工具
+# AI Sprite Studio — 互動式 Sprite 編輯器與合圖打包工具
 
 > [!NOTE]
 > 本專案為一個建立在 Google **antigravity** SDK 上的玩具專案。
 
-AI Playbook 是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
+AI Sprite Studio（repository 識別名稱暫為 `aiplaybook`）是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
 
 > 專案內附的生圖是已知失敗案例，只供 pipeline 與 editor 功能測試，不可當作視覺品質基準；deterministic file checks 通過也不代表 visual QA 通過。
 
@@ -21,6 +21,7 @@ AI Playbook 是一個專為遊戲美術資產設計的開發平台，支援 AI �
    - **綠幕去背（Chroma Key）**：即時綠幕去背預覽與容差調節。
    - **Sprite runtime**：以 `aispritejs` 驅動 input-based 視覺狀態與 deterministic frame timing，舊版 event-based atlas 則保留 `aifsmjs` 相容路徑。
    - **本地直寫存檔**：一鍵存檔，同步儲存 atlas.json 與去背透明 PNG。
+   - **Host Bridge**：以 `aibridgejs` 向嵌入頁面提供受限 iframe 指令與唯讀 editor context；產圖提交仍只能走本機 MCP。
 
 CLI pack 設有品質 gate：`qa-report.json` 必須同時具備 `overall: "pass"` 與 `visual_qa.status: "pass"`。僅通過 deterministic checks 或使用 `--skip-vision`，都不能視為生圖已核准。
 
@@ -35,7 +36,8 @@ CLI pack 設有品質 gate：`qa-report.json` 必須同時具備 `overall: "pass
 您只需在工作區中與您的 AI 助理開啟新對話，並發送**第一個啟動提示詞**（見下方的 [AI 助理協同指南](#ai-助理協同指南適用於新-session)）。
 
 AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完成以下第一次安裝：
-* **Python 虛擬環境** 與依賴套件（`requirements.txt`）
+* **Node.js 22.12+**，供本機 editor server 與 MCP bridge 使用
+* **Python 虛擬環境**與依賴套件（`requirements.txt`），供影像 QA 與 packing 使用
 * 用於圖片處理與壓縮的 **Homebrew 套件**（`webp`、`oxipng`、`optipng`）
 
 *（若您需要手動安裝步驟，請參閱 [SKILL.md](./SKILL.md) 檔案中的命令。）*
@@ -46,7 +48,8 @@ AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完�
 
 ```bash
 # 啟動僅限本機的後端伺服器
-python3 serve.py
+npm install
+npm run serve
 ```
 伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AIPLAYBOOK_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。
 
@@ -66,7 +69,7 @@ python3 serve.py
 #### 步驟 B：生成生圖計畫 (Generation Plan)
 在本地終端機執行 generate 指令：
 ```bash
-python3 -m tools.ag-sprite.cli generate assets/my_hero
+python3 -m tools.sprite_pipeline.cli generate assets/my_hero
 ```
 腳本將分析您的 `request.yml`，並在終端機印出給 AI 助理專用的**生圖計畫文字**。
 
@@ -77,10 +80,10 @@ python3 -m tools.ag-sprite.cli generate assets/my_hero
 當助理回報生圖完成後，執行品質檢驗與合圖編譯：
 ```bash
 # 驗證圖片尺寸、去背透明度等
-python3 -m tools.ag-sprite.cli qa assets/my_hero --skip-vision
+python3 -m tools.sprite_pipeline.cli qa assets/my_hero --skip-vision
 
 # 打包原始影格為單張 spritesheet 與 atlas.json 檔案
-python3 -m tools.ag-sprite.cli pack assets/my_hero
+python3 -m tools.sprite_pipeline.cli pack assets/my_hero
 ```
 
 在瀏覽器中開啟 `http://localhost:8080/?char=my_hero` 即可預覽並微調您全新的客製化合圖！
@@ -105,7 +108,7 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 
 * **啟動編輯器伺服器**：
   ```
-  請幫我啟動本地的 Web 編輯器伺服器 (serve.py)。啟動成功後，請直接提供 localhost 開啟連結給我，以便我點擊網址打開編輯器。
+  請用 `npm run serve` 啟動本機 Web 編輯器伺服器。啟動成功後，請直接提供 localhost 開啟連結給我。
   ```
 * **開始進行 AI 影格生圖**：
   ```
@@ -142,11 +145,11 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 │   │   ├── prompt-builder.js # 再生成提示詞合成
 │   │   └── ...              # bus, timeline, keyboard, chroma 等
 │   └── vendor/              # Vendored 依賴 (PixiJS, ai*js)
-├── tools/ag-sprite/         # Python 工具 (QA + Packer)
+├── tools/sprite_pipeline/   # Python 影像核心（QA + Packer）
 ├── prompts/                 # Agent 提示詞範本
 ├── schemas/                 # JSON schema (atlas.schema.json)
 ├── docs/                    # 文件與測試清單
-├── serve.py                 # 後端 HTTP 伺服器
+├── server.mjs              # Node.js 後端 HTTP 伺服器
 ├── AGENTS.md                # Agent pipeline 規格
 └── SKILL.md                 # Agent session 啟動指引
 ```
@@ -155,7 +158,7 @@ python3 -m tools.ag-sprite.cli pack assets/my_hero
 
 ## Vendor 依賴
 
-`webeditor/vendor/` 保存 `islumina/*` 套件的 ESM snapshot，讓 editor 不需 build step 即可執行。更新相鄰的 ai*js repos 並完成 build 後，執行 `bash tools/vendor_update.sh`；腳本會優先採用本機 build，找不到時才回退到 npm 發行版。
+`webeditor/vendor/` 保存已鎖版的 `islumina/*` ESM snapshot，讓 editor 不需 build step 即可執行。更新相鄰的 ai*js repos 並完成 build 後，執行 `npm run vendor:update`。本機套件版本必須與 root `package.json` 的精確版本一致；只有刻意升版時才使用 `--allow-version-mismatch`。
 
 ## AI agent 接入（MCP）
 

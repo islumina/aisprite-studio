@@ -1,4 +1,4 @@
-# AIPLAYBOOK — Agent Operation & Diagnostics Guide
+# AI Sprite Studio — Agent Operation & Diagnostics Guide
 
 本文件為 AI Agent 在本 session 開始或接手本專案時的診斷與操作指引。請於啟動時優先執行本指引中的各項檢查。
 
@@ -8,16 +8,19 @@
 
 當新 session 開始時，依序執行以下命令，確認開發環境與必備工具就緒。
 
-### A. 檢查 Python 虛擬環境與套件
+### A. 檢查 Node.js 與 Python 影像工具
 
 ```bash
-# 1. 檢查 Python 版本 (建議 3.10+)
+# 1. 檢查 Node.js 版本（需要 22.12+）
+node --version
+
+# 2. 檢查 Python 版本（建議 3.10+）
 python3 --version
 
-# 2. 檢查虛擬環境是否存在且已啟動
+# 3. 檢查虛擬環境是否存在且已啟動
 which python3
 
-# 3. 檢查 Python 套件依賴
+# 4. 檢查 Python 影像套件依賴
 python3 -c "import PIL, yaml, jsonschema, pydantic" 2>/dev/null && echo "✓ Python packages OK" || echo "✗ Missing packages"
 ```
 
@@ -55,7 +58,7 @@ lsof -i :8080
 
 * **啟動指引**：若未運行：
   ```bash
-  python3 serve.py
+  npm run serve
   ```
 
 ### D. 執行 Smoke Test
@@ -69,12 +72,12 @@ lsof -i :8080
 
 ### A. 執行 QA 驗證
 ```bash
-python3 -m tools.ag-sprite.cli qa assets/{character_name} --skip-vision
+python3 -m tools.sprite_pipeline.cli qa assets/{character_name} --skip-vision
 ```
 
 ### B. 執行 Packer 合圖
 ```bash
-python3 -m tools.ag-sprite.cli pack assets/{character_name}
+python3 -m tools.sprite_pipeline.cli pack assets/{character_name}
 # → 自動產生 spritesheet + atlas.json
 # → 若 PATH 上有 cwebp，自動輸出 .webp 壓縮版
 ```
@@ -95,7 +98,7 @@ oxipng -o 4 assets/{character_name}/output/{character_name}.png
 2. **微調**：調整 `duration`（影格播放時間）、`anchor`（對齊錨點）等參數。
 3. **儲存至本機**：點擊 `Save to local disk`：
    - 前端自動利用 Canvas 綠幕去背，生成透明 PNG。
-   - 後台 `serve.py` 覆寫 `atlas.json` 並寫入 `{char}_keyed.png`。
+   - 後台 `server.mjs` 以原子寫入方式更新 `atlas.json` 與 `{char}_keyed.png`。
 
 ---
 
@@ -134,6 +137,6 @@ animations:
 
 ### 步驟 5：驗證與打包
 ```bash
-python3 -m tools.ag-sprite.cli qa assets/{name} --skip-vision
-python3 -m tools.ag-sprite.cli pack assets/{name}
+python3 -m tools.sprite_pipeline.cli qa assets/{name} --skip-vision
+python3 -m tools.sprite_pipeline.cli pack assets/{name}
 ```

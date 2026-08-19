@@ -1,4 +1,4 @@
-"""Image utility functions for sprite pipeline.
+"""Image utility functions for the sprite pipeline.
 
 Pillow-based operations: dimension check, alpha coverage, PNG validation.
 No Antigravity/API calls here — pure local image processing.

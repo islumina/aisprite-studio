@@ -1,7 +1,7 @@
 """Content-hash frame cache to avoid redundant generation API calls.
 
 Cache key = SHA-256(prompt_text + tpose_file_hash). Cached frames live
-in .ag-sprite-cache/ at the project root.
+in .sprite-pipeline-cache/ at the project root.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_CACHE_DIR = Path(".ag-sprite-cache")
+_DEFAULT_CACHE_DIR = Path(".sprite-pipeline-cache")
 
 
 class FrameCache:

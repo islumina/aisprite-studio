@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 
-qa = importlib.import_module("tools.ag-sprite.qa")
+qa = importlib.import_module("tools.sprite_pipeline.qa")
 
 
 def _frame(path: Path, box: tuple[int, int, int, int]) -> None:

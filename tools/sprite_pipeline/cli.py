@@ -1,10 +1,10 @@
-"""CLI entrypoint for the ag-sprite pipeline.
+"""CLI entrypoint for the sprite image pipeline.
 
 Usage:
-    python -m tools.ag-sprite.cli generate assets/reimu
-    python -m tools.ag-sprite.cli qa assets/reimu [--skip-vision]
-    python -m tools.ag-sprite.cli pack assets/reimu
-    python -m tools.ag-sprite.cli validate assets/reimu/output/atlas.json
+    python -m tools.sprite_pipeline.cli generate assets/reimu
+    python -m tools.sprite_pipeline.cli qa assets/reimu [--skip-vision]
+    python -m tools.sprite_pipeline.cli pack assets/reimu
+    python -m tools.sprite_pipeline.cli validate assets/reimu/output/atlas.json
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import yaml
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        prog="ag-sprite",
+        prog="sprite-pipeline",
         description="Sprite generation pipeline using Google Antigravity SDK",
     )
     p.add_argument(

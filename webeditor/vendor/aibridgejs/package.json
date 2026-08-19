@@ -1,0 +1,103 @@
+{
+  "name": "aibridgejs",
+  "version": "0.5.9",
+  "description": "Transport-agnostic bridge core for iframe, Flutter InAppWebView, and mock runtimes. JSON-safe request/response with AbortSignal cancellation and adapter-isolated host coupling.",
+  "keywords": [
+    "bridge",
+    "iframe",
+    "postmessage",
+    "flutter",
+    "inappwebview",
+    "rpc",
+    "hybrid-app",
+    "abortsignal",
+    "typescript",
+    "esm",
+    "ai-readable"
+  ],
+  "author": "yshengliao",
+  "license": "MIT",
+  "homepage": "https://github.com/islumina/aibridgejs#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/islumina/aibridgejs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/islumina/aibridgejs/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./mock": {
+      "types": "./dist/mock/index.d.ts",
+      "import": "./dist/mock/index.js",
+      "require": "./dist/mock/index.cjs"
+    },
+    "./iframe": {
+      "types": "./dist/iframe/index.d.ts",
+      "import": "./dist/iframe/index.js",
+      "require": "./dist/iframe/index.cjs"
+    },
+    "./flutter": {
+      "types": "./dist/flutter/index.d.ts",
+      "import": "./dist/flutter/index.js",
+      "require": "./dist/flutter/index.cjs"
+    },
+    "./detect": {
+      "types": "./dist/detect/index.d.ts",
+      "import": "./dist/detect/index.js",
+      "require": "./dist/detect/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README_ZHTW.md",
+    "LICENSE",
+    "llms.txt",
+    "llms-full.txt"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src test",
+    "format": "biome format --write src test",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "verify:docs": "node scripts/verify-docs.mjs",
+    "verify:dist": "node scripts/check-dist-subpaths.mjs",
+    "verify:exports": "node scripts/verify-exports.mjs",
+    "check:size": "node scripts/check-size.mjs",
+    "build:llms": "node scripts/build-llms-full.mjs",
+    "verify:llms": "node scripts/build-llms-full.mjs --check",
+    "coverage": "vitest run --coverage",
+    "example:mock": "tsx examples/01-mock/index.ts",
+    "prepublishOnly": "pnpm typecheck && pnpm lint && pnpm verify:docs && pnpm coverage && pnpm build && pnpm verify:dist && pnpm verify:exports && pnpm verify:llms && pnpm check:size"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "fast-check": "^4.8.0",
+    "tsup": "^8.3.0",
+    "tsx": "^4.22.3",
+    "typescript": "^5.6.0",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "publishConfig": {
+    "access": "public"
+  }
+}
