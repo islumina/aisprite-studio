@@ -48,7 +48,7 @@ The repository comes with pre-generated, bundled demonstration assets (e.g., `re
 
 ```bash
 # Start the local-only backend server
-npm install
+npm ci
 npm run serve
 ```
 

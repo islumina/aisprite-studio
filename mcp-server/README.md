@@ -6,10 +6,11 @@ The server never calls an image API and stores no API key. Image generation rema
 
 ## Setup
 
+Run from the repository root so the workspace lockfile installs both the editor and MCP dependencies:
+
 ```bash
-cd mcp-server
-npm install
-npm run check
+npm ci
+npm run test:mcp
 ```
 
 Example client configuration:
