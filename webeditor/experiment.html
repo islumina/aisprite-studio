@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  
+
   <script type="importmap">
   {
     "imports": {
@@ -207,7 +207,7 @@
 
   <div class="container">
     <h1>aispritejs Experiment</h1>
-    
+
     <div class="viewport-box" id="canvas-container">
       <!-- PixiJS Canvas will be attached here -->
     </div>
@@ -306,7 +306,7 @@
       // 6. Hook ticker to tick the Animator and update UI status
       app.ticker.add((ticker) => {
         animator.update(ticker.deltaMS);
-        
+
         // Update debug UI
         stateVal.textContent = animator.activeState;
         frameVal.textContent = animator.activeFrameKey;

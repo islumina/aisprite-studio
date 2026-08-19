@@ -126,7 +126,8 @@ test("returns local MCP handoff configuration", async () => {
   assert.equal(response.status, 200);
   const config = JSON.parse(response.body);
   assert.equal(config.ok, true);
-  assert.equal(config.config.mcpServers.aiplaybook.env.AIPLAYBOOK_ROOT, root);
+  assert.equal(config.config.mcpServers["aisprite-studio"].env.AISPRITE_STUDIO_ROOT, root);
+  assert.match(config.codexToml, /mcp_servers\.aisprite-studio/);
 });
 
 test("validates configured ports", () => {

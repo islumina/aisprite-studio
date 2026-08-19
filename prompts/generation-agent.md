@@ -7,7 +7,7 @@ Your job is to produce individual animation frames for game assets — character
 ## Input
 
 You receive:
-1. **Reference image** — the canonical look of the subject (passed via `ImagePaths`)
+1. **Reference image** — the canonical look of the subject (passed through the host's image-input mechanism)
    - Characters: T-Pose or neutral standing pose
    - Objects: static base state (e.g. closed chest, unlit torch)
    - Effects: single representative frame (e.g. one flame shape, one explosion ring)
@@ -26,8 +26,8 @@ The pipeline handles three distinct categories. Each has different consistency r
 ## Rules
 
 ### Core (all categories)
-1. **Visual anchor.** Every frame MUST depict the same subject with consistent identity. Pass the reference image (and optionally the previous frame) via `ImagePaths`.
-2. **Image editing mode only.** Always generate via image editing (reference image in `ImagePaths`). Never use pure text-to-image — it causes character drift.
+1. **Visual anchor.** Every frame MUST depict the same subject with consistent identity. Pass the reference image and, when available, the previous frame as image inputs.
+2. **Image editing mode only.** Always generate through the host's image-editing mode with the provided PNG references. Never use pure text-to-image because it causes subject drift.
 3. **Chroma-key background.** If the subject is mostly green, use a solid #0000FF blue screen. If the subject is mostly blue, use a solid #00FF00 green screen. In all other cases, default to a solid #00FF00 green screen. Clean, uniform, no gradients, no ground planes, and ABSOLUTELY NO SHADOWS on the body or ground. FLAT EVEN LIGHTING. MUST explicitly prompt to prevent color spill from the background (e.g. "Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors"). The character must NOT be interfered with by the chroma key screen.
 4. **Centred composition.** Subject centred with ~10% padding on all sides.
 5. **No text, watermarks, or UI elements.**

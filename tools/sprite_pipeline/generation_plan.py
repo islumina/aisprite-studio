@@ -1,23 +1,8 @@
-"""Antigravity SDK wrapper for sprite frame generation and QA.
-
-All image generation goes through Antigravity's managed Agent with
-the GENERATE_IMAGE built-in tool. No direct Gemini API key needed.
-"""
+"""Build host-neutral sprite generation plans for image-capable agents."""
 
 from __future__ import annotations
 
-import asyncio
-import base64
-import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-# google-antigravity SDK is imported lazily inside functions
-
-if TYPE_CHECKING:
-    pass
-
-log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Prompt helpers
@@ -39,30 +24,6 @@ _CATEGORY_RULES = {
     "object": "The object's main body must stay perfectly static and aligned with the reference. Only specified dynamic parts should change.",
     "effect": "Maintain the same colour palette, style, and bounding box as the reference. Particle details will vary.",
 }
-
-_REPAIR_PROMPT = (
-    "This frame failed QA. The reference T-Pose is also attached.\n"
-    "Issue: {issue}\n"
-    "Regenerate the frame fixing the issue while keeping everything else. "
-    "Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. Output only the image."
-)
-
-_QA_PROMPT = (
-    "Compare these two images. The first is the character's canonical T-Pose "
-    "reference. The second is a generated animation frame that should depict "
-    "the same character doing \"{action}\" facing \"{direction}\".\n\n"
-    "Evaluate:\n"
-    "1. Character consistency (same character? score 0.0-1.0)\n"
-    "2. Pose accuracy (correct action and direction?)\n"
-    "3. Background cleanliness (solid green?)\n"
-    "4. Framing (centred with padding?)\n\n"
-    "Respond with JSON only, matching this schema:\n"
-    '{{"character_consistency":{{"score":float,"pass":bool,"detail":str}},'
-    '"pose_accuracy":{{"expected":str,"pass":bool,"detail":str}},'
-    '"background":{{"pass":bool,"detail":str}},'
-    '"framing":{{"pass":bool,"detail":str}},'
-    '"overall":"pass|warn|fail"}}'
-)
 
 POSE_DESCRIPTIONS: dict[str, list[str]] = {
     "idle": [
@@ -103,38 +64,6 @@ def _pose_desc(action: str, index: int, total: int) -> str:
     return f"frame {index + 1} of {total} for {base_action} animation"
 
 
-def _extract_and_copy_image(text: str, dest_path: Path) -> bool:
-    """Helper to extract file path from response markdown text and copy to destination."""
-    import re
-    import shutil
-    # Match markdown link e.g. ![caption](file:///absolute/path/to/image.png) or [text](file://...)
-    match = re.search(r"file://([^\s\)\"']+\.png)", text)
-    if not match:
-        match = re.search(r"file:///([^\s\)\"']+\.png)", text)
-    
-    if match:
-        src_path_str = match.group(1)
-        if src_path_str.startswith("///"):
-            src_path = Path(src_path_str[2:])
-        elif src_path_str.startswith("//"):
-            src_path = Path(src_path_str[1:])
-        else:
-            src_path = Path(src_path_str)
-            
-        if src_path.exists() and src_path.stat().st_size > 0:
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(src_path, dest_path)
-            log.info("Copied generated image from %s to %s", src_path, dest_path)
-            return True
-        else:
-            log.warning("Extracted path does not exist or is empty: %s", src_path)
-    return False
-
-
-# ---------------------------------------------------------------------------
-# Prompt Plan Generation (for AI Assistant)
-# ---------------------------------------------------------------------------
-
 def build_generation_plan(asset_dir: Path) -> str:
     """Build a detailed text plan containing the exact prompts needed by the AI Assistant."""
     import yaml
@@ -162,7 +91,7 @@ def build_generation_plan(asset_dir: Path) -> str:
         f"Asset Type: {asset_type}",
         f"Style: {style}",
         "Reference Images Required:",
-        "  - Priority 1: assets/{name}/tpose.png"
+        f"  - Priority 1: assets/{asset_name}/tpose.png",
     ]
     
     if asset_type == "character":
@@ -170,7 +99,7 @@ def build_generation_plan(asset_dir: Path) -> str:
         plan_lines.append("  - Priority 3 (Continuity): The immediately previous frame (N-1)")
     else:
         plan_lines.append("  - Optimization: For objects/effects, skip Frame 00 and Frame N-1.")
-        plan_lines.append("  - You may generate all pending frames for this object IN PARALLEL.")
+        plan_lines.append("  - Keep one agent responsible for the full sequence to preserve visual continuity.")
         
     plan_lines.append("\nPending Frames to Generate:")
     

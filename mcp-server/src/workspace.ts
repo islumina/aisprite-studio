@@ -325,7 +325,7 @@ export async function runDeterministicQa(root: string, asset: string): Promise<{
   return await new Promise((resolve, reject) => {
     const child = spawn("python3", args, {
       cwd: root,
-      env: { ...process.env, PYTHONPYCACHEPREFIX: "/private/tmp/aiplaybook-mcp-pycache" },
+      env: { ...process.env, PYTHONPYCACHEPREFIX: "/private/tmp/aisprite-studio-mcp-pycache" },
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
     });

@@ -4,7 +4,7 @@ Checks (in order of cost):
 1. File existence and valid PNG
 2. Dimension match
 3. Alpha channel coverage
-4. Vision QA via Antigravity agent (most expensive — skipped on early failures)
+4. Visual review by a connected image-capable agent or human reviewer
 """
 
 from __future__ import annotations

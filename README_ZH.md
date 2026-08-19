@@ -1,9 +1,9 @@
 # AI Sprite Studio — 互動式 Sprite 編輯器與合圖打包工具
 
 > [!NOTE]
-> 本專案為一個建立在 Google **antigravity** SDK 上的玩具專案。
+> 本專案是實驗性 hobby project，本機 MCP handoff 支援 Codex、Claude、Gemini、Antigravity 與其他具備生圖能力的 agent。
 
-AI Sprite Studio（repository 識別名稱暫為 `aiplaybook`）是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
+AI Sprite Studio 是一個專為遊戲美術資產設計的開發平台，支援 AI 動態影格生成、自動 QA 驗證、合圖編譯，以及基於 PixiJS 的互動式對齊和 FSM 狀態機調校。
 
 > 專案內附的生圖是已知失敗案例，只供 pipeline 與 editor 功能測試，不可當作視覺品質基準；deterministic file checks 通過也不代表 visual QA 通過。
 
@@ -11,7 +11,7 @@ AI Sprite Studio（repository 識別名稱暫為 `aiplaybook`）是一個專為�
 
 ## 核心功能
 
-1. **AI 輔助動態影格生成**：使用 Google Antigravity 基於參考姿勢（T-Pose）進行逐幀 PNG 生成。
+1. **AI 輔助動態影格生成**：由 MCP 連接的 image-capable agent 依參考姿勢逐幀產生 PNG。
 2. **自動 QA 驗證器**：檢驗圖片完整性、尺寸、alpha 覆蓋率以及 LLM 視覺一致性。
 3. **高效合圖打包器**：將獨立影格打包為 spritesheet，搭配 `atlas.json` 設定檔，自動輸出 WebP 壓縮版本。
 4. **互動式 PixiJS Web 編輯器**：
@@ -31,7 +31,7 @@ CLI pack 設有品質 gate：`qa-report.json` 必須同時具備 `overall: "pass
 
 ### 1. 環境準備與 AI 助理設定
 
-要運行與建置此專案，您需要一個具備命令列執行與生圖能力的 AI 助理（例如 Google Antigravity Agent 或其他 AI 程式編寫助理）。
+產生美術內容時，需要具備生圖能力並支援本機 MCP 或 manual handoff 的 AI 助理；預覽、deterministic QA 與 packing 不需要模型 API key。
 
 您只需在工作區中與您的 AI 助理開啟新對話，並發送**第一個啟動提示詞**（見下方的 [AI 助理協同指南](#ai-助理協同指南適用於新-session)）。
 
@@ -44,14 +44,14 @@ AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完�
 
 ### 2. 快速預覽現有範例（無需重複生成）
 
-本專案已隨附預先生成好且打包完畢的展示資產（例如 `reimu`、`sakuya`、`chest`、`fireball`）。您可以直接啟動 Web 編輯器直接把玩與預覽：
+本專案隨附已知失敗的圖片 fixtures（例如 `reimu`、`sakuya`、`chest`、`fireball`），僅用於測試 pipeline 與 editor，不是已核准的美術資產。您可以啟動 Web 編輯器檢查這些案例：
 
 ```bash
 # 啟動僅限本機的後端伺服器
-npm install
+npm ci
 npm run serve
 ```
-伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AIPLAYBOOK_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。
+伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AISPRITE_STUDIO_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。
 
 在瀏覽器中開啟 `http://localhost:8080/?char=reimu`。您可以拖曳時間軸、微調錨點（Pivot）或調整綠幕去背參數。
 
@@ -73,8 +73,8 @@ python3 -m tools.sprite_pipeline.cli generate assets/my_hero
 ```
 腳本將分析您的 `request.yml`，並在終端機印出給 AI 助理專用的**生圖計畫文字**。
 
-#### 步驟 C：交給 Antigravity AI 助理繪製
-複製剛才印出的生圖計畫文字，將其發送給您的 Antigravity AI 助理（請將子代理程式類型設定為 `self` 以獲得寫入權限）。助理會依序呼叫 `generate_image` 工具繪製所有影格，並直接存入本地的 `assets/my_hero/frames/` 目錄。
+#### 步驟 C：交給 image-capable agent
+連接本機 MCP server，呼叫 `aisprite_studio_get_generation_task`，使用所有回傳的 PNG references 產生指定影格，再透過 `aisprite_studio_submit_generated_frame` 驗證並提交。沒有 MCP 的 host 可使用 editor 的 **Copy active frame task**，產圖後交由已連線的 MCP agent 提交。
 
 #### 步驟 D：QA 檢驗與打包合圖
 當助理回報生圖完成後，執行品質檢驗與合圖編譯：
@@ -95,12 +95,12 @@ python3 -m tools.sprite_pipeline.cli pack assets/my_hero
 > [!IMPORTANT]
 > **平台支援**：目前本專案僅在 **macOS** 系統上進行過實行與驗證。
 
-當您在工作區中開啟新的 AI 助理（如 Gemini、Claude）對話 Session 時，您可以使用以下提示詞來快速啟動專案與進行日常協作。
+當您在工作區中開啟 Codex、Claude、Gemini、Antigravity 或其他 coding agent 的新 Session 時，可使用以下提示詞進入相同工作流。
 
 ### 1. 新 Session 啟動提示詞
 開啟新對話時，直接複製並發送以下提示詞，引導 AI 助理快速進入狀況：
 ```
-我們正在開發這個基於 Google `antigravity` SDK 的 sprite 製作專案。請先閱讀 SKILL.md 了解專案的開發規範。閱讀完畢後，請執行 SKILL.md 第 1 節中的「啟動診斷與工具檢查清單」。如果發現缺少任何依賴（不論是 Python 套件，或是 Homebrew 套件如 cwebp、oxipng），請直接在終端機幫我自動執行安裝（例如執行 pip install 或 brew install），不需再向我確認，完成後向我回報診斷與安裝結果。
+我們正在開發 AI Sprite Studio。請先閱讀 SKILL.md 與 AGENTS.md，再執行 SKILL.md 的環境診斷；安裝系統套件前先回報缺少項目。所有 checked-in 生圖都視為失敗且未核准，請使用本機 aisprite-studio MCP 進行 reference 修復、取得精確 frame task、驗證 PNG 提交與 deterministic QA；visual approval 仍需獨立人工確認。
 ```
 
 ### 2. 後續常用協作提示詞（非常適合美術或非開發人員）

@@ -367,9 +367,9 @@ export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
         const entrypoint = path.join(resolvedRoot, "mcp-server", "dist", "index.js");
         return sendJson(response, {
           ok: await isFile(entrypoint),
-          buildCommand: "cd mcp-server && npm install && npm run check",
-          codexToml: `[mcp_servers.aiplaybook]\ncommand = "node"\nargs = [${JSON.stringify(entrypoint)}]\n\n[mcp_servers.aiplaybook.env]\nAIPLAYBOOK_ROOT = ${JSON.stringify(resolvedRoot)}\n`,
-          config: { mcpServers: { aiplaybook: { command: "node", args: [entrypoint], env: { AIPLAYBOOK_ROOT: resolvedRoot } } } },
+          buildCommand: "npm ci && npm run test:mcp",
+          codexToml: `[mcp_servers.aisprite-studio]\ncommand = "node"\nargs = [${JSON.stringify(entrypoint)}]\n\n[mcp_servers.aisprite-studio.env]\nAISPRITE_STUDIO_ROOT = ${JSON.stringify(resolvedRoot)}\n`,
+          config: { mcpServers: { "aisprite-studio": { command: "node", args: [entrypoint], env: { AISPRITE_STUDIO_ROOT: resolvedRoot } } } },
         });
       }
       if (request.method === "POST" && url.pathname === "/api/prompt") {
@@ -399,15 +399,15 @@ export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
 }
 
 export function parsePort(value) {
-  if (!/^\d+$/.test(value)) throw new Error("AIPLAYBOOK_PORT must be an integer");
+  if (!/^\d+$/.test(value)) throw new Error("Studio port must be an integer");
   const port = Number(value);
-  if (port < 1 || port > 65_535) throw new Error("AIPLAYBOOK_PORT must be between 1 and 65535");
+  if (port < 1 || port > 65_535) throw new Error("Studio port must be between 1 and 65535");
   return port;
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
-  const host = process.env.AIPLAYBOOK_HOST ?? "127.0.0.1";
-  const port = parsePort(process.env.AIPLAYBOOK_PORT ?? "8080");
+  const host = process.env.AISPRITE_STUDIO_HOST ?? process.env.AIPLAYBOOK_HOST ?? "127.0.0.1";
+  const port = parsePort(process.env.AISPRITE_STUDIO_PORT ?? process.env.AIPLAYBOOK_PORT ?? "8080");
   const server = createStudioServer();
   server.listen(port, host, () => console.log(`Dev server on http://${host}:${port} (no-cache)`));
 }

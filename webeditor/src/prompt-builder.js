@@ -1,10 +1,10 @@
-// AIPLAYBOOK — prompt builder
+// AI Sprite Studio — prompt builder
 //
 // Synthesises per-animation and per-frame generation prompts from the SINGLE
 // source-of-truth template (prompts/generation-agent.md) plus the character spec.
 // The editor uses this so the Animation/Frame Prompt panels always have content
 // (no 404s) and the "Regenerate frame" button can copy a ready-to-paste prompt
-// into Antigravity. Pure functions — the template text is passed in (the editor
+// into an image-capable agent. Pure functions — the template text is passed in (the editor
 // fetches it once; Node tests read it from disk), so this module has no I/O.
 
 /** Fill the {{...}} placeholders in the generation-agent template. */

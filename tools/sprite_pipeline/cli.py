@@ -22,7 +22,7 @@ import yaml
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="sprite-pipeline",
-        description="Sprite generation pipeline using Google Antigravity SDK",
+        description="Host-neutral sprite generation, QA, and packing pipeline",
     )
     p.add_argument(
         "-v", "--verbose", action="store_true", help="Enable debug logging",
@@ -31,7 +31,7 @@ def _parse_args() -> argparse.Namespace:
     sub = p.add_subparsers(dest="command", required=True)
 
     # generate
-    gen = sub.add_parser("generate", help="Generate sprite frames using Antigravity Agent")
+    gen = sub.add_parser("generate", help="Print exact tasks for an image-capable agent")
     gen.add_argument("asset_dir", type=Path, help="Asset directory (e.g. assets/reimu)")
 
     # sync
@@ -124,17 +124,15 @@ def _require_pack_approval(asset_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 async def _cmd_generate(args: argparse.Namespace) -> None:
-    from . import antgravity_client
+    from . import generation_plan
     
     print("==========================================================")
     print("提示：本地腳本不包含 API Key，因此不會自動執行生圖。")
-    print("這套專案設計為「由 Antigravity AI 助理在聊天室代勞」。\n")
-    print("您可以複製以下對話發送給助理（或 Subagent）：")
-    print(f"「請幫我為 {args.asset_dir.name} 生成所有剩餘的影格」\n")
+    print("請將下列 task 交給具備圖片編輯能力的 agent，並透過本機 MCP 驗證提交。\n")
     
     # 讓腳本印出助理生圖時需要的精準資訊，減輕助理的運算負擔
     print("--- 助理專用生圖計畫 (Generation Plan) ---")
-    plan = antgravity_client.build_generation_plan(args.asset_dir)
+    plan = generation_plan.build_generation_plan(args.asset_dir)
     print(plan)
     print("==========================================================")
 

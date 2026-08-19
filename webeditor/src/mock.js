@@ -1,4 +1,4 @@
-// AIPLAYBOOK — procedural fallback
+// AI Sprite Studio — procedural fallback
 //
 // When the editor is opened from file:// (no static server) the reimu fetch is
 // blocked by CORS, so we draw a throwaway robot spritesheet on a canvas and ship

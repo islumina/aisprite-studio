@@ -1,4 +1,4 @@
-# aiplaybook MCP server
+# AI Sprite Studio MCP server
 
 Local stdio bridge that lets MCP-capable AI clients inspect sprite workspaces, repair the canonical reference, receive exact frame prompts plus PNG references, submit generated images, and run deterministic QA.
 
@@ -18,11 +18,11 @@ Example client configuration:
 ```json
 {
   "mcpServers": {
-    "aiplaybook": {
+    "aisprite-studio": {
       "command": "node",
-      "args": ["/absolute/path/to/aiplaybook/mcp-server/dist/index.js"],
+      "args": ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"],
       "env": {
-        "AIPLAYBOOK_ROOT": "/absolute/path/to/aiplaybook"
+        "AISPRITE_STUDIO_ROOT": "/absolute/path/to/aisprite-studio"
       }
     }
   }
@@ -33,12 +33,12 @@ See [CLIENTS.md](./CLIENTS.md) for Codex, Claude, Gemini CLI, and Antigravity/ma
 
 ## Agent workflow
 
-1. `aiplaybook_list_assets`
-2. If the reference is failed: `aiplaybook_get_reference_task`, generate one replacement, then `aiplaybook_submit_reference`.
-3. After visual reference approval: `aiplaybook_get_generation_task`.
+1. `aisprite_studio_list_assets`
+2. If the reference is failed: `aisprite_studio_get_reference_task`, generate one replacement, then `aisprite_studio_submit_reference`.
+3. After visual reference approval: `aisprite_studio_get_generation_task`.
 4. Generate one frame PNG with all returned image references.
-5. `aiplaybook_submit_generated_frame`
-6. `aiplaybook_run_deterministic_qa`
-7. `aiplaybook_get_qa_report`
+5. `aisprite_studio_submit_generated_frame`
+6. `aisprite_studio_run_deterministic_qa`
+7. `aisprite_studio_get_qa_report`
 
 All bundled generated images are treated as failed, unapproved artifacts. Submitting a replacement does not approve it. Deterministic QA is not visual approval, and the existing pack gate still requires an explicit visual QA pass.

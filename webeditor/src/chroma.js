@@ -1,6 +1,6 @@
-// AIPLAYBOOK — green-screen chroma key (browser-side, GPU-free, no Python)
+// AI Sprite Studio — green-screen chroma key (browser-side, GPU-free, no Python)
 //
-// Antigravity generates frames on a solid #00FF00 background (its transparent
+// Image agents generate frames on a solid #00FF00 background (their transparent
 // output isn't clean). Rather than chroma-keying in Python — which packer.py also
 // does for hard edges — we key the spritesheet to transparency once at load, on a canvas
 // for soft-edge preview.

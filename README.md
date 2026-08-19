@@ -1,9 +1,9 @@
 # AI Sprite Studio — Sprite Pipeline & Interactive Web Editor
 
 > [!NOTE]
-> This repository is a hobby toy project built on Google's **antigravity** SDK.
+> This repository is an experimental hobby project. Its local MCP handoff supports Codex, Claude, Gemini, Antigravity, and other image-capable agents.
 
-AI Sprite Studio (repository identifier: `aiplaybook`) is a workflow-optimised development platform for game sprite generation, QA validation, spritesheet packing, and interactive PixiJS-based animation tuning with FSM state machine support.
+AI Sprite Studio is a workflow-optimised development platform for game sprite generation, QA validation, spritesheet packing, and interactive PixiJS-based animation tuning with FSM state machine support.
 
 > The bundled generated assets are known failure fixtures for pipeline and editor testing. They are not visual-quality references, and deterministic file checks alone must not be treated as visual approval.
 
@@ -11,7 +11,7 @@ AI Sprite Studio (repository identifier: `aiplaybook`) is a workflow-optimised d
 
 ## Key Features
 
-1. **AI-Assisted Sprite Generation**: Frame-by-frame PNG generation from a reference image (T-Pose) using Google Antigravity's image editing mode.
+1. **AI-Assisted Sprite Generation**: Frame-by-frame PNG generation from a reference image through an MCP-connected, image-capable agent.
 2. **Automated QA Validator**: Scripts verifying image integrity, dimensions, alpha coverage, and vision-based character consistency.
 3. **Optimised Grid Packer**: Packs raw animation frames into a single spritesheet with `atlas.json` metadata and automatic WebP compression.
 4. **Interactive PixiJS Web Editor**:
@@ -31,7 +31,7 @@ The CLI pack step is gated: `qa-report.json` must contain both `overall: "pass"`
 
 ### 1. Prerequisites & AI Agent Setup
 
-To run and build this project, you need an AI assistant (such as Google Antigravity Agent or a similar coding agent) equipped with terminal execution and image generation capabilities.
+To generate artwork, use an image-capable AI assistant with local MCP or manual task handoff. Preview, deterministic QA, and packing do not require a model API key.
 
 Simply initiate a new session with your AI Agent in this workspace and send the **First Prompt** (see the [AI Assistant Integration](#ai-assistant-integration-for-new-sessions) section below). 
 
@@ -44,7 +44,7 @@ The agent will read [SKILL.md](./SKILL.md) and automatically set up the environm
 
 ### 2. Quick Preview (No Generation Needed)
 
-The repository comes with pre-generated, bundled demonstration assets (e.g., `reimu`, `sakuya`, `chest`, `fireball`). You can spin up the interactive web editor instantly to play with them:
+The repository includes known-failed image fixtures (e.g., `reimu`, `sakuya`, `chest`, `fireball`) for exercising the pipeline and editor. They are not approved art assets. You can spin up the interactive web editor to inspect them:
 
 ```bash
 # Start the local-only backend server
@@ -52,7 +52,7 @@ npm ci
 npm run serve
 ```
 
-The server binds to `127.0.0.1` by default. For deliberate LAN testing, set `AIPLAYBOOK_HOST=0.0.0.0`; the development server has no authentication, so do not expose it on an untrusted network.
+The server binds to `127.0.0.1` by default. For deliberate LAN testing, set `AISPRITE_STUDIO_HOST=0.0.0.0`; the development server has no authentication, so do not expose it on an untrusted network.
 
 Open `http://localhost:8080/?char=reimu` in your browser. Use the timeline scrubber, pivot adjustments, and chroma key panel.
 
@@ -74,8 +74,8 @@ python3 -m tools.sprite_pipeline.cli generate assets/my_hero
 ```
 This script will analyze your request and output a precise **Generation Plan** text. 
 
-#### Step C: Hand off to the Antigravity Agent
-Copy the generated plan text and send it to your Antigravity Agent (invoked as Subagent Type: `self` to grant file write permissions). The agent will iteratively call the `generate_image` tool to render all animation frames and save them directly to your local `assets/my_hero/frames/` directory.
+#### Step C: Hand off to an image-capable agent
+Connect the local MCP server, call `aisprite_studio_get_generation_task`, generate the exact requested frame with every returned PNG reference, then submit it with `aisprite_studio_submit_generated_frame`. Hosts without MCP can use the editor's **Copy active frame task** action and pass the resulting PNG to an MCP-connected agent for validated submission.
 
 #### Step D: Run QA & Pack
 Once the agent finishes generating the frames, run the QA test and compiler:
@@ -96,12 +96,12 @@ Open `http://localhost:8080/?char=my_hero` to preview and fine-tune your new cus
 > [!IMPORTANT]
 > **Platform Support**: Currently, this project has only been tested and verified on **macOS**.
 
-When starting a new chat session with your AI coding assistant (e.g. Gemini, Claude) in this workspace, you can use the following prompts to kickstart and streamline the workflow.
+When starting a new chat session with Codex, Claude, Gemini, Antigravity, or another coding assistant in this workspace, use the following prompt to enter the same workflow.
 
 ### 1. First Prompt to Start the Session
 Paste this prompt immediately when you open a new session in this workspace:
 ```
-We are developing this sprite generation project built on the Google `antigravity` SDK. Please read SKILL.md to understand the workflow and constraints. Once read, run the environment diagnostic commands listed in Section 1 of SKILL.md to check if my Python virtual environment, dependencies, and compression tools (like cwebp) are properly configured. If any dependencies (Python packages or Homebrew packages like cwebp, oxipng) are missing, please go ahead and automatically install them for me using pip or brew without asking for permission, then report back.
+We are developing AI Sprite Studio. Read SKILL.md and AGENTS.md, then run the environment diagnostics in SKILL.md. Report missing dependencies before installing system packages. Treat all checked-in generated images as failed and unapproved. Use the local aisprite-studio MCP workflow for reference repair, exact frame tasks, validated PNG submission, and deterministic QA; visual approval remains a separate human gate.
 ```
 
 ### 2. Common Subsequent Prompts (Great for Non-Developers/Artists)
@@ -163,7 +163,7 @@ The `webeditor/vendor/` directory contains pinned ESM snapshots of the `islumina
 
 ## AI agent connection (MCP)
 
-The optional [`mcp-server`](./mcp-server/) lets MCP-capable AI clients participate in the editor workflow without putting a model API key in the browser. It exposes declared assets, reference repair, exact frame prompts, PNG references, validated image submission, and deterministic QA over local stdio. Existing generated images are explicitly treated as failed and unapproved. Run `cd mcp-server && npm install && npm run check`, then copy the generated client configuration from the editor's **AI Agent Handoff** card.
+The optional [`mcp-server`](./mcp-server/) lets MCP-capable AI clients participate in the editor workflow without putting a model API key in the browser. It exposes declared assets, reference repair, exact frame prompts, PNG references, validated image submission, and deterministic QA over local stdio. Existing generated images are explicitly treated as failed and unapproved. Run `npm ci && npm run test:mcp` from the repository root, then copy the generated client configuration from the editor's **AI Agent Handoff** card.
 
 The hosted Playground is read-only. Write access remains local and constrained to declared `assets/{asset}/frames/{frame}.png` paths; deterministic QA never counts as visual approval.
 
