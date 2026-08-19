@@ -1,25 +1,25 @@
 # Client setup
 
-Build once from `aiplaybook/mcp-server`:
+Build once from the `aisprite-studio` repository root:
 
 ```bash
-npm install
-npm run check
+npm ci
+npm run test:mcp
 ```
 
-Replace `/absolute/path/to/aiplaybook` in the examples below. The local editor can generate the exact configuration automatically from its **AI Agent Handoff** card.
+Replace `/absolute/path/to/aisprite-studio` in the examples below. The local editor can generate the exact configuration automatically from its **AI Agent Handoff** card. `AIPLAYBOOK_ROOT` remains a temporary fallback for existing local configurations, but new setups should use `AISPRITE_STUDIO_ROOT`.
 
 ## Codex
 
 Add to `~/.codex/config.toml`:
 
 ```toml
-[mcp_servers.aiplaybook]
+[mcp_servers.aisprite-studio]
 command = "node"
-args = ["/absolute/path/to/aiplaybook/mcp-server/dist/index.js"]
+args = ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"]
 
-[mcp_servers.aiplaybook.env]
-AIPLAYBOOK_ROOT = "/absolute/path/to/aiplaybook"
+[mcp_servers.aisprite-studio.env]
+AISPRITE_STUDIO_ROOT = "/absolute/path/to/aisprite-studio"
 ```
 
 ## Claude Code or Claude Desktop
@@ -29,10 +29,10 @@ Project `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "aiplaybook": {
+    "aisprite-studio": {
       "command": "node",
-      "args": ["/absolute/path/to/aiplaybook/mcp-server/dist/index.js"],
-      "env": { "AIPLAYBOOK_ROOT": "/absolute/path/to/aiplaybook" }
+      "args": ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"],
+      "env": { "AISPRITE_STUDIO_ROOT": "/absolute/path/to/aisprite-studio" }
     }
   }
 }
@@ -42,11 +42,11 @@ Claude Code can also register the same stdio command with `claude mcp add`.
 
 ## Gemini CLI
 
-Add the same `mcpServers.aiplaybook` JSON object to `.gemini/settings.json`, then run `/mcp list` inside Gemini CLI to verify that the seven aiplaybook tools are ready.
+Add the same `mcpServers["aisprite-studio"]` JSON object to `.gemini/settings.json`, then run `/mcp list` inside Gemini CLI to verify that the seven AI Sprite Studio tools are ready.
 
 ## Antigravity and other image agents
 
-If the host supports local stdio MCP, use the same JSON configuration. Otherwise use the editor's **Copy active frame task** button, generate the PNG with the supplied references, then let a connected Codex, Claude, or Gemini client call `aiplaybook_submit_generated_frame`. This fallback preserves the same filenames and QA gate without assuming an Antigravity-specific plugin API.
+If the host supports local stdio MCP, use the same JSON configuration. Otherwise use the editor's **Copy active frame task** button, generate the PNG with the supplied references, then let a connected Codex, Claude, or Gemini client call `aisprite_studio_submit_generated_frame`. This fallback preserves the same filenames and QA gate without assuming an Antigravity-specific plugin API.
 
 ## Trust boundary
 

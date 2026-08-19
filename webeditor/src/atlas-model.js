@@ -1,4 +1,4 @@
-// AIPLAYBOOK — atlas data model
+// AI Sprite Studio — atlas data model
 //
 // Pure-ish helpers over the atlas.json object: normalisation, name-driven loop
 // defaults, the playback resolver the preview consumes, and small mutators that

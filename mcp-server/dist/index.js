@@ -7,7 +7,7 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 import { getGenerationTask, getReferenceTask, listAssets, readQaReport, runDeterministicQa, submitFrame, submitReference, } from "./workspace.js";
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const ROOT = path.resolve(process.env.AIPLAYBOOK_ROOT ?? DEFAULT_ROOT);
+const ROOT = path.resolve(process.env.AISPRITE_STUDIO_ROOT ?? process.env.AIPLAYBOOK_ROOT ?? DEFAULT_ROOT);
 const AssetId = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
 const FrameId = z.string().min(1).max(160).regex(/^[A-Za-z0-9_-]+$/);
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
@@ -28,15 +28,15 @@ function failure(error) {
         isError: true,
         content: [{
                 type: "text",
-                text: `AIPLAYBOOK error: ${error instanceof Error ? error.message : "Unexpected failure"}`,
+                text: `AI Sprite Studio error: ${error instanceof Error ? error.message : "Unexpected failure"}`,
             }],
     };
 }
 export function createServer() {
-    const server = new McpServer({ name: "aiplaybook-mcp-server", version: "0.1.0" }, {
-        instructions: "Use aiplaybook_list_assets first. Existing bundled generated images are failed, unapproved artifacts. Repair the canonical reference with aiplaybook_get_reference_task when needed, then generate only the exact frame returned by aiplaybook_get_generation_task using every returned reference. Submit the PNG and run deterministic QA. Deterministic QA is not visual approval and never authorises packing.",
+    const server = new McpServer({ name: "aisprite-studio-mcp-server", version: "0.1.0" }, {
+        instructions: "Use aisprite_studio_list_assets first. Existing bundled generated images are failed, unapproved artifacts. Repair the canonical reference with aisprite_studio_get_reference_task when needed, then generate only the exact frame returned by aisprite_studio_get_generation_task using every returned reference. Submit the PNG and run deterministic QA. Deterministic QA is not visual approval and never authorises packing.",
     });
-    server.registerTool("aiplaybook_list_assets", {
+    server.registerTool("aisprite_studio_list_assets", {
         title: "List Sprite Generation Assets",
         description: "List generation workspaces, frame progress, references, and QA status. Read-only. Existing bundled images may be failed fixtures.",
         inputSchema: z.object({
@@ -61,7 +61,7 @@ export function createServer() {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_get_reference_task", {
+    server.registerTool("aisprite_studio_get_reference_task", {
         title: "Get Reference Image Repair Task",
         description: "Return the exact tpose/base-reference repair prompt and available PNG context. Existing generated images are explicitly marked as failed and unapproved.",
         inputSchema: z.object({ asset: AssetId }).strict(),
@@ -80,7 +80,7 @@ export function createServer() {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_submit_reference", {
+    server.registerTool("aisprite_studio_submit_reference", {
         title: "Submit a Repaired Reference PNG",
         description: "Validate and atomically save one replacement tpose.png. Replacing the known failed artifact must be explicit.",
         inputSchema: z.object({
@@ -98,7 +98,7 @@ export function createServer() {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_get_generation_task", {
+    server.registerTool("aisprite_studio_get_generation_task", {
         title: "Get One Image Generation Task",
         description: "Return one exact frame prompt plus up to three PNG reference images. Omit frame to select the first missing frame; specify a declared frame for repair.",
         inputSchema: z.object({
@@ -126,7 +126,7 @@ export function createServer() {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_submit_generated_frame", {
+    server.registerTool("aisprite_studio_submit_generated_frame", {
         title: "Submit a Generated PNG Frame",
         description: "Validate and atomically save one base64 PNG into the declared asset frames directory. Set replace only when intentionally repairing an existing failed frame.",
         inputSchema: z.object({
@@ -139,13 +139,13 @@ export function createServer() {
     }, async ({ asset, frame, png_base64, replace }) => {
         try {
             const result = await submitFrame(ROOT, asset, frame, png_base64, replace);
-            return success(result, `Saved ${result.path}. Run aiplaybook_run_deterministic_qa next.`);
+            return success(result, `Saved ${result.path}. Run aisprite_studio_run_deterministic_qa next.`);
         }
         catch (error) {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_run_deterministic_qa", {
+    server.registerTool("aisprite_studio_run_deterministic_qa", {
         title: "Run Deterministic Sprite QA",
         description: "Run local file, dimension, coverage, halo, and drift checks for an asset. This updates qa-report.json but does not perform or claim visual approval.",
         inputSchema: z.object({ asset: AssetId }).strict(),
@@ -161,7 +161,7 @@ export function createServer() {
             return failure(error);
         }
     });
-    server.registerTool("aiplaybook_get_qa_report", {
+    server.registerTool("aisprite_studio_get_qa_report", {
         title: "Read Sprite QA Report",
         description: "Read the current qa-report.json for an asset. Read-only; warn/pending/fail results require repair or visual review.",
         inputSchema: z.object({ asset: AssetId }).strict(),
@@ -178,10 +178,10 @@ export function createServer() {
     return server;
 }
 if (process.argv.includes("--help")) {
-    process.stdout.write("Usage: node dist/index.js\nEnvironment: AIPLAYBOOK_ROOT=/absolute/path/to/aiplaybook\nTransport: stdio\n");
+    process.stdout.write("Usage: node dist/index.js\nEnvironment: AISPRITE_STUDIO_ROOT=/absolute/path/to/aisprite-studio\nTransport: stdio\n");
 }
 else {
     void serveStdio(createServer);
-    console.error(`aiplaybook MCP server ready for ${ROOT}`);
+    console.error(`AI Sprite Studio MCP server ready for ${ROOT}`);
 }
 //# sourceMappingURL=index.js.map

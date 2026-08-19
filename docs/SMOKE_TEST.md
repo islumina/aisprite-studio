@@ -5,7 +5,7 @@
 ## 前置
 
 ```bash
-cd /Volumes/MiniBackup/sys/aiplaybook
+cd /absolute/path/to/aisprite-studio
 node --check server.mjs
 node --check tools/vendor-update.mjs
 npm run test:server

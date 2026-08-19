@@ -14,7 +14,7 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
       if (!els.timelineList) return;
       els.timelineList.innerHTML = '';
       if (!pb || !pb.frames) return;
-      
+
       const atlas = getAtlas();
       const curFrameIdx = getCurFrameIdx();
 
@@ -22,28 +22,28 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
         const frameEl = document.createElement('div');
         frameEl.className = `timeline-frame${idx === curFrameIdx ? ' active' : ''}`;
         frameEl.dataset.index = idx;
-        
+
         const numSpan = document.createElement('span');
         numSpan.className = 'timeline-frame-num';
         numSpan.textContent = `#${idx}`;
-        
+
         const durInput = document.createElement('input');
         durInput.type = 'number';
         durInput.className = 'timeline-frame-dur';
         durInput.min = '20';
         durInput.max = '2000';
         durInput.step = '10';
-        
+
         const dur = atlas.frames[fk]?.duration || pb.durationMs;
         durInput.value = dur;
-        
+
         // Jump to specific frame on click
         frameEl.addEventListener('click', (e) => {
           if (e.target === durInput) return; // avoid navigation when editing duration
           preview.gotoFrame(idx);
           setPlayStatePause();
         });
-        
+
         // Realtime duration tuning
         durInput.addEventListener('change', () => {
           const ms = parseInt(durInput.value, 10) || 125;
@@ -52,12 +52,12 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
             bus.emit(EV.ATLAS_CHANGED, { reason: `frame-duration:${fk}` });
           }
         });
-        
+
         // Prevent document key handlers from firing when typing in the input
         durInput.addEventListener('keydown', (e) => {
           e.stopPropagation();
         });
-        
+
         frameEl.appendChild(numSpan);
         frameEl.appendChild(durInput);
         els.timelineList.appendChild(frameEl);

@@ -1,9 +1,6 @@
 ==========================================================
 提示：本地腳本不包含 API Key，因此不會自動執行生圖。
-這套專案設計為「由 Antigravity AI 助理在聊天室代勞」。
-
-您可以複製以下對話發送給助理（或 Subagent）：
-「請幫我為 chest 生成所有剩餘的影格」
+請將下列 task 交給具備圖片編輯能力的 agent，並透過本機 MCP 驗證提交。
 
 --- 助理專用生圖計畫 (Generation Plan) ---
 Target Asset: chest
@@ -12,7 +9,7 @@ Style: Dark fantasy ancient treasure chest with glowing magical runes, highly de
 Reference Images Required:
   - Priority 1: assets/{name}/tpose.png
   - Optimization: For objects/effects, skip Frame 00 and Frame N-1.
-  - You may generate all pending frames for this object IN PARALLEL.
+  - Keep one agent responsible for the full sequence to preserve visual continuity.
 
 Pending Frames to Generate:
 

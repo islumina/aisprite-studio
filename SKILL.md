@@ -21,7 +21,7 @@ python3 --version
 which python3
 
 # 4. 檢查 Python 影像套件依賴
-python3 -c "import PIL, yaml, jsonschema, pydantic" 2>/dev/null && echo "✓ Python packages OK" || echo "✗ Missing packages"
+python3 -c "import PIL, yaml, jsonschema" 2>/dev/null && echo "✓ Python packages OK" || echo "✗ Missing packages"
 ```
 
 * **安裝指引**：若缺少 Python 套件：
@@ -64,7 +64,7 @@ lsof -i :8080
 ### D. 執行 Smoke Test
 
 每次變更後，參照 `docs/SMOKE_TEST.md` 執行快速驗證。
-可手動測試或使用 Chrome DevTools MCP 自動化。
+可手動測試或使用可用的 browser automation 進行驗證。
 
 ---
 
@@ -112,7 +112,7 @@ oxipng -o 4 assets/{character_name}/output/{character_name}.png
 ### 步驟 2：建立原初參考圖 (T-Pose / Reference Image)
 1. 建立目錄 `assets/{name}/`。
 2. 依資產類型產生參考圖：
-   - **人物角色**：呼叫 `generate_image` 產生去綠幕背景 (`#00FF00`) 的 `tpose.png`。
+   - **人物角色**：透過 image-capable host 產生綠幕背景 (`#00FF00`) 的 `tpose.png`，再由 `aisprite_studio_submit_reference` 驗證並提交。
    - **非人物資產（物品/特效）**：若使用者有附圖，儲存為 `tpose.png`（或 `input.png`）；若無附圖，依描述產生靜態原初圖片存為 `tpose.png`。
 
 ### 步驟 3：撰寫資產規格 (`request.yml`)
@@ -130,10 +130,10 @@ animations:
 ```
 
 ### 步驟 4：依動作描述進行影格生成
-- **必須使用 `generate_image` 的圖片編輯模式**。
-- 傳入 `ImagePaths`（含 `tpose.png` 或前一影格 PNG），描述當前影格動作變化。
+- 先呼叫 `aisprite_studio_get_generation_task` 取得精確 prompt 與 PNG references。
+- **必須使用 host 的圖片編輯模式**，傳入回傳的 `tpose.png` 或前一影格 PNG，不可改用純文字生圖。
 - 強調維持背景/物品主體靜止，僅對變動部分（光效、火焰等）微調。
-- 將生成影格搬移至 `assets/{name}/frames/`。
+- 呼叫 `aisprite_studio_submit_generated_frame` 驗證尺寸、檔名與 PNG 後原子寫入。
 
 ### 步驟 5：驗證與打包
 ```bash

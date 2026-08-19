@@ -81,7 +81,7 @@
             <button id="btn-copy-tpose-prompt" class="btn btn-sm" style="margin-top: 0.3rem; padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
           </details>
         </div>
-        <p id="tpose-placeholder" class="muted-note" style="margin: -0.2rem 0 0.2rem;">No tpose.png generated yet. Instruct Antigravity to generate one.</p>
+        <p id="tpose-placeholder" class="muted-note" style="margin: -0.2rem 0 0.2rem;">No tpose.png generated yet. Use the local MCP reference task to create one.</p>
       </div>
 
       <div class="sidebar-title">Animation</div>
@@ -125,7 +125,7 @@
           <select id="agent-client" aria-label="AI client">
             <option value="json">Claude / Gemini / MCP JSON</option>
             <option value="codex">Codex config.toml</option>
-            <option value="manual">Antigravity / manual handoff</option>
+            <option value="manual">Image agent / manual handoff</option>
           </select>
           <button class="btn btn-sm" id="btn-copy-agent-config">Copy MCP config</button>
           <button class="btn btn-sm" id="btn-copy-agent-task">Copy active frame task</button>
@@ -222,7 +222,7 @@
           <button id="frame-playpause" title="Play / Pause (Space)" class="active"><i data-lucide="pause" class="icon-md"></i></button>
           <button id="frame-next" title="Next frame (→)"><i data-lucide="skip-forward" class="icon-md"></i></button>
           <span class="frame-label" id="frame-label"><strong>1</strong> / 1</span>
-          <button id="frame-regen" title="Copy this frame's prompt to regenerate it in Antigravity"><i data-lucide="refresh-cw" class="icon-sm"></i> Regenerate</button>
+          <button id="frame-regen" title="Copy this frame's prompt for an image-capable agent"><i data-lucide="refresh-cw" class="icon-sm"></i> Regenerate</button>
           <button id="frame-copy-path" title="Copy the file path of this frame to clipboard"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Path</button>
         </div>
         <div class="timeline-container" id="timeline-list"></div>
@@ -235,7 +235,7 @@
         <span class="sidebar-title">atlas.json — live tuning</span>
         <button class="btn primary" id="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.74rem;">Apply</button>
       </div>
-      <p class="muted-note" style="margin-top: -0.6rem;">Edits reflect live. After Antigravity regenerates the sheet, hit <strong>Reload</strong> — your JSON tuning is kept.</p>
+      <p class="muted-note" style="margin-top: -0.6rem;">Edits reflect live. After an agent regenerates the sheet, hit <strong>Reload</strong> — your JSON tuning is kept.</p>
       <textarea class="editor-textarea" id="json-editor" spellcheck="false"></textarea>
       <div id="json-error-msg" style="display: none; font-size: 0.72rem; color: var(--accent); margin-top: 0.3rem; margin-bottom: 0.3rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-word; line-height: 1.4;"></div>
       <div class="toolbar">
@@ -248,7 +248,7 @@
       </div>
       <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.74rem; color:var(--text-muted); cursor:pointer;">
         <input type="checkbox" id="auto-reload" checked style="accent-color: var(--primary);">
-        Auto-reload when Antigravity regenerates
+        Auto-reload when generated assets change
       </label>
     </div>
   </div>

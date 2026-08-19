@@ -13,7 +13,7 @@ export function initKeyboard(initialFsm, highlightKeyCallback) {
     d: ['MOVE_RIGHT', 'MOVE'],
   };
   const held = new Set();
-  
+
   function sendFirstHandled(candidates) {
     if (!fsm) return;
     for (const ev of candidates) {

@@ -15,7 +15,7 @@ function png(width: number, height: number): Buffer {
 }
 
 async function fixture(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "aiplaybook-mcp-"));
+  const root = await mkdtemp(path.join(tmpdir(), "aisprite-studio-mcp-"));
   const dir = path.join(root, "assets", "hero");
   await mkdir(path.join(dir, "frames"), { recursive: true });
   await writeFile(path.join(dir, "request.yml"), [

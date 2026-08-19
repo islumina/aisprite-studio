@@ -1,4 +1,4 @@
-// AIPLAYBOOK — atlas runtime selection
+// AI Sprite Studio — atlas runtime selection
 //
 // Current atlases use the input-driven aispritejs graph. The legacy aifsmjs
 // shape is retained as a compatibility path for older hand-authored atlases.

@@ -1,7 +1,7 @@
 """Image utility functions for the sprite pipeline.
 
 Pillow-based operations: dimension check, alpha coverage, PNG validation.
-No Antigravity/API calls here — pure local image processing.
+No model or network calls here — pure local image processing.
 """
 
 from __future__ import annotations

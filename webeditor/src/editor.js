@@ -1,10 +1,10 @@
-// AIPLAYBOOK — editor controller
+// AI Sprite Studio — editor controller
 //
 // Wires the panels together. Responsibilities: load an atlas (served reimu, a
 // dropped file, or the procedural mock), drive the PixiJS preview through the
 // aispritejs/aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
 // instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
-// and reload the spritesheet after Antigravity regenerates it.
+// and reload the spritesheet after an image agent regenerates it.
 import { bus, EV } from './bus.js';
 import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll } from './atlas-model.js';
 import { startRuntime, validateRuntime } from './runtime.js';
@@ -224,17 +224,17 @@ async function start() {
   if (requestedChar && els.characterSelect.querySelector(`option[value="${requestedChar}"]`)) {
     els.characterSelect.value = requestedChar;
   }
-  
+
   const charName = els.characterSelect?.value || 'reimu';
   const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
   const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
   try {
     const res = await fetch(`${atlasBase}/atlas.json`);
     if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-    
+
     const atlasData = await res.json();
     const imageName = atlasData.meta?.image || `${charName}.png`;
-    
+
     await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
     currentChar = charName;
     updateReferencePose(charName);
@@ -255,7 +255,7 @@ async function configureAgentHandoff() {
   const taskButton = $('btn-copy-agent-task');
   const clientSelect = $('agent-client');
   if (staticMode) {
-    status.textContent = 'Hosted demo is read-only. Clone aiplaybook and connect its local MCP server to generate or submit frames.';
+    status.textContent = 'Hosted demo is read-only. Clone aisprite-studio and connect its local MCP server to generate or submit frames.';
     configButton.textContent = 'Copy local setup template';
   } else {
     try {
@@ -271,17 +271,17 @@ async function configureAgentHandoff() {
   configButton.onclick = async () => {
     const fallback = {
       mcpServers: {
-        aiplaybook: {
+        'aisprite-studio': {
           command: 'node',
-          args: ['/absolute/path/to/aiplaybook/mcp-server/dist/index.js'],
-          env: { AIPLAYBOOK_ROOT: '/absolute/path/to/aiplaybook' },
+          args: ['/absolute/path/to/aisprite-studio/mcp-server/dist/index.js'],
+          env: { AISPRITE_STUDIO_ROOT: '/absolute/path/to/aisprite-studio' },
         },
       },
     };
     const manual = 'Use “Copy active frame task”, give its prompt and references to the image-capable AI, then submit the resulting PNG through a local MCP-capable agent.';
     const selected = clientSelect?.value || 'json';
     const value = selected === 'codex'
-      ? (configButton.dataset.codex || '[mcp_servers.aiplaybook]\ncommand = "node"\nargs = ["/absolute/path/to/aiplaybook/mcp-server/dist/index.js"]')
+      ? (configButton.dataset.codex || '[mcp_servers.aisprite-studio]\ncommand = "node"\nargs = ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"]')
       : selected === 'manual'
         ? manual
         : (configButton.dataset.config || JSON.stringify(fallback, null, 2));
@@ -295,14 +295,14 @@ async function configureAgentHandoff() {
     const frameName = `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`;
     const refs = frameRefs(pb.animation, curFrameIdx);
     const task = {
-      schema: 'https://github.com/islumina/aiplaybook/tree/main/mcp-server',
+      schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
       asset: currentChar,
       frame: frameName,
       prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
       references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
       note: staticMode
         ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
-        : 'Prefer aiplaybook_get_generation_task through MCP; it returns the actual PNG references.',
+        : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
     };
     await navigator.clipboard.writeText(JSON.stringify(task, null, 2));
     flashLabel(taskButton, '✓ task copied');
@@ -338,7 +338,7 @@ async function updateTpose(charName) {
       els.tposeGenerated.style.display = 'block';
       els.tposePlaceholder.style.display = 'none';
       els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
-      
+
       if (els.chromaToggle && els.chromaToggle.checked) {
         try {
           const blob = await (await fetch(bustUrl)).blob();
@@ -409,10 +409,10 @@ function playState(name) {
   currentPb = pb;
   // When previewLock is on, force-loop the animation so FSM transitions don't fire
   const effectiveOnEnd = previewLock ? 'loop' : pb.onEnd;
-  
+
   // Render timeline scrubber
   renderTimeline(pb);
-  
+
   // Pass animation name — preview.js resolves textures from the parsed Spritesheet
   preview.playUnit(
     { animName: pb.animation, anchor: pb.anchor, durationMs: pb.durationMs, onEnd: effectiveOnEnd, sourceSize: pb.sourceSize, frameDurations: pb.frameDurations },
@@ -677,7 +677,7 @@ els.btnExportSheet?.addEventListener('click', () => {
   }, 'image/png');
 });
 
-// Reload the sheet image from disk (Antigravity regenerated it) — keep JSON edits.
+// Reload the sheet image from disk after regeneration while keeping JSON edits.
 els.reload.onclick = async () => {
   if (!baseImageUrl) return;
   els.reload.classList.add('busy');
@@ -690,14 +690,14 @@ els.reload.onclick = async () => {
 // --- Bus: model changes reflect everywhere ---
 bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   jsonDirty = true; // tuning diverges from disk; auto-reload keeps it
-  
+
   // Debounce writing back to textarea for high-frequency events to maintain 60 FPS performance
   if (reason.startsWith('anchor:') || reason.startsWith('frame-duration:')) {
     debouncedWriteJson();
   } else {
     writeJson();
   }
-  
+
   if (reason.startsWith('frame-duration:')) {
     if (currentUnit) {
       const pb = resolvePlayback(atlas, currentUnit);
@@ -730,10 +730,10 @@ els.characterSelect?.addEventListener('change', async () => {
   try {
     const res = await fetch(`${atlasBase}/atlas.json`);
     if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-    
+
     const atlasData = await res.json();
     const imageName = atlasData.meta?.image || `${charName}.png`;
-    
+
     await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
     currentChar = charName;
     updateReferencePose(charName);
@@ -834,14 +834,14 @@ function synthAnimPrompt(animName) {
   if (!promptTemplate) {
     return `Preview-only demo: create a coherent ${animName} animation for the same subject. Keep identity, scale, palette, framing, and baseline stable across every frame. Use a flat chroma background, even lighting, no shadows, no scenery, and no detached effects. The hosted Playground cannot accept files; use the local MCP server for a real asset task.`;
   }
-  return buildAnimPrompt(promptTemplate, effectiveSpec(), animName, frameRefs(animName, 0)) + '\n\n— synthesised by AIPLAYBOOK —';
+  return buildAnimPrompt(promptTemplate, effectiveSpec(), animName, frameRefs(animName, 0)) + '\n\n— synthesised by AI Sprite Studio —';
 }
 function synthFramePrompt(animName, frameIdx, total) {
   if (!promptTemplate) {
     const size = effectiveSpec().frame_size;
     return `Preview-only demo: generate ${animName}_${String(frameIdx).padStart(2, '0')}.png, frame ${frameIdx + 1} of ${total}. ${poseForDemo(animName, frameIdx, total)} Output exactly ${size[0]}x${size[1]} PNG on a flat chroma background with even lighting, no shadows, no scenery, and no detached effects. Keep identity, scale, palette, framing, and baseline stable. The hosted Playground cannot accept files; use the local MCP server for a validated task.`;
   }
-  return buildFramePrompt(promptTemplate, effectiveSpec(), animName, frameIdx, total, frameRefs(animName, frameIdx)) + '\n\n— synthesised by AIPLAYBOOK —';
+  return buildFramePrompt(promptTemplate, effectiveSpec(), animName, frameIdx, total, frameRefs(animName, frameIdx)) + '\n\n— synthesised by AI Sprite Studio —';
 }
 
 function poseForDemo(animName, frameIdx, total) {
@@ -934,7 +934,7 @@ els.frameRegen?.addEventListener('click', () => {
   if (els.framePromptText) els.framePromptText.textContent = prompt;
   if (els.framePromptIdx) els.framePromptIdx.textContent = curFrameIdx;
   navigator.clipboard?.writeText(prompt);
-  flashLabel(els.frameRegen, '✓ Copied — paste into Antigravity');
+  flashLabel(els.frameRegen, '✓ Copied — send to image agent');
 });
 
 els.frameCopyPath?.addEventListener('click', () => {
@@ -982,7 +982,7 @@ els.framePromptDetails?.addEventListener('toggle', () => {
 els.btnSaveDisk?.addEventListener('click', async () => {
   if (!currentChar) { flashLabel(els.btnSaveDisk, '✗ no character', false); return; }
   els.btnSaveDisk.classList.add('busy');
-  
+
   const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
   const payload = {
     char: currentChar,

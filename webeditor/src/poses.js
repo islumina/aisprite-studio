@@ -1,7 +1,7 @@
-// AIPLAYBOOK — T-Pose panel
+// AI Sprite Studio — T-Pose panel
 //
 // Surfaces the `poses` block as a visible, independent section. Each T-Pose is
-// the reference an artist hands to Antigravity to generate a direction's
+// the reference an artist gives an image-capable agent to generate a direction's
 // actions. The artist toggles `enabled` to opt a pose in/out, and clicking a
 // pose focuses the actions derived from it (`sourcePose`) so you can review
 // "this T-Pose → these converted moves" at a glance.

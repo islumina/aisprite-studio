@@ -1,10 +1,10 @@
 {
-  "name": "aiplaybook-mcp-server",
+  "name": "aisprite-studio-mcp-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "aiplaybook-mcp": "./dist/index.js"
+    "aisprite-studio-mcp": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

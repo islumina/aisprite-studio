@@ -1,4 +1,4 @@
-// AIPLAYBOOK — PixiJS preview surface
+// AI Sprite Studio — PixiJS preview surface
 //
 // Uses PixiJS Spritesheet class for correct trim/anchor handling.
 // Sprites are rendered with proper sourceSize padding and spriteSourceSize offsets.
@@ -52,7 +52,7 @@ function drawPivotCrosshair(g) {
   // Cross hair lines (drawn via filled rectangles to ensure visibility at all scales)
   g.rect(-24, -1, 48, 2).fill(color);
   g.rect(-1, -24, 2, 48).fill(color);
-   
+
   g.hitArea = new PIXI.Circle(0, 0, 25);
 }
 
@@ -290,12 +290,12 @@ export function updateFrameDurations(frameDurations) {
     if (frameDurations.length === rawTextures.length) {
       const curFrame = sprite.currentFrame;
       const isPlaying = !sprite.paused && !_paused; // use sprite.playing or custom _paused
-      
+
       sprite.textures = rawTextures.map((tex, idx) => ({
         texture: tex,
         time: frameDurations[idx]
       }));
-      
+
       sprite.gotoAndStop(curFrame);
       if (isPlaying) {
         sprite.play();

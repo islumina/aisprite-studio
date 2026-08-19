@@ -1,4 +1,4 @@
-// AIPLAYBOOK — FSM driver (aifsmjs)
+// AI Sprite Studio — FSM driver (aifsmjs)
 //
 // Builds a real aifsmjs runtime from the atlas `states` block so state preview
 // is driven by the same deterministic machine a game would ship — not an ad-hoc
@@ -43,7 +43,7 @@ export function startFsm(atlas, onState, initialState) {
     : def.initial && states[def.initial] ? def.initial : Object.keys(states)[0];
 
   const runtime = createMachine(
-    { id: 'aiplaybook-sprite', initial, context: {}, states },
+    { id: 'aisprite-studio-sprite', initial, context: {}, states },
     {}, // no guards/actions/effects — pure animation routing
   );
 

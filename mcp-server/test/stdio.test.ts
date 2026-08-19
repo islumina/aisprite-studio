@@ -7,8 +7,8 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
-test("stdio server exposes the generation workflow", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "aiplaybook-mcp-stdio-"));
+async function createWorkspace(): Promise<string> {
+  const root = await mkdtemp(path.join(tmpdir(), "aisprite-studio-mcp-stdio-"));
   const asset = path.join(root, "assets", "orb");
   await mkdir(path.join(asset, "frames"), { recursive: true });
   await writeFile(path.join(asset, "request.yml"), [
@@ -26,12 +26,16 @@ test("stdio server exposes the generation workflow", async () => {
   reference.writeUInt32BE(32, 16);
   reference.writeUInt32BE(32, 20);
   await writeFile(path.join(asset, "tpose.png"), reference);
+  return root;
+}
 
-  const client = new Client({ name: "aiplaybook-test-client", version: "0.1.0" });
+test("stdio server exposes the generation workflow", async () => {
+  const root = await createWorkspace();
+  const client = new Client({ name: "aisprite-studio-test-client", version: "0.1.0" });
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [path.resolve("dist/index.js")],
-    env: { ...process.env, AIPLAYBOOK_ROOT: root },
+    env: { ...process.env, AISPRITE_STUDIO_ROOT: root },
   });
   await client.connect(transport);
   try {
@@ -39,20 +43,43 @@ test("stdio server exposes the generation workflow", async () => {
     assert.deepEqual(
       listed.tools.map((tool) => tool.name).sort(),
       [
-      "aiplaybook_get_generation_task",
-      "aiplaybook_get_qa_report",
-      "aiplaybook_get_reference_task",
-      "aiplaybook_list_assets",
-      "aiplaybook_run_deterministic_qa",
-      "aiplaybook_submit_generated_frame",
-      "aiplaybook_submit_reference",
+      "aisprite_studio_get_generation_task",
+      "aisprite_studio_get_qa_report",
+      "aisprite_studio_get_reference_task",
+      "aisprite_studio_list_assets",
+      "aisprite_studio_run_deterministic_qa",
+      "aisprite_studio_submit_generated_frame",
+      "aisprite_studio_submit_reference",
       ],
     );
     const result = await client.callTool({
-      name: "aiplaybook_list_assets",
+      name: "aisprite_studio_list_assets",
       arguments: { limit: 10, offset: 0 },
     });
     assert.equal(result.isError, undefined);
+    const structured = result.structuredContent as { total?: unknown } | undefined;
+    assert.equal(structured?.total, 1);
+  } finally {
+    await client.close();
+  }
+});
+
+test("accepts the legacy project-root environment variable", async () => {
+  const root = await createWorkspace();
+  const legacyEnvironment = { ...process.env };
+  delete legacyEnvironment.AISPRITE_STUDIO_ROOT;
+  const client = new Client({ name: "aisprite-studio-legacy-env-test", version: "0.1.0" });
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [path.resolve("dist/index.js")],
+    env: { ...legacyEnvironment, AIPLAYBOOK_ROOT: root },
+  });
+  await client.connect(transport);
+  try {
+    const result = await client.callTool({
+      name: "aisprite_studio_list_assets",
+      arguments: { limit: 10, offset: 0 },
+    });
     const structured = result.structuredContent as { total?: unknown } | undefined;
     assert.equal(structured?.total, 1);
   } finally {

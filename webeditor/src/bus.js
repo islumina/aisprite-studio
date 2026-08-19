@@ -1,4 +1,4 @@
-// AIPLAYBOOK — central event bus (aieventjs)
+// AI Sprite Studio — central event bus (aieventjs)
 //
 // One typed emitter decouples the panels: the JSON model emits `atlas:changed`,
 // the preview re-renders, the T-Pose panel reacts to focus, and the toolbar
@@ -12,7 +12,7 @@ import { createEmitter } from 'aieventjs';
  * @property {{ name: string }}   unit:select     A playable unit (state or object animation) was chosen.
  * @property {{ id: string }}     pose:focus      A T-Pose thumbnail was clicked; highlight its derived actions.
  * @property {{ id: string, enabled: boolean }} pose:toggle  A T-Pose `enabled` flag was flipped.
- * @property {{}}                 assets:reload   Re-fetch the frame image from disk (Antigravity regenerated it).
+ * @property {{}}                 assets:reload   Re-fetch the frame image from disk after regeneration.
  */
 
 /** @type {import('aieventjs').Emitter<BusEvents>} */

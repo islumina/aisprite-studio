@@ -1,14 +1,14 @@
 # AGENTS — Islumina Sprite Pipeline
 
 > [!NOTE]
-> This sprite generation pipeline is built utilizing Google's **antigravity** SDK. It serves as the automated asset generation pipeline for the Islumina ecosystem.
+> This sprite generation pipeline is host-neutral. Codex, Claude, Gemini, Antigravity, or another image-capable agent can participate through the local MCP boundary or manual task handoff.
 
 Two agents, sequential pipeline. No parallel execution needed.
 Handles three asset categories: **Character**, **Object**, **Effect**.
 
 ## Execution & Delegation Rules
 
-1. **NO Subagents for Image Generation**: The main agent MUST personally generate all frames and T-Poses using its own tool calls. Do NOT delegate image generation to subagents (`invoke_subagent`), as this leads to style and context inconsistencies.
+1. **NO Subagents for Image Generation**: One image-capable agent MUST own a generation sequence and retain its references. Do not split one asset across parallel agents, as this leads to style and context inconsistencies.
 2. **Delegation of Scripts**: Non-creative, deterministic tasks (like running `packer.py`, QA scripts, or file copying) may be delegated or run as background tasks.
 3. **Personal Inspection**: Even if tasks are delegated or run via scripts, the main agent MUST personally review the final output (e.g., checking log files, verifying completion) to ensure everything is correct before concluding the task.
 
@@ -27,8 +27,6 @@ If omitted, defaults to `character`.
 
 **Role**: Read `request.yml` + reference image → produce individual frame PNGs.
 
-**Subagent Type**: `self` (Must have write permissions to save files, do NOT use `research` type)
-
 **System prompt**: `prompts/generation-agent.md`
 
 **Input artifacts**:
@@ -42,15 +40,15 @@ If omitted, defaults to `character`.
 **Constraints**:
 - When generating the initial T-Pose / reference image, prompt for "FLAT EVEN LIGHTING" and "ABSOLUTELY NO SHADOWS" (no body shadows, no ground plane shadow). This is crucial to prevent baking unwanted lighting into subsequent frames.
 - MUST explicitly prompt to prevent color spill from the background (e.g. "Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors"). The character must NOT be interfered with by the blue/green screen.
-- MUST use the native `generate_image` tool in image editing mode (reference image via `ImagePaths`), NOT text-to-image
-- MUST NOT write Python code that calls the Gemini API directly. Generation is delegated to the Antigravity Agent via its tool calls.
+- MUST use the connected host's native image-editing capability with the returned PNG references, not pure text-to-image
+- MUST NOT add direct model API calls or API keys to this repository. Obtain the task through MCP, generate with the host capability, then submit through MCP.
 - MUST output 1:1 square aspect ratio matching `frame_size` from `request.yml`
 - MUST NOT modify files outside `assets/{name}/frames/`
 - MUST NOT deploy, publish, or run production commands
 - Use content-hash cache (`.sprite-pipeline-cache/`) to skip already-generated frames
 - On API failure (429/5xx): retry 3× with exponential backoff, then mark frame as failed
 
-**Reference image priority** (pass up to 3 via `ImagePaths`):
+**Reference image priority** (pass up to 3 through the host's image-input mechanism):
 1. Reference image (tpose.png) — always included, visual anchor
 2. Frame 0 of current animation — locks scale, palette, framing
 3. Previous frame (N-1) — motion continuity
