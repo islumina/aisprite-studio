@@ -23,6 +23,12 @@ type AfterOptions = Readonly<{
  * `cancel()` clears the pending timer. Optional `signal` aborts the timer when
  * triggered. Aborting after the callback fires is a no-op.
  *
+ * `ms` must be a finite number >= 0 (`NaN`, `Infinity`, negatives and
+ * non-numbers throw `RangeError`) and `fn` a function (`TypeError`); both are
+ * checked before anything else, including an already-aborted `signal`. A
+ * finite `ms` above 2^31-1 (about 24.8 days) is clamped to 2^31-1 when handed
+ * to `setTimeout`. To mean "never", do not schedule.
+ *
  * The abort listener is registered with `{ once: true }` as a baseline, but
  * `{ once: true }` alone does NOT prevent listener accumulation when the same
  * signal is reused across many timers: it only removes the listener when the

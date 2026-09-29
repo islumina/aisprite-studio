@@ -1,9 +1,8 @@
-import { UnknownGuardError, isThenable, AsyncGuardError } from '../chunk-A7U7QQL5.js';
-import '../chunk-PZ5AY32C.js';
+import { ownValue, UnknownGuardError, isThenable, AsyncGuardError } from '../chunk-SSNKGEVB.js';
 
 // src/guards/index.ts
 function resolveItem(item, args) {
-  const fn = typeof item === "function" ? item : args.guards?.[item];
+  const fn = typeof item === "function" ? item : ownValue(args.guards, item);
   if (!fn) throw new UnknownGuardError(item);
   const result = fn(args);
   if (isThenable(result)) {

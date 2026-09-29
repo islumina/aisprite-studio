@@ -1,4 +1,4 @@
-import { createSpriteAnimator } from '../chunk-EI4PHVNN.js';
+import { assertGraphShape, createSpriteAnimator } from '../chunk-NBMU2UNJ.js';
 
 // src/pixi/animator.ts
 var MissingTextureError = class extends Error {
@@ -11,26 +11,28 @@ var MissingTextureError = class extends Error {
 };
 function toTextureMap(src) {
   const maybe = src;
-  if (maybe.textures && typeof maybe.textures === "object") {
+  if (maybe?.textures && typeof maybe.textures === "object") {
     return maybe.textures;
   }
-  return src;
+  return src ?? {};
 }
 function createPixiSpriteAnimator(sprite, graph, textures, options) {
+  assertGraphShape(graph);
   const map = toTextureMap(textures);
   const applyAnchor = options?.applyAnchor !== false;
-  const playable = sprite;
-  if (typeof playable.stop === "function") playable.stop();
   const missing = /* @__PURE__ */ new Set();
   for (const frameKeys of Object.values(graph.animations)) {
     for (const key of frameKeys) {
-      if (!Object.hasOwn(map, key)) missing.add(key);
+      if (!Object.hasOwn(map, key) || map[key] == null) missing.add(key);
     }
   }
   if (missing.size > 0) throw new MissingTextureError([...missing]);
   const core = createSpriteAnimator(graph);
-  let boundKey = "";
+  const playable = sprite;
+  if (typeof playable.stop === "function") playable.stop();
+  let boundKey;
   function sync() {
+    if (core.disposed) return;
     const key = core.activeFrameKey;
     if (key === boundKey) return;
     boundKey = key;
@@ -44,8 +46,11 @@ function createPixiSpriteAnimator(sprite, graph, textures, options) {
   return {
     sprite,
     update(deltaMs) {
-      core.update(deltaMs);
-      sync();
+      try {
+        core.update(deltaMs);
+      } finally {
+        sync();
+      }
     },
     setInput(name, value) {
       core.setInput(name, value);
@@ -54,8 +59,11 @@ function createPixiSpriteAnimator(sprite, graph, textures, options) {
       core.fireTrigger(name);
     },
     reset() {
-      core.reset();
-      sync();
+      try {
+        core.reset();
+      } finally {
+        sync();
+      }
     },
     dispose() {
       core.dispose();

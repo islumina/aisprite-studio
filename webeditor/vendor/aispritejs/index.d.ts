@@ -1,5 +1,5 @@
-import { b as SpriteGraph, a as SpriteAnimator } from './types-BS72pefJ.js';
-export { B as BooleanInputDef, C as CompleteHandler, c as ConditionOp, F as FrameTiming, I as InputDef, L as ListenerOptions, N as NumberInputDef, d as StateChangeHandler, S as StateDef, e as TransitionCondition, T as TransitionDef, f as TriggerInputDef, U as Unsubscribe } from './types-BS72pefJ.js';
+import { b as SpriteGraph, a as SpriteAnimator } from './types-Dr7yXTRQ.js';
+export { B as BooleanInputDef, C as CompleteHandler, c as ConditionOp, F as FrameTiming, I as InputDef, L as ListenerOptions, N as NumberInputDef, d as StateChangeHandler, S as StateDef, e as TransitionCondition, T as TransitionDef, f as TriggerInputDef, U as Unsubscribe } from './types-Dr7yXTRQ.js';
 
 /**
  * Build a renderer-agnostic visual animator from an input-driven graph.
@@ -23,8 +23,10 @@ declare class SpriteAnimatorDisposedError extends Error {
     constructor();
 }
 /**
- * Thrown by `createSpriteAnimator` when the graph fails validation — a state
- * references a missing animation, a transition points at an unknown state, a
+ * Thrown by `createSpriteAnimator` when the graph fails validation — the graph
+ * or one of its blocks has the wrong shape, a state/transition/condition
+ * identifier is not a string, a state references a missing animation, a
+ * transition points at an unknown state or has a non-integer priority, a
  * condition uses an operator the input kind does not support, a duration is
  * non-positive, and so on. Fail-fast: an invalid graph never produces a
  * half-built animator.

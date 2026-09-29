@@ -1,6 +1,6 @@
 import { FlutterAdapterOptions } from '../flutter/index.js';
 import { IframeAdapterOptions } from '../iframe/index.js';
-import { a as BridgeAdapter } from '../types-BuGIzhu1.js';
+import { a as BridgeAdapter } from '../types-CoeBJjfk.js';
 
 interface DetectOptions {
     iframe?: IframeAdapterOptions;

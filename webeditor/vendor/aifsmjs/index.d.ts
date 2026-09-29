@@ -1,6 +1,13 @@
-import { f as MachineDef, I as Implementations, m as RuntimeOptions, j as Runtime, M as MachineConfig, S as Snapshot, o as StateDef, p as StepResult, A as Action, e as GuardRef, G as Guard, T as TransitionConfig, r as TransitionDef } from './types-DIM7QTtf.js';
-export { a as ActionRef, E as Effect, b as EffectHandler, c as Enqueuer, d as GuardArgs, g as Middleware, h as MiddlewareContext, R as RESET_EVENT_TYPE, i as ResetEvent, k as RuntimeErrorEvent, l as RuntimeEventMap, n as RuntimeTransitionEvent, q as SubMachineDef } from './types-DIM7QTtf.js';
+import { f as MachineDef, I as Implementations, m as RuntimeOptions, j as Runtime, M as MachineConfig, S as Snapshot, o as StateDef, p as StepResult, A as Action, e as GuardRef, G as Guard, T as TransitionConfig, r as TransitionDef } from './types-CrDxFfBx.js';
+export { a as ActionRef, E as Effect, b as EffectHandler, c as Enqueuer, d as GuardArgs, g as Middleware, h as MiddlewareContext, R as RESET_EVENT_TYPE, i as ResetEvent, k as RuntimeErrorEvent, l as RuntimeEventMap, n as RuntimeTransitionEvent, q as SubMachineDef } from './types-CrDxFfBx.js';
 
+/**
+ * Thrown for an invalid machine definition and, since 0.6.0, for argument
+ * misuse at the definition/runtime boundary (`defineMachine`,
+ * `setup().defineMachine`, `createMachine`, `createRuntime`, and the
+ * `send` / `reset` / `subscribe` / `on` / `onTransition` runtime methods).
+ * Messages read `aifsmjs: <subject> must be <constraint>`.
+ */
 declare class InvalidDefinitionError extends Error {
     constructor(message: string);
 }
@@ -26,8 +33,9 @@ declare function defineMachine<Ctx = Record<string, never>, Evt extends {
 }, States extends string = string>(def: MachineConfig<Ctx, Evt, States>): MachineDef<Ctx, Evt, States>;
 /**
  * Curried builder so `States` can be inferred from `keyof states` without
- * `initial` collapsing it to a single literal. Pass `Ctx` and `Evt` as the
- * type arguments; pass the def to the returned `defineMachine`.
+ * `initial` or a transition `target` collapsing it to a single literal. Pass
+ * `Ctx` and `Evt` as the type arguments; pass the def to the returned
+ * `defineMachine`.
  *
  *   const machine = setup<MyCtx, MyEvt>().defineMachine({
  *     id: "m",
@@ -44,7 +52,9 @@ declare function setup<Ctx = Record<string, never>, Evt extends {
     defineMachine: <const States extends string>(def: Readonly<{
         id: string;
         initial: NoInfer<States>;
-        states: Readonly<Record<States, StateDef<Ctx, Evt, States>>>;
+        states: Readonly<{
+            [K in States]: StateDef<Ctx, Evt, NoInfer<States>>;
+        }>;
     }> & (Record<string, never> extends Ctx ? {
         readonly context?: Ctx;
     } : {
@@ -76,6 +86,21 @@ declare class UnknownActionError extends Error {
     constructor(actionName: string);
 }
 /**
+ * Thrown (from `step()`, and so from `send()` before anything is committed)
+ * when an action returns a non-nullish primitive (`false`, `0`, `""`, ...) as
+ * the patch for an object context. An object context accepts only a
+ * plain-object patch or `undefined`/`null` (no change).
+ *
+ * `actionName` is the string ref, the inline function's name, or `"<inline>"`
+ * for an anonymous inline action (mirrors guard naming).
+ *
+ * @since 0.6.0
+ */
+declare class InvalidActionResultError extends Error {
+    readonly actionName: string;
+    constructor(actionName: string, patch: unknown);
+}
+/**
  * Compute the next snapshot and collected effects from a single event.
  *
  * Order is fixed and uninterruptible:
@@ -87,6 +112,7 @@ declare class UnknownActionError extends Error {
  *   6. return { snapshot, effects, changed }
  *
  * The function is pure: it never dispatches effects and never mutates inputs.
+ * Each guard on the path is evaluated at most once.
  */
 declare function step<Ctx, Evt extends {
     type: string;
@@ -98,11 +124,15 @@ declare class RuntimeDisposedError extends Error {
 /**
  * Thrown by `send()` / `reset()` when a sub-machine init or dispose throws.
  *
- * Invariants:
- * - `phase: "init"` — child constructor threw. Parent snapshot was rolled
- *   back to `prev`; no middleware ran; no `'transition'` emitted; no effects.
- * - `phase: "dispose"` — previous child's `dispose()` threw during transition.
- *   Parent snapshot was rolled back to `prev`; child reference is cleared.
+ * Prepare-then-commit: the new child is constructed before the previous one
+ * is disposed. Invariants:
+ * - `phase: "init"` — the new child's constructor threw. The parent snapshot
+ *   is not committed and the previous child (if any) is untouched: still live
+ *   and still returned by `subRuntime()`. No middleware ran, no `'transition'`
+ *   was emitted, no effects were dispatched.
+ * - `phase: "dispose"` — the previous child's `dispose()` threw. The new
+ *   child (if any) was discarded, the parent snapshot is not committed, and
+ *   `subRuntime()` returns `undefined` until the sub state is re-entered.
  * - Never thrown from `runtime.dispose()` cascade (never-throws contract).
  *
  * @since 0.3.0
@@ -115,9 +145,18 @@ declare class SubMachineError extends Error {
 }
 /**
  * Build a thin stateful runtime around a machine. `send()` calls `step()`,
- * runs the read-only middleware pipeline, dispatches effects, and notifies
- * subscribers. The runtime owns an `AbortController`; `dispose()` aborts it
- * and clears all state.
+ * commits, runs the read-only middleware pipeline, dispatches effects, and
+ * notifies subscribers then `'transition'` listeners. `send()`/`reset()` are
+ * run-to-completion: a call made while the runtime is already dispatching
+ * (from middleware, an effect handler, a listener, or a child runtime) is
+ * queued FIFO and processed after the current event's last notification.
+ * The runtime owns an `AbortController`; `dispose()` aborts it and clears all
+ * state.
+ *
+ * Arguments are validated before anything is created: a non-object `def`,
+ * `def.states`, `impl` or `opts`, or a `middleware` option that is not an
+ * array of functions, throws `InvalidDefinitionError`. The rest of `def` is
+ * trusted (build it with `defineMachine` / `setup().defineMachine`).
  */
 declare function createRuntime<Ctx, Evt extends {
     type: string;
@@ -132,12 +171,21 @@ declare function assign<Ctx, Evt>(updater: (args: {
     event: Evt;
 }) => Partial<Ctx>): Action<Ctx, Evt>;
 /**
- * Merge a partial context update into the current context. Plain-object
- * contexts get a shallow merge; non-object contexts get replaced wholesale.
+ * Merge an action's result into the current context. The function never
+ * mutates either argument.
  *
- * The function never mutates either argument.
+ * - `undefined` / `null` patch: `current` is returned unchanged.
+ * - Object context (not an array or `ArrayBuffer` view) + plain-object patch:
+ *   shallow merge into a new object that keeps `current`'s prototype, so a
+ *   class-instance context keeps its methods and untouched fields. Only own
+ *   enumerable (string and symbol) properties are carried; `#private` and
+ *   non-enumerable members are not, so prefer plain-object contexts.
+ * - Object context + non-nullish primitive patch (`false`, `0`, `""`, ...):
+ *   throws {@link InvalidActionResultError} (`actionName` names the action).
+ * - Anything else (a primitive or array context, or a non-plain-object patch
+ *   such as an array or class instance): the patch replaces `current`.
  */
-declare function mergeContext<Ctx>(current: Ctx, patch: Partial<Ctx> | void): Ctx;
+declare function mergeContext<Ctx>(current: Ctx, patch: Partial<Ctx> | void, actionName?: string): Ctx;
 
 declare class UnknownGuardError extends Error {
     readonly guardName: string;
@@ -220,4 +268,4 @@ declare function createSnapshot<C, S extends string>(args: {
     status?: "active" | "final";
 }): Snapshot<C, S>;
 
-export { Action, AsyncGuardError, Guard, GuardRef, Implementations, InvalidDefinitionError, MachineDef, Runtime, RuntimeDisposedError, RuntimeOptions, Snapshot, StateDef, StepResult, SubMachineError, TransitionConfig, TransitionDef, UnknownActionError, UnknownGuardError, assign, createMachine, createRuntime, createSnapshot, deepFreeze, defineMachine, evalGuard, freezeSnapshot, initialSnapshot, isAsyncGuardFn, mergeContext, normalizeTransition, normalizeTransitions, resolveGuard, resolveTransitions, setup, step };
+export { Action, AsyncGuardError, Guard, GuardRef, Implementations, InvalidActionResultError, InvalidDefinitionError, MachineConfig, MachineDef, Runtime, RuntimeDisposedError, RuntimeOptions, Snapshot, StateDef, StepResult, SubMachineError, TransitionConfig, TransitionDef, UnknownActionError, UnknownGuardError, assign, createMachine, createRuntime, createSnapshot, deepFreeze, defineMachine, evalGuard, freezeSnapshot, initialSnapshot, isAsyncGuardFn, mergeContext, normalizeTransition, normalizeTransitions, resolveGuard, resolveTransitions, setup, step };

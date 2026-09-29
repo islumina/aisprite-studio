@@ -1,10 +1,12 @@
 import { Sprite, Texture, Spritesheet } from 'pixi.js';
-import { C as CompleteHandler, L as ListenerOptions, U as Unsubscribe, d as StateChangeHandler, b as SpriteGraph } from '../types-BS72pefJ.js';
+import { C as CompleteHandler, L as ListenerOptions, U as Unsubscribe, d as StateChangeHandler, b as SpriteGraph } from '../types-Dr7yXTRQ.js';
 
 /**
  * Thrown by {@link createPixiSpriteAnimator} when the supplied textures are
- * missing one or more frame keys the graph's animations reference. Fail-fast at
- * construction, so `update()` never has to guard.
+ * missing one or more frame keys the graph's animations reference (an own entry
+ * whose value is `null` / `undefined` counts as missing, and so does every key
+ * when `textures` itself is nullish). Fail-fast at construction, so `update()`
+ * never has to guard.
  *
  * @public
  */
@@ -36,7 +38,10 @@ interface PixiSpriteAnimatorOptions {
 interface PixiSpriteAnimator {
     /** The bound sprite, updated in place. */
     readonly sprite: Sprite;
-    /** Run the core machine for `deltaMs`, then sync the sprite's texture. */
+    /**
+     * Run the core machine for `deltaMs`, then sync the sprite's texture (also
+     * when a listener throws, before the error propagates).
+     */
     update(deltaMs: number): void;
     /** Set a Number / Boolean input on the core machine. */
     setInput(name: string, value: number | boolean): void;
@@ -66,11 +71,16 @@ interface PixiSpriteAnimator {
  *   playback is stopped to stop it fighting the adapter for the texture.
  * @param graph - the input-driven graph (same shape the core consumes).
  * @param textures - a `Spritesheet` or a frame-key → `Texture` map covering
- *   every frame the graph references.
+ *   every frame of every declared animation. Any object with an object-valued
+ *   `textures` property is read as a Spritesheet, so if a frame is literally
+ *   named `textures`, pass the Spritesheet (or `{ textures: map }`), not the
+ *   bare map.
  * @param options - see {@link PixiSpriteAnimatorOptions}.
  * @returns a {@link PixiSpriteAnimator}.
- * @throws {@link MissingTextureError} if a referenced frame key has no texture.
- * @throws {@link InvalidGraphError} if the graph is invalid.
+ * @throws {@link InvalidGraphError} if the graph is not an object or its
+ *   containers are malformed (checked before textures), or is otherwise invalid.
+ * @throws {@link MissingTextureError} if a frame key has no texture, or a
+ *   `null` / `undefined` one.
  *
  * @public
  */

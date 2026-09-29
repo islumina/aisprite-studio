@@ -12,8 +12,9 @@ interface EmitterOptions {
      *  - undefined / false (default) — first throw aborts dispatch (mitt-compatible).
      *  - true — swallow; dispatch continues over all handlers in the snapshot.
      *  - (err, type, payload) => void — invoked with the unknown error, the
-     *    event name as string, and the payload as unknown. If this callback
-     *    itself throws, the error is silently ignored.
+     *    event name as a string (numeric and symbol keys are converted with
+     *    `String()`), and the payload as unknown. If this callback itself
+     *    throws, the error is silently ignored.
      *
      * Per-subscription OnOptions.captureErrors overrides this for that handler.
      */
@@ -41,6 +42,8 @@ interface OnOptions {
     /**
      * Aborting this signal removes the handler. The same effect as calling
      * the returned unsubscribe function. Pre-aborted signals never register.
+     * A value without `addEventListener` / `removeEventListener` throws
+     * EmitterError; `null` is treated like `undefined`.
      */
     signal?: AbortSignal;
     /** Auto-remove the handler after the first dispatch. Equivalent to `once()`. */
@@ -103,17 +106,20 @@ interface Emitter<Events extends Record<string, unknown>> {
      */
     on(type: "*", handler: WildcardHandler<Events>, opts?: OnOptions): () => void;
     /**
-     * Subscribe and auto-remove after the first dispatch. Equivalent to
-     * `on(type, handler, { once: true })`.
+     * Wildcard-once: subscribe to every event and auto-remove after the first
+     * dispatch. Equivalent to `on("*", handler, { once: true })`: the handler
+     * receives `(type, payload)`, fires after type-matched handlers, and goes
+     * inert before it is called.
      *
      * @remarks
-     * **`"*"` is not a valid `type` argument for `once()`.** The wildcard is
-     * handled by the `on("*", handler, { once: true })` overload instead.
-     * The explicit rejection overload below ensures `once("*", ...)` is a
-     * compile-time error (handler typed as `never`). (EVT-B-02)
+     * Declared before the typed overload so `"*"` always resolves here, even
+     * when `Events` has a string index signature (EVT-B-02).
      */
-    /** @internal — compile-time rejection: `once("*", handler)` is a type error. */
-    once(type: "*", handler: never): never;
+    once(type: "*", handler: WildcardHandler<Events>): () => void;
+    /**
+     * Subscribe and auto-remove after the first dispatch. Equivalent to
+     * `on(type, handler, { once: true })`.
+     */
     once<K extends keyof Events>(type: K, handler: EventHandler<Events[K]>): () => void;
     /**
      * Imperative unsubscribe. Prefer the unsubscribe function returned by
@@ -127,10 +133,13 @@ interface Emitter<Events extends Record<string, unknown>> {
     off(type: "*", handler?: WildcardHandler<Events>): void;
     /**
      * Dispatch synchronously. Handlers receive `payload`; wildcard handlers
-     * receive `(type, payload)`. Handler lists are snapshotted before iteration,
-     * so removing a handler inside its own callback does not skip subsequent
-     * handlers. By default, the first throwing handler aborts the dispatch;
-     * set EmitterOptions.captureHandlerErrors (or per-handler OnOptions.captureErrors)
+     * receive `(type, payload)`. Handler lists are snapshotted before iteration:
+     * a handler added during the dispatch waits for the next `emit()`, and a
+     * handler removed during it (unsubscribe, `off`, `clear`, `dispose` or an
+     * aborted signal) is skipped for the rest of it. A nested `emit()` from a
+     * handler runs to completion before the outer dispatch resumes. By default,
+     * the first throwing handler aborts the dispatch; set
+     * EmitterOptions.captureHandlerErrors (or per-handler OnOptions.captureErrors)
      * to swallow or report errors and continue.
      */
     emit<K extends keyof Events>(type: K, payload: Events[K]): void;
@@ -148,10 +157,12 @@ interface Emitter<Events extends Record<string, unknown>> {
     readonly disposed: boolean;
 }
 /**
- * Recoverable emitter error. Thrown by `on()` when `OnOptions` violates a
- * precondition: `captureErrors` set on a wildcard `"*"` subscription;
- * `sampleRate` set on a typed subscription; `sampleRate` outside `(0, 1]`; or
- * `throttleMs` non-finite or negative.
+ * Recoverable emitter error. Thrown by `on()` / `once()` before anything is
+ * registered when `handler` is not a function, or when `OnOptions` violates a
+ * precondition: `signal` is not an `AbortSignal`; `captureErrors` set on a
+ * wildcard `"*"` subscription; `sampleRate` set on a typed subscription;
+ * `sampleRate` outside `(0, 1]`; or `throttleMs` non-finite or negative.
+ * Messages read `aieventjs: <subject> must be <constraint>`.
  *
  * @public
  */
@@ -159,7 +170,10 @@ declare class EmitterError extends Error {
     readonly name = "EmitterError";
 }
 /**
- * Thrown by any emitter method called after {@link Emitter.dispose}.
+ * Thrown by `on`/`once`/`emit`/`off`/`clear` when called after
+ * {@link Emitter.dispose}. `dispose()` itself never throws — it is
+ * idempotent — and unsubscribe functions returned before dispose remain
+ * safe no-ops afterward.
  *
  * @public
  */

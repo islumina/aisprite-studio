@@ -1,5 +1,3 @@
-import '../chunk-PZ5AY32C.js';
-
 // src/inspect/index.ts
 function logger(out = (l) => console.log(l)) {
   return (mw, next) => {

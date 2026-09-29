@@ -1,4 +1,4 @@
-import { I as InputDef, S as StateDef, T as TransitionDef, a as SpriteAnimator, b as SpriteGraph } from '../types-BS72pefJ.js';
+import { I as InputDef, S as StateDef, T as TransitionDef, a as SpriteAnimator, b as SpriteGraph } from '../types-Dr7yXTRQ.js';
 
 /**
  * Thrown when an atlas is structurally unusable — not an object, missing or
@@ -33,9 +33,12 @@ interface SpriteControl {
  *   `frames`, and — for the augmented shape — `inputs` / `states` / `transitions`.
  * @param control - an explicit {@link SpriteControl} that supplies (or overrides)
  *   the input-driven graph. Required when the atlas has no `aispritejs` control
- *   block or its `states` is foreign (event-driven).
+ *   block or its `states` is foreign (event-driven). When supplied (not
+ *   `undefined` / `null`) it gets the same structural checks as an embedded
+ *   block, and a wrong-typed `initial` / `defaultFrameDuration` is rejected
+ *   rather than dropped.
  * @returns a {@link SpriteGraph} ready for `createSpriteAnimator`.
- * @throws {@link InvalidAtlasError} on a structurally unusable atlas.
+ * @throws {@link InvalidAtlasError} on a structurally unusable atlas or control.
  *
  * @public
  */

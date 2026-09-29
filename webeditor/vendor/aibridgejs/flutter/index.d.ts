@@ -1,4 +1,4 @@
-import { a as BridgeAdapter, b as BridgeEnvelope } from '../types-BuGIzhu1.js';
+import { a as BridgeAdapter, b as BridgeEnvelope } from '../types-CoeBJjfk.js';
 
 interface FlutterInAppWebView {
     callHandler(name: string, ...args: unknown[]): Promise<unknown>;

@@ -8,7 +8,9 @@
  *   `create()` (O(capacity) re-alloc + same-frame GC spike). Use only where
  *   unbounded growth is acceptable.
  * - function handler — called with the pool as argument; return value is added to
- *   the alive set and handed to the caller. **Warning:** if the handler recycles
+ *   the alive set and handed to the caller. A `null` or `undefined` return throws
+ *   {@link PoolError} and leaves the pool unchanged; to signal "no object", use
+ *   `'null'` instead. **Warning:** if the handler recycles
  *   an already-alive object (e.g. "evict the oldest"), the previous holder's
  *   reference is aliased — any subsequent `release` from either party may throw
  *   `PoolError("foreign or double-released")`. This is an escape hatch; caller
@@ -31,18 +33,22 @@ type OverflowHandler<T> = "throw" | "null" | "grow" | ((pool: Pool<T>) => T);
  */
 interface PoolOptions<T> {
     /**
-     * Factory invoked exactly `size` times at construction. Each invocation
-     * must return a fresh instance — pool semantics depend on independence
-     * between slots.
+     * Factory invoked exactly `size` times at construction (and again by
+     * `'grow'`). Each invocation must return a fresh instance — pool semantics
+     * depend on independence between slots. Must be a function, or
+     * {@link createPool} throws {@link PoolError}.
      *
-     * If `create()` throws, {@link createPool} throws and no slots are kept.
+     * If `create()` throws, or returns `null` or `undefined` (which throws
+     * {@link PoolError}), {@link createPool} throws and no slots are kept; during
+     * `'grow'` the pool is left unchanged.
      */
     create: () => T;
     /**
-     * Reset hook called on every {@link Pool.release}. Must clear mutable
-     * fields back to a known good state without `delete`-ing properties:
-     * deleting fields demotes V8 hidden classes and turns the steady-state
-     * loop megamorphic.
+     * Reset hook called on every {@link Pool.release}. Must be a function, or
+     * {@link createPool} throws {@link PoolError} before calling `create()`.
+     * Must clear mutable fields back to a known good state without
+     * `delete`-ing properties: deleting fields demotes V8 hidden classes and
+     * turns the steady-state loop megamorphic.
      *
      * Prefer `obj.x = 0; obj.visible = false;` over `delete obj.x`.
      *
@@ -101,8 +107,8 @@ interface Pool<T> {
     drain(): void;
     /**
      * Idempotent teardown. Releases internal references so the GC can reclaim
-     * pooled objects. Subsequent calls to `acquire` / `release` / `drain`
-     * throw {@link PoolDisposedError}.
+     * pooled objects. Subsequent calls to `acquire` / `release` / `drain` /
+     * `borrow` throw {@link PoolDisposedError}.
      */
     dispose(): void;
     /**
@@ -111,12 +117,15 @@ interface Pool<T> {
      *
      * **Invariants:**
      * 1. `release(obj)` is guaranteed to run in `finally` — on sync throw,
-     *    async reject, or abort.
-     * 2. If `opts.signal` is aborted before or during `fn`, `borrow` releases
-     *    the slot immediately and rejects with `signal.reason` (default:
-     *    `AbortError` DOMException). If the signal is already aborted before
-     *    `borrow` is called, the promise rejects without acquiring or calling
-     *    `fn`.
+     *    async reject, or abort — unless `drain()` already reclaimed it (INV8).
+     * 2. If `opts.signal` is aborted before or during `fn`, `borrow` rejects
+     *    with `signal.reason` (default: `AbortError` DOMException). If the
+     *    signal is already aborted before `borrow` is called, the promise
+     *    rejects without ever acquiring or calling `fn`. If it aborts while
+     *    `fn` is running, the rejection fires synchronously from the abort
+     *    event, but the slot itself is released one microtask later, in the
+     *    `finally` that runs after that rejection — synchronous code right
+     *    after `ctrl.abort()` still sees the slot as held (see **INV6**).
      * 3. Abort does **not** cancel inner work — `fn` keeps running; `signal` is
      *    advisory. See **INV6** below.
      * 4. If the pool is disposed, `borrow` throws `PoolDisposedError`
@@ -124,12 +133,13 @@ interface Pool<T> {
      * 5. If `onOverflow` is `'null'` and the pool is full, `borrow` throws
      *    `PoolError` synchronously; `fn` is never called.
      * 6. **Abort does not fence inner work.** When `signal` aborts, `borrow`
-     *    releases the slot and rejects immediately. It does **not** cancel the
-     *    work inside `fn` — the signal is advisory. If `fn` keeps touching the
-     *    borrowed object after abort, it may mutate an object another caller has
-     *    since acquired. `fn` must observe `signal.aborted` and stop touching
-     *    the object the moment it aborts. Treat the borrowed object as invalid
-     *    once `signal` fires.
+     *    rejects immediately, but the slot is released one microtask later (see
+     *    **INV2**) — it is not freed within the same synchronous turn as
+     *    `ctrl.abort()`. It does **not** cancel the work inside `fn` — the
+     *    signal is advisory. If `fn` keeps touching the borrowed object after
+     *    abort, it may mutate an object another caller has since acquired. `fn`
+     *    must observe `signal.aborted` and stop touching the object the moment
+     *    it aborts. Treat the borrowed object as invalid once `signal` fires.
      * 7. **Dispose-during-borrow:** if `dispose()` is called while an async
      *    `borrow` is in flight, the `finally` block runs `release(obj)` after
      *    the pool is already disposed — `release` throws `PoolDisposedError`,
@@ -137,8 +147,16 @@ interface Pool<T> {
      *    returned or threw. The caller will always see a `PoolDisposedError` in
      *    this race, regardless of `fn`'s outcome. This is an explicit invariant:
      *    do not dispose a pool that has active borrows.
+     * 8. **Drain-during-borrow:** `drain()` reclaims the borrowed object too, so
+     *    the `finally` block then skips `release(obj)` — it neither throws nor
+     *    resets/frees the object if another caller has since acquired it. `fn`
+     *    must treat the object as invalid after `drain()`, as with INV6.
+     * 9. **Argument validation:** after the INV4 check and before `acquire`, a
+     *    `fn` that is not a function, or an `opts.signal` without
+     *    `addEventListener` / `removeEventListener`, throws `PoolError`
+     *    synchronously. A `null` or `undefined` signal means no signal.
      *
-     * **Sync vs async dispatch:** disposed/overflow errors are thrown
+     * **Sync vs async dispatch:** disposed/overflow/validation errors are thrown
      * synchronously (both overloads). A pre-aborted signal yields a rejected
      * Promise. The async branch activates only when `fn` returns a native
      * `Promise`; a non-`instanceof Promise` thenable is treated as sync —
@@ -169,8 +187,11 @@ interface NullPool<T> extends Omit<Pool<T>, "acquire"> {
     acquire(): T | null;
 }
 /**
- * Recoverable pool error. Thrown by `acquire()` on overflow and by
- * `release()` on double-release or foreign-object release.
+ * Recoverable pool error. Thrown by `acquire()` on overflow, by `release()`
+ * on double-release or foreign-object release, by `createPool()` and
+ * `borrow()` on invalid arguments, and whenever `create()` or an overflow
+ * handler returns `null` or `undefined`. Every message starts with
+ * `aipooljs: `; match on the class plus a regex, not the exact text.
  *
  * @public
  */

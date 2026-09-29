@@ -1,8 +1,14 @@
-import '../chunk-PZ5AY32C.js';
-
 // src/timer/scheduler.ts
 var NOOP = Object.freeze({ cancel: () => {
 } });
+var MAX_DELAY = 2147483647;
+var clampDelay = (ms) => Math.min(ms, MAX_DELAY);
+function checkArgs(ms, fn) {
+  if (!Number.isFinite(ms) || ms < 0) {
+    throw new RangeError("aifsmjs: after() ms must be a finite number >= 0");
+  }
+  if (typeof fn !== "function") throw new TypeError("aifsmjs: after() fn must be a function");
+}
 function resolveTimers(opts) {
   return {
     st: opts?.setTimeout ?? ((fn, ms) => globalThis.setTimeout(fn, ms)),
@@ -10,6 +16,7 @@ function resolveTimers(opts) {
   };
 }
 function after(ms, fn, opts) {
+  checkArgs(ms, fn);
   if (opts?.signal?.aborted) return NOOP;
   const { st, ct } = resolveTimers(opts);
   let fired = false;
@@ -26,7 +33,7 @@ function after(ms, fn, opts) {
     if (cancelled) return;
     if (opts?.signal) opts.signal.removeEventListener("abort", cancel);
     fn();
-  }, ms);
+  }, clampDelay(ms));
   if (opts?.signal && !fired) {
     opts.signal.addEventListener("abort", cancel, { once: true });
   }
@@ -36,8 +43,14 @@ function createScheduler(defaults) {
   const pending = /* @__PURE__ */ new Set();
   const sched = {
     after(ms, fn, opts) {
-      const merged = { ...defaults, ...opts };
-      const { signal, ...innerOpts } = merged;
+      checkArgs(ms, fn);
+      const signal = opts?.signal ?? defaults?.signal;
+      const setTimeoutFn = opts?.setTimeout ?? defaults?.setTimeout;
+      const clearTimeoutFn = opts?.clearTimeout ?? defaults?.clearTimeout;
+      const innerOpts = {
+        ...setTimeoutFn !== void 0 && { setTimeout: setTimeoutFn },
+        ...clearTimeoutFn !== void 0 && { clearTimeout: clearTimeoutFn }
+      };
       if (signal?.aborted) return NOOP;
       const slot = {};
       let fired = false;
