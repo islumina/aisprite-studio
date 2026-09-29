@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { access, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
@@ -41,7 +42,10 @@ function captureReasons(run) {
   return reasons;
 }
 
-test("selects local mode only on a loopback host without ?mode=static", () => {
+const WEBEDITOR = new URL("../webeditor/", import.meta.url);
+const readWebeditor = (file) => readFile(new URL(file, WEBEDITOR), "utf8");
+
+test("defaults to local mode only on a loopback host", () => {
   for (const hostname of ["localhost", "127.0.0.1", "[::1]"]) {
     assert.equal(resolveStudioMode({ hostname, search: "" }), "local", hostname);
     assert.equal(resolveStudioMode({ hostname, search: "?char=reimu" }), "local", hostname);
@@ -49,7 +53,52 @@ test("selects local mode only on a loopback host without ?mode=static", () => {
   }
   for (const hostname of ["islumina.org", "www.islumina.org", "localhost.example.com", "192.168.1.20", "0.0.0.0", ""]) {
     assert.equal(resolveStudioMode({ hostname, search: "" }), "static", hostname);
-    assert.equal(resolveStudioMode({ hostname, search: "?mode=local" }), "static", hostname);
+    assert.equal(resolveStudioMode({ hostname, search: "?mode=static" }), "static", hostname);
+  }
+});
+
+test("?mode=local opts into local mode on any host, e.g. a LAN address", () => {
+  for (const hostname of ["192.168.1.20", "10.0.0.5", "studio.local", "0.0.0.0", "localhost", "[::1]"]) {
+    assert.equal(resolveStudioMode({ hostname, search: "?mode=local" }), "local", hostname);
+    assert.equal(resolveStudioMode({ hostname, search: "?char=reimu&mode=local" }), "local", hostname);
+  }
+  // Exact values only; anything else falls back to the host default.
+  for (const search of ["?mode=LOCAL", "?mode=", "?mode=local1", "?modes=local"]) {
+    assert.equal(resolveStudioMode({ hostname: "192.168.1.20", search }), "static", search);
+  }
+  // The first value wins (URLSearchParams.get), so an appended ?mode=local cannot flip the hosted iframe URL.
+  assert.equal(resolveStudioMode({ hostname: "islumina.org", search: "?mode=static&mode=local" }), "static");
+});
+
+test("the editor page loads nothing from a third-party origin", async () => {
+  const withoutComments = (await readWebeditor("index.html")).replace(/<!--[\s\S]*?-->/g, "")
+    + (await readWebeditor("style.css")).replace(/\/\*[\s\S]*?\*\//g, "");
+  const refs = [...withoutComments.matchAll(/(?:\b(?:src|href)\s*=\s*["']|url\(\s*["']?|@import\s+["'])([^"')\s]+)/g)]
+    .map((match) => match[1]);
+  assert.ok(refs.some((ref) => ref.endsWith(".woff2")), "fonts are referenced");
+  assert.deepEqual(refs.filter((ref) => /^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(ref)), [], "absolute or protocol-relative URLs");
+  for (const ref of refs.filter((candidate) => !candidate.startsWith("#") && !candidate.startsWith("data:"))) {
+    await access(new URL(ref, WEBEDITOR)); // every local reference resolves to a vendored file
+  }
+});
+
+test("every icon reference has an inline symbol", async () => {
+  const html = (await readWebeditor("index.html")).replace(/<!--[\s\S]*?-->/g, "");
+  const symbols = new Set([...html.matchAll(/<symbol id="(icon-[a-z-]+)"/g)].map((match) => match[1]));
+  const sources = html + await readWebeditor("src/editor.js");
+  const used = new Set([...sources.matchAll(/#(icon-[a-z-]+)/g)].map((match) => match[1]));
+  assert.ok(used.size >= 9);
+  assert.deepEqual([...used].filter((id) => !symbols.has(id)), []);
+});
+
+test("every form control in index.html has an accessible name", async () => {
+  const html = await readWebeditor("index.html");
+  const labelled = new Set([...html.matchAll(/<label\b[^>]*\bfor="([^"]+)"/g)].map((match) => match[1]));
+  const controls = [...html.matchAll(/<(?:input|select|textarea)\b[^>]*>/g)].map((match) => match[0]);
+  assert.ok(controls.length >= 15);
+  for (const tag of controls) {
+    const id = tag.match(/\bid="([^"]+)"/)?.[1];
+    assert.ok(/\baria-label(?:ledby)?="[^"]+"/.test(tag) || (id !== undefined && labelled.has(id)), tag);
   }
 });
 

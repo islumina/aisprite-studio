@@ -51,7 +51,7 @@ AI 助理會自動閱讀 [SKILL.md](./SKILL.md) 並在您的電腦上自動完�
 npm ci
 npm run serve
 ```
-伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AISPRITE_STUDIO_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。
+伺服器預設只綁定 `127.0.0.1`。若確實需要 LAN 測試，可設定 `AISPRITE_STUDIO_HOST=0.0.0.0`；開發伺服器沒有驗證機制，請勿暴露在不受信任的網路。編輯器在非 loopback 主機上預設執行唯讀 demo，用 LAN 位址開啟時請加上 `?mode=local`（例如 `http://192.168.1.20:8080/?mode=local`）。
 
 在瀏覽器中開啟 `http://localhost:8080/?char=reimu`。您可以拖曳時間軸、微調錨點（Pivot）或調整綠幕去背參數。
 
