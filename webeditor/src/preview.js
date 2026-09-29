@@ -17,7 +17,7 @@ const pointPool = createPool({
 let app = null;
 let sprite = null;
 let crosshairEl = null;
-let canvasSize = 512;
+const canvasSize = 512; // fallback source frame size when an atlas omits sourceSize
 let currentPb = null;
 let _sheet = null; // current parsed Spritesheet instance
 // Green-screen key: generation uses solid #00FF00, keyed to transparency at load.
@@ -69,7 +69,12 @@ export async function initPreview(container, crosshair) {
   const viewportEl = container.closest('.viewport-container');
   const vw = viewportEl?.clientWidth || 512;
   const vh = viewportEl?.clientHeight || 512;
-  await app.init({ width: vw, height: vh, backgroundAlpha: 0, antialias: true });
+  try {
+    await app.init({ width: vw, height: vh, backgroundAlpha: 0, antialias: true });
+  } catch (error) {
+    app = null; // keep every other export a no-op instead of touching a half-built app
+    throw new Error(`PixiJS renderer failed to initialise: ${error?.message ?? error}`, { cause: error });
+  }
   container.querySelector('canvas')?.remove();
   container.appendChild(app.canvas);
   crosshairEl = crosshair;
@@ -105,13 +110,6 @@ export async function initPreview(container, crosshair) {
   // Setup interactions
   setupViewportInteraction(app.canvas);
   setupPivotDrag();
-}
-
-/** Change the canvas resolution. Caller must re-init and replay. */
-export function getCanvasSize() { return canvasSize; }
-export async function setCanvasSize(size, container, crosshair) {
-  canvasSize = size;
-  await initPreview(container, crosshair);
 }
 
 /**
@@ -176,6 +174,7 @@ export function playUnit(pb, opts = {}) {
 
   // Resolve textures: prefer Spritesheet animations, fallback to passed textures
   let textures;
+  let timed = false; // per-frame durations drive playback, so animationSpeed stays 1
   if (_sheet && pb.animName && _sheet.animations[pb.animName]) {
     const rawTextures = _sheet.animations[pb.animName];
     if (pb.frameDurations && pb.frameDurations.length === rawTextures.length) {
@@ -183,6 +182,7 @@ export function playUnit(pb, opts = {}) {
         texture: tex,
         time: pb.frameDurations[idx]
       }));
+      timed = true;
     } else {
       textures = rawTextures;
     }
@@ -209,11 +209,7 @@ export function playUnit(pb, opts = {}) {
   const fitScale = Math.min((rh * 0.55) / sourceH, (rw * 0.55) / sourceW);
   sprite.scale.set(fitScale, fitScale);
 
-  if (pb.frameDurations && pb.frameDurations.length > 0) {
-    sprite.animationSpeed = 1;
-  } else {
-    sprite.animationSpeed = 1000 / pb.durationMs / 60;
-  }
+  sprite.animationSpeed = timed ? 1 : 1000 / pb.durationMs / 60;
   sprite.loop = pb.onEnd === 'loop';
   sprite.onComplete = () => {
     if (pb.onEnd !== 'loop' && pb.onEnd !== 'hold') opts.onAnimEnd?.();
@@ -295,6 +291,7 @@ export function updateFrameDurations(frameDurations) {
         texture: tex,
         time: frameDurations[idx]
       }));
+      sprite.animationSpeed = 1;
 
       sprite.gotoAndStop(curFrame);
       if (isPlaying) {
@@ -336,10 +333,6 @@ export function positionCrosshair(anchor, visible) {
       pivotGraphics.y = sprite.y;
     }
   }
-}
-
-export function setSpeed(durationMs) {
-  if (sprite) sprite.animationSpeed = 1000 / durationMs / 60;
 }
 
 export function setOnionSkin(enabled) {

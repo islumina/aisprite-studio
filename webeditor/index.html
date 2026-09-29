@@ -24,6 +24,9 @@
     }
   }
   </script>
+  <!-- After the import map: start fetching the largest dependency and the entry in parallel. -->
+  <link rel="modulepreload" href="./vendor/pixi.min.mjs">
+  <link rel="modulepreload" href="./src/editor.js">
 
   <link rel="stylesheet" href="./style.css">
   <script
@@ -58,8 +61,8 @@
         </div>
       </div>
 
-      <div class="sidebar-title">Reference Pose</div>
-      <div class="card">
+      <div class="sidebar-title" data-local-only>Reference Pose</div>
+      <div class="card" data-local-only>
         <img id="reference-pose-img" src="" alt="Reference Pose" style="width: 100%; border-radius: 6px; display: none; border: 1px solid var(--border); cursor: pointer;" title="Click to open in new tab">
         <div id="reference-pose-info" style="display: none; margin-top: 0.4rem; font-size: 0.75rem;">
           <span id="ref-pose-filename" style="color: var(--text-muted);"></span>
@@ -67,8 +70,8 @@
         <p id="reference-pose-placeholder" class="muted-note">No input.png found for this character.</p>
       </div>
 
-      <div class="sidebar-title">T-Pose Grid</div>
-      <div class="card">
+      <div class="sidebar-title" data-local-only>T-Pose Grid</div>
+      <div class="card" data-local-only>
         <div id="tpose-generated" style="display: none;">
           <img id="tpose-img" src="" alt="Generated T-Pose" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); cursor: pointer;" title="Click to open in new tab">
           <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; font-size: 0.75rem;">
@@ -95,7 +98,7 @@
           <pre id="anim-prompt-text" style="margin: 0.3rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #a7f3d0; white-space: pre-wrap; word-break: break-word; font-size: 0.7rem; line-height: 1.4; max-height: 180px; overflow-y: auto;"></pre>
           <div style="display:flex; gap:0.3rem; margin-top:0.3rem;">
             <button id="btn-copy-anim-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
-            <button id="btn-save-anim-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
+            <button id="btn-save-anim-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
           </div>
         </details>
         <details id="frame-prompt-details" style="margin-top: 0.4rem; font-size: 0.73rem; display: none;">
@@ -103,7 +106,7 @@
           <pre id="frame-prompt-text" style="margin: 0.3rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #a7f3d0; white-space: pre-wrap; word-break: break-word; font-size: 0.7rem; line-height: 1.4; max-height: 180px; overflow-y: auto;"></pre>
           <div style="display:flex; gap:0.3rem; margin-top:0.3rem;">
             <button id="btn-copy-frame-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
-            <button id="btn-save-frame-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
+            <button id="btn-save-frame-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
           </div>
         </details>
       </div>
@@ -136,14 +139,6 @@
       <div class="sidebar-title">Canvas</div>
       <div class="card">
         <div class="control-group">
-          <label>Preview Resolution</label>
-          <div class="seg" id="canvas-size-seg">
-            <button class="btn" data-size="256">256²</button>
-            <button class="btn active" data-size="512">512²</button>
-            <button class="btn" data-size="1024">1024²</button>
-          </div>
-        </div>
-        <div class="control-group" style="margin-top:0.4rem;">
           <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
             <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Green-screen key (#00FF00 → transparent)
           </label>
@@ -216,14 +211,15 @@
         <span style="font-size: 0.8rem; font-weight: 800; color: #fff; letter-spacing: 0.5px;" id="current-state-badge">—</span>
       </div>
       <div id="canvas-container"><div id="crosshair"></div></div>
+      <div class="boot-error" id="boot-error" role="alert" hidden>The editor failed to load. Check the browser console for details.</div>
       <div class="frame-bar" id="frame-bar">
         <div class="frame-bar-controls">
           <button id="frame-prev" title="Previous frame (←)"><i data-lucide="skip-back" class="icon-md"></i></button>
-          <button id="frame-playpause" title="Play / Pause (Space)" class="active"><i data-lucide="pause" class="icon-md"></i></button>
+          <button id="frame-playpause" title="Play / Pause (,)" class="active"><i data-lucide="pause" class="icon-md"></i></button>
           <button id="frame-next" title="Next frame (→)"><i data-lucide="skip-forward" class="icon-md"></i></button>
           <span class="frame-label" id="frame-label"><strong>1</strong> / 1</span>
-          <button id="frame-regen" title="Copy this frame's prompt for an image-capable agent"><i data-lucide="refresh-cw" class="icon-sm"></i> Regenerate</button>
-          <button id="frame-copy-path" title="Copy the file path of this frame to clipboard"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Path</button>
+          <button id="frame-regen" data-local-only title="Copy this frame's prompt for an image-capable agent"><i data-lucide="refresh-cw" class="icon-sm"></i> Regenerate</button>
+          <button id="frame-copy-path" data-local-only title="Copy the file path of this frame to clipboard"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Path</button>
         </div>
         <div class="timeline-container" id="timeline-list"></div>
       </div>
@@ -235,12 +231,12 @@
         <span class="sidebar-title">atlas.json — live tuning</span>
         <button class="btn primary" id="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.74rem;">Apply</button>
       </div>
-      <p class="muted-note" style="margin-top: -0.6rem;">Edits reflect live. After an agent regenerates the sheet, hit <strong>Reload</strong> — your JSON tuning is kept.</p>
+      <p class="muted-note" id="json-hint" style="margin-top: -0.6rem;">Edits reflect live. After an agent regenerates the sheet, hit <strong>Reload</strong> — your JSON tuning is kept.</p>
       <textarea class="editor-textarea" id="json-editor" spellcheck="false"></textarea>
       <div id="json-error-msg" style="display: none; font-size: 0.72rem; color: var(--accent); margin-top: 0.3rem; margin-bottom: 0.3rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-word; line-height: 1.4;"></div>
       <div class="toolbar">
-        <button class="btn" id="btn-reload"><i data-lucide="refresh-cw" class="icon-sm"></i> Reload assets</button>
-        <button class="btn primary" id="btn-save-disk" title="Save atlas.json and keyed PNG directly to local disk"><i data-lucide="save" class="icon-sm"></i> Save to local disk</button>
+        <button class="btn" id="btn-reload" data-local-only><i data-lucide="refresh-cw" class="icon-sm"></i> Reload assets</button>
+        <button class="btn primary" id="btn-save-disk" data-local-only title="Save atlas.json and keyed PNG directly to local disk"><i data-lucide="save" class="icon-sm"></i> Save to local disk</button>
       </div>
       <div class="toolbar" style="margin-top: 0.4rem;">
         <button class="btn" id="btn-export">Export JSON</button>
@@ -253,7 +249,8 @@
     </div>
   </div>
 
-  <script type="module" src="./src/editor.js"></script>
+  <!-- onerror fires when a module in the graph (e.g. vendor/pixi.min.mjs) fails to load, before editor.js can run. -->
+  <script type="module" src="./src/editor.js" onerror="document.getElementById('boot-error').hidden = false; document.getElementById('source-badge').textContent = 'Failed to load';"></script>
   <script>lucide.createIcons();</script>
 </body>
 </html>

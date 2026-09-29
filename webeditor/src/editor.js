@@ -6,9 +6,8 @@
 // instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
 // and reload the spritesheet after an image agent regenerates it.
 import { bus, EV } from './bus.js';
-import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll } from './atlas-model.js';
+import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
 import { startRuntime, validateRuntime } from './runtime.js';
-import { renderPoses, getFocusedPose } from './poses.js';
 import { generateMockSheet } from './mock.js';
 import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
 import * as preview from './preview.js';
@@ -16,6 +15,7 @@ import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
 import { keyGreen } from './chroma.js';
 import { createStudioHostBridge } from './host-bridge.js';
+import { resolveStudioMode } from './mode.js';
 
 // --- Utilities ---
 function debounce(fn, ms) {
@@ -27,7 +27,7 @@ function debounce(fn, ms) {
 const $ = (id) => document.getElementById(id);
 const els = {
   canvas: $('canvas-container'), crosshair: $('crosshair'), json: $('json-editor'),
-  unitSelect: $('unit-select'), poses: $('poses-panel'),
+  unitSelect: $('unit-select'), bootError: $('boot-error'), jsonHint: $('json-hint'),
   sourceBadge: $('source-badge'), typeBadge: $('assettype-badge'), stateBadge: $('current-state-badge'),
   speed: $('speed-slider'), durationVal: $('duration-val'),
   endLoop: $('end-loop'), endHold: $('end-hold'), endReturn: $('end-return'), endTarget: $('end-return-target'),
@@ -52,7 +52,6 @@ const els = {
   framePromptText: $('frame-prompt-text'),
   btnCopyFramePrompt: $('btn-copy-frame-prompt'),
   wasdCard: $('wasd-card'),
-  canvasSizeSeg: $('canvas-size-seg'),
   anchorX: $('anchor-x'),
   anchorY: $('anchor-y'),
   // Frame inspector
@@ -110,6 +109,7 @@ function configureHostBridge() {
   hostBridge = createStudioHostBridge({
     onCommand(command) {
       if (command.type === 'request-context') return publishStudioContext();
+      if (staticMode) return; // read-only demo: no asset reloads or switches
       if (command.type === 'reload-assets') return els.reload?.click();
       const option = Array.from(els.characterSelect?.options ?? [])
         .find((candidate) => candidate.value === command.asset && !candidate.disabled);
@@ -123,27 +123,26 @@ let pollTimer = null;
 let curFrameIdx = 0;
 let curFrameTotal = 1;
 let previewLock = true; // When true, selected animation loops regardless of onEnd — prevents FSM returning to idle
-const staticMode = new URLSearchParams(window.location.search).get('mode') === 'static';
+const studioMode = resolveStudioMode(window.location);
+const staticMode = studioMode === 'static';
 
 function configureStaticUi() {
-  for (const element of [
-    els.btnSaveAnimPrompt,
-    els.btnSaveFramePrompt,
-    els.btnSaveDisk,
-    els.reload,
-    els.frameRegen,
-  ]) {
-    if (element) element.style.display = 'none';
-  }
+  // Controls that need server.mjs or assets/ on disk are marked in index.html.
+  for (const element of document.querySelectorAll('[data-local-only]')) element.style.display = 'none';
   if (els.autoReload) {
     els.autoReload.checked = false;
     els.autoReload.closest('label')?.remove();
   }
+  // Start unlocked so FSM transitions finish (Space → hit → idle) instead of looping hit forever.
+  previewLock = false;
+  if (els.previewLock) els.previewLock.checked = false;
+  if (els.jsonHint) els.jsonHint.textContent = 'Edits reflect live in this read-only demo. Use Export JSON to keep them.';
 }
 
 // --- Prompt loading ---
 /** Fetch a saved prompt via the dev-server API (always 200 → no console 404). */
 async function fetchSavedPrompt(charName, name) {
+  if (staticMode) return null; // no /api on a static host
   try {
     const r = await fetch(`/api/prompt?char=${encodeURIComponent(charName)}&name=${encodeURIComponent(name)}`);
     if (r.ok) {
@@ -169,21 +168,13 @@ async function loadFramePrompt(charName, animName, frameIdx) {
   els.framePromptDetails.style.display = '';
 }
 
-// Pose images are stored relative to the atlas; resolve them against the sheet's directory
-// so a dropped or served atlas keeps its thumbnails portable.
-function resolveSrc(path) {
-  if (!path || /^(data:|https?:|blob:|\/)/.test(path)) return path;
-  const dir = (baseImageUrl || '').replace(/[^/]+$/, '');
-  return dir + path;
-}
-
 // --- Boot ---
 async function start() {
   configureHostBridge();
+  if (staticMode) configureStaticUi(); // before the renderer, so a boot failure still shows the right controls
   await preview.initPreview(els.canvas, els.crosshair);
 
   if (staticMode) {
-    configureStaticUi();
     configureAgentHandoff();
     const m = generateMockSheet();
     els.characterSelect.innerHTML = '<option value="demo">Procedural demo</option>';
@@ -311,6 +302,7 @@ async function configureAgentHandoff() {
 
 /** Show the user's original input.png as Reference Pose. */
 async function updateReferencePose(charName) {
+  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
   const src = `assets/${charName}/input.png`;
   try {
     const res = await fetch(src, { method: 'HEAD' });
@@ -330,6 +322,7 @@ async function updateReferencePose(charName) {
 
 /** Show generated tpose.png in the T-Pose Grid section + load prompt. */
 async function updateTpose(charName) {
+  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
   const src = `assets/${charName}/tpose.png`;
   try {
     const res = await fetch(src, { method: 'HEAD' });
@@ -390,7 +383,6 @@ async function loadAtlas(atlasObj, imageUrl, badge) {
   jsonDirty = false; // fresh load — in sync with disk
   writeJson();
   renderUnitSelect();
-  if (els.poses) renderPoses(atlas, els.poses, resolveSrc);
 
   fsm?.dispose();
   const units = getUnits(atlas);
@@ -509,12 +501,17 @@ function reflectUnitUI(name, pb) {
   els.endReturn.classList.toggle('active', !isLoop && !isHold);
   populateReturnTargets(name, !isLoop && !isHold ? pb.onEnd : null);
   els.endTarget.style.display = !isLoop && !isHold ? '' : 'none';
-  // Duration
-  els.speed.value = pb.durationMs;
-  els.durationVal.textContent = `${pb.durationMs}ms`;
+  reflectDuration(pb);
   // Anchor
   if (els.anchorX) els.anchorX.value = pb.anchor?.x?.toFixed(2) ?? '0.50';
   if (els.anchorY) els.anchorY.value = pb.anchor?.y?.toFixed(2) ?? '0.86';
+}
+
+/** Show the per-frame duration that actually plays (the mean when frames differ). */
+function reflectDuration(pb) {
+  const { ms, uniform } = summariseFrameDurations(pb.frameDurations);
+  els.speed.value = ms;
+  els.durationVal.textContent = uniform ? `${ms}ms` : `avg ${ms}ms`;
 }
 
 /** Fill the "Return to…" dropdown with the other states (character mode). */
@@ -558,33 +555,17 @@ els.previewLock?.addEventListener('change', () => {
   if (currentUnit) playState(currentUnit);
 });
 
+// Writes every frame's duration through the model; the ATLAS_CHANGED handler
+// pushes the new per-frame times into the preview (animationSpeed stays 1).
 els.speed.oninput = (e) => {
   const ms = parseInt(e.target.value, 10);
-  els.durationVal.textContent = `${ms}ms`;
-  preview.setSpeed(ms); // live, no restart
-  if (currentUnit) setDuration(atlas, currentUnit, ms);
+  if (currentUnit && ms > 0) setDuration(atlas, currentUnit, ms);
 };
 
 els.pivot.onchange = () => {
   const pb = currentUnit && resolvePlayback(atlas, currentUnit);
   preview.positionCrosshair(pb ? pb.anchor : { x: 0.5, y: 0.72 }, els.pivot.checked);
 };
-
-// Canvas size selector
-els.canvasSizeSeg?.addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-size]');
-  if (!btn) return;
-  const size = parseInt(btn.dataset.size, 10);
-  els.canvasSizeSeg.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  await preview.setCanvasSize(size, els.canvas, els.crosshair);
-  // Re-load the spritesheet into the new canvas
-  if (atlas && baseImageUrl) {
-    const imgUrl = baseImageUrl.startsWith('data:') ? baseImageUrl : `${baseImageUrl}?_t=${++reloadCount}`;
-    await preview.loadSheet(imgUrl, atlas);
-  }
-  if (currentUnit) playState(currentUnit);
-});
 
 // Anchor inputs
 function onAnchorInput() {
@@ -623,7 +604,6 @@ async function applyJsonText(rewrite) {
   jsonDirty = true; // user-edited atlas; auto-reload must not clobber it
   atlas = parsed;
   renderUnitSelect();
-  if (els.poses) renderPoses(atlas, els.poses, resolveSrc);
   els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
   fsm?.dispose();
   fsm = startRuntime(atlas, onFsmState);
@@ -691,19 +671,20 @@ els.reload.onclick = async () => {
 bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   jsonDirty = true; // tuning diverges from disk; auto-reload keeps it
 
+  const timing = reason.startsWith('duration:') || reason.startsWith('frame-duration:');
   // Debounce writing back to textarea for high-frequency events to maintain 60 FPS performance
-  if (reason.startsWith('anchor:') || reason.startsWith('frame-duration:')) {
+  if (reason.startsWith('anchor:') || timing) {
     debouncedWriteJson();
   } else {
     writeJson();
   }
 
-  if (reason.startsWith('frame-duration:')) {
-    if (currentUnit) {
-      const pb = resolvePlayback(atlas, currentUnit);
-      if (pb) {
-        preview.updateFrameDurations(pb.frameDurations);
-      }
+  if (timing) {
+    const pb = currentUnit && resolvePlayback(atlas, currentUnit);
+    if (pb) {
+      preview.updateFrameDurations(pb.frameDurations);
+      reflectDuration(pb);
+      if (reason.startsWith('duration:')) renderTimeline(pb); // slider rewrote every frame
     }
   } else if (reason.startsWith('onEnd') && currentUnit) {
     fsm?.dispose();
@@ -714,7 +695,6 @@ bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
     playState(currentUnit); // apply loop/hold live
   }
 });
-bus.on(EV.POSE_FOCUS, () => renderUnitSelect()); // dim/undim actions by source T-Pose
 bus.on(EV.ANCHOR_DRAGGED, ({ x, y }) => {
   if (els.anchorX) els.anchorX.value = x.toFixed(2);
   if (els.anchorY) els.anchorY.value = y.toFixed(2);
@@ -747,11 +727,9 @@ els.characterSelect?.addEventListener('change', async () => {
 
 // --- Copy + interaction handlers ---
 function copyToClipboard(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✓ Copied';
-    setTimeout(() => { btn.textContent = orig; }, 1200);
-  });
+  navigator.clipboard.writeText(text)
+    .then(() => flashLabel(btn, '✓ Copied'))
+    .catch(() => flashLabel(btn, '✗ Copy failed', false));
 }
 els.btnCopyTposeUrl?.addEventListener('click', (e) => {
   copyToClipboard(e.currentTarget.dataset.url, e.currentTarget);
@@ -866,7 +844,7 @@ async function seedMtime(charName) {
 }
 
 function startPolling() {
-  if (pollTimer) return;
+  if (pollTimer || staticMode) return;
   pollTimer = setInterval(checkForUpdates, 2000);
 }
 
@@ -914,13 +892,23 @@ async function autoReloadAssets() {
 }
 
 // --- Regenerate + save prompt handlers ---
+const flashes = new WeakMap(); // button → { original: Node[], timer }
+
+/** Briefly swap a button's label, keeping its lucide icon, then restore the original nodes. */
 function flashLabel(btn, label, ok = true) {
   if (!btn) return;
-  const orig = btn.dataset.orig || btn.textContent;
-  btn.dataset.orig = orig;
-  btn.textContent = label;
+  const pending = flashes.get(btn);
+  if (pending) clearTimeout(pending.timer);
+  const original = pending?.original ?? [...btn.childNodes];
+  const icon = original.find((node) => node instanceof Element && node.matches('svg, [data-lucide]'));
+  btn.replaceChildren(...(icon ? [icon, ` ${label}`] : [label]));
   btn.classList.toggle('copied', ok);
-  setTimeout(() => { btn.textContent = btn.dataset.orig || label; btn.classList.remove('copied'); btn.dataset.orig = ''; }, 1600);
+  const timer = setTimeout(() => {
+    btn.replaceChildren(...original);
+    btn.classList.remove('copied');
+    flashes.delete(btn);
+  }, 1600);
+  flashes.set(btn, { original, timer });
 }
 
 els.frameRegen?.addEventListener('click', () => {
@@ -1045,4 +1033,16 @@ els.anchorY?.addEventListener('keydown', (e) => {
   else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); nudge(els.anchorY, -0.01); }
 });
 
-start();
+/** Replace the "Loading…" state with a visible error and tell the host page. */
+function reportBootError(error) {
+  console.error('AI Sprite Studio failed to start:', error);
+  const message = error instanceof Error ? error.message : String(error);
+  if (els.bootError) {
+    els.bootError.textContent = `Preview failed to start: ${message}`;
+    els.bootError.hidden = false;
+  }
+  els.sourceBadge.textContent = 'Failed to load';
+  hostBridge?.error({ mode: studioMode, message });
+}
+
+start().catch(reportBootError);

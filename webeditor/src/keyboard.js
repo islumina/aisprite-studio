@@ -1,3 +1,16 @@
+// Focus inside any of these keeps its native keyboard behaviour (Space activates
+// a button, toggles a <summary>, opens a <select>, types into a field).
+const INTERACTIVE = 'button, select, summary, a, input, textarea, [contenteditable]:not([contenteditable="false"])';
+
+/**
+ * Whether a key event target is, or sits inside, a control that owns its keys.
+ * @param {EventTarget|null} target
+ * @returns {boolean}
+ */
+function isInteractiveTarget(target) {
+  return typeof target?.closest === 'function' && target.closest(INTERACTIVE) !== null;
+}
+
 /**
  * Setup and initialize document keyboard event listeners.
  * @param {object} initialFsm - initial FSM state machine instance.
@@ -25,22 +38,21 @@ export function initKeyboard(initialFsm, highlightKeyCallback) {
   }
 
   const onKeyDown = (e) => {
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    if (isInteractiveTarget(e.target)) return;
     const k = e.key.toLowerCase();
+    if (k !== ' ' && !KEY_EVENTS[k]) return;
+    if (k === ' ') e.preventDefault(); // also on auto-repeat, so Space never scrolls a panel
     if (held.has(k)) return;
     held.add(k);
     highlightKeyCallback(k, true);
-    if (k === ' ') {
-      e.preventDefault();
-      sendFirstHandled(['ATTACK', 'DAMAGE']);
-    } else if (KEY_EVENTS[k]) {
-      sendFirstHandled(KEY_EVENTS[k]);
-    }
+    if (k === ' ') sendFirstHandled(['ATTACK', 'DAMAGE']);
+    else sendFirstHandled(KEY_EVENTS[k]);
   };
 
   const onKeyUp = (e) => {
     const k = e.key.toLowerCase();
-    held.delete(k);
+    // Only release keys whose keydown was handled, so typing "d" in a field never sends STOP.
+    if (!held.delete(k)) return;
     highlightKeyCallback(k, false);
     if (KEY_EVENTS[k] && !['w', 'a', 's', 'd'].some((m) => held.has(m))) {
       sendFirstHandled(['STOP']);

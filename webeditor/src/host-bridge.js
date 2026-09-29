@@ -15,14 +15,27 @@ export function normaliseStudioCommand(value) {
   return { type: value.type };
 }
 
-function parentOrigin() {
-  if (typeof window === 'undefined' || window.parent === window || !document.referrer) return null;
+/**
+ * Allowlist for the bridge target: only a parent on this page's own origin.
+ * islumina.org embeds a synced copy of this directory and local embedding is
+ * same-origin too, so nothing else needs to be trusted. Reading a cross-origin
+ * parent's location throws, which also maps to null.
+ * @param {string} ownOrigin  `window.location.origin`.
+ * @param {() => string} readParentOrigin  Reads `window.parent.location.origin`.
+ * @returns {string|null} The origin to talk to, or null to disable the bridge.
+ */
+export function allowedParentOrigin(ownOrigin, readParentOrigin) {
+  if (!ownOrigin || ownOrigin === 'null') return null;
   try {
-    const origin = new URL(document.referrer).origin;
-    return origin === 'null' ? null : origin;
+    return readParentOrigin() === ownOrigin ? ownOrigin : null;
   } catch {
     return null;
   }
+}
+
+function parentOrigin() {
+  if (typeof window === 'undefined' || window.parent === window) return null;
+  return allowedParentOrigin(window.location.origin, () => window.parent.location.origin);
 }
 
 export function createStudioHostBridge({ onCommand } = {}) {
@@ -53,6 +66,7 @@ export function createStudioHostBridge({ onCommand } = {}) {
   return {
     ready: (payload) => emit('studio/ready', payload),
     context: (payload) => emit('studio/context', payload),
+    error: (payload) => emit('studio/error', payload),
     dispose() {
       unsubscribe();
       bridge.dispose();

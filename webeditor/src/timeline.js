@@ -1,4 +1,4 @@
-import { bus, EV } from './bus.js';
+import { setFrameDuration } from './atlas-model.js';
 import * as preview from './preview.js';
 
 /**
@@ -47,10 +47,7 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
         // Realtime duration tuning
         durInput.addEventListener('change', () => {
           const ms = parseInt(durInput.value, 10) || 125;
-          if (atlas.frames[fk]) {
-            atlas.frames[fk].duration = ms;
-            bus.emit(EV.ATLAS_CHANGED, { reason: `frame-duration:${fk}` });
-          }
+          setFrameDuration(atlas, fk, ms);
         });
 
         // Prevent document key handlers from firing when typing in the input
