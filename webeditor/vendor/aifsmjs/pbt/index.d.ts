@@ -1,5 +1,5 @@
 import * as fc from 'fast-check';
-import { j as Runtime, f as MachineDef, I as Implementations } from '../types-DIM7QTtf.js';
+import { j as Runtime, f as MachineDef, I as Implementations } from '../types-CrDxFfBx.js';
 
 /**
  * Pure-model representation of an FSM run, used by `fc.commands`.
@@ -100,8 +100,8 @@ declare function guardsFalseNoTransition<Ctx, Evt extends {
 }, States extends string>(def: MachineDef<Ctx, Evt, States>, impl: Implementations<Ctx, Evt>, eventArbitraries: EventArbitraries<Evt>, opts?: AssertOpts): void;
 /**
  * #6 assignDoesNotMutate — running an `assign`-style action never mutates the
- * previous context object. Verified by deep-equality check on a snapshot taken
- * before each event.
+ * previous context object. Verified by re-checking the own state of every
+ * object reachable from the pre-step context.
  */
 declare function assignDoesNotMutate<Ctx, Evt extends {
     type: string;
@@ -116,19 +116,15 @@ declare function assertAll<Ctx, Evt extends {
     unknownEventType?: string;
 }): void;
 
-type propertiesModule_AssertOpts = AssertOpts;
-declare const propertiesModule_assertAll: typeof assertAll;
-declare const propertiesModule_assignDoesNotMutate: typeof assignDoesNotMutate;
-declare const propertiesModule_contextEquals: typeof contextEquals;
-declare const propertiesModule_guardsFalseNoTransition: typeof guardsFalseNoTransition;
-declare const propertiesModule_reachableStatesSubsetDeclared: typeof reachableStatesSubsetDeclared;
-declare const propertiesModule_replayEqualsFold: typeof replayEqualsFold;
-declare const propertiesModule_snapshotAlwaysFrozen: typeof snapshotAlwaysFrozen;
-declare const propertiesModule_unknownEventNoOp: typeof unknownEventNoOp;
-declare namespace propertiesModule {
-  export { type propertiesModule_AssertOpts as AssertOpts, propertiesModule_assertAll as assertAll, propertiesModule_assignDoesNotMutate as assignDoesNotMutate, propertiesModule_contextEquals as contextEquals, propertiesModule_guardsFalseNoTransition as guardsFalseNoTransition, propertiesModule_reachableStatesSubsetDeclared as reachableStatesSubsetDeclared, propertiesModule_replayEqualsFold as replayEqualsFold, propertiesModule_snapshotAlwaysFrozen as snapshotAlwaysFrozen, propertiesModule_unknownEventNoOp as unknownEventNoOp };
-}
-
-declare const properties: typeof propertiesModule;
+declare const properties: Readonly<{
+    assertAll: typeof assertAll;
+    assignDoesNotMutate: typeof assignDoesNotMutate;
+    contextEquals: typeof contextEquals;
+    guardsFalseNoTransition: typeof guardsFalseNoTransition;
+    reachableStatesSubsetDeclared: typeof reachableStatesSubsetDeclared;
+    replayEqualsFold: typeof replayEqualsFold;
+    snapshotAlwaysFrozen: typeof snapshotAlwaysFrozen;
+    unknownEventNoOp: typeof unknownEventNoOp;
+}>;
 
 export { type AssertOpts, type EventArbitraries, type FsmCommand, type FsmModel, assertAll, assignDoesNotMutate, commandsFromMachine, guardsFalseNoTransition, initialModel, properties, reachableStatesSubsetDeclared, replayEqualsFold, snapshotAlwaysFrozen, unknownEventNoOp };

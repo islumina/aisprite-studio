@@ -10,11 +10,11 @@
     "node": ">=22.12.0"
   },
   "dependencies": {
-    "aibridgejs": "0.5.9",
-    "aieventjs": "0.5.9",
-    "aifsmjs": "0.5.9",
-    "aipooljs": "0.5.9",
-    "aispritejs": "0.5.9"
+    "aibridgejs": "0.6.0",
+    "aieventjs": "0.6.0",
+    "aifsmjs": "0.6.0",
+    "aipooljs": "0.6.0",
+    "aispritejs": "0.6.0"
   },
   "scripts": {
     "serve": "node server.mjs",

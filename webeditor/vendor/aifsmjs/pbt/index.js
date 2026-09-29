@@ -1,9 +1,8 @@
-import { createRuntime, initialSnapshot } from '../chunk-LG2AH5X6.js';
-import { replay } from '../chunk-NEJYZAKR.js';
-import { step, mergeContext, normalizeTransitions } from '../chunk-ZLQ7HZCE.js';
+import { createRuntime, initialSnapshot } from '../chunk-XA24A7VP.js';
+import { replay } from '../chunk-Q45LGXHO.js';
+import { step, normalizeTransitions } from '../chunk-D6H64FSI.js';
 import '../chunk-JKZAOPQC.js';
-import '../chunk-A7U7QQL5.js';
-import { __export } from '../chunk-PZ5AY32C.js';
+import { ownValue } from '../chunk-SSNKGEVB.js';
 import * as fc2 from 'fast-check';
 import { isDeepStrictEqual } from 'util';
 
@@ -53,19 +52,6 @@ function commandsFromMachine(def, impl, eventArbitraries) {
   }
   return fc2.commands(arbs, { size: "+1" });
 }
-
-// src/pbt/properties.ts
-var properties_exports = {};
-__export(properties_exports, {
-  assertAll: () => assertAll,
-  assignDoesNotMutate: () => assignDoesNotMutate,
-  contextEquals: () => contextEquals,
-  guardsFalseNoTransition: () => guardsFalseNoTransition,
-  reachableStatesSubsetDeclared: () => reachableStatesSubsetDeclared,
-  replayEqualsFold: () => replayEqualsFold,
-  snapshotAlwaysFrozen: () => snapshotAlwaysFrozen,
-  unknownEventNoOp: () => unknownEventNoOp
-});
 function buildAssertOpts(opts) {
   const out = {};
   if (opts?.numRuns !== void 0) out.numRuns = opts.numRuns;
@@ -79,10 +65,14 @@ function contextEquals(a, b) {
 function snapshotAlwaysFrozen(def, impl, eventArbitraries, opts) {
   fc2.assert(
     fc2.property(commandsFromMachine(def, impl, eventArbitraries), (cmds) => {
-      const real = createRuntime(def, impl);
-      const model = initialModel(def);
-      fc2.modelRun(() => ({ model, real }), cmds);
-      return Object.isFrozen(real.getSnapshot());
+      const real = createRuntime(def, impl, { dispatchEffects: false });
+      try {
+        const model = initialModel(def);
+        fc2.modelRun(() => ({ model, real }), cmds);
+        return Object.isFrozen(real.getSnapshot());
+      } finally {
+        real.dispose();
+      }
     }),
     buildAssertOpts(opts)
   );
@@ -101,13 +91,17 @@ function reachableStatesSubsetDeclared(def, impl, eventArbitraries, opts) {
   const declared = new Set(Object.keys(def.states));
   fc2.assert(
     fc2.property(commandsFromMachine(def, impl, eventArbitraries), (cmds) => {
-      const real = createRuntime(def, impl);
-      const model = initialModel(def);
-      fc2.modelRun(() => ({ model, real }), cmds);
-      for (const s of model.reached) {
-        if (!declared.has(s)) return false;
+      const real = createRuntime(def, impl, { dispatchEffects: false });
+      try {
+        const model = initialModel(def);
+        fc2.modelRun(() => ({ model, real }), cmds);
+        for (const s of model.reached) {
+          if (!declared.has(s)) return false;
+        }
+        return declared.has(real.getSnapshot().value);
+      } finally {
+        real.dispose();
       }
-      return declared.has(real.getSnapshot().value);
     }),
     buildAssertOpts(opts)
   );
@@ -117,10 +111,14 @@ function replayEqualsFold(def, impl, eventArbitraries, opts) {
   fc2.assert(
     fc2.property(fc2.array(eventArb, { maxLength: 32 }), (events) => {
       const real = createRuntime(def, impl, { dispatchEffects: false });
-      for (const e of events) real.send(e);
-      const live = real.getSnapshot();
-      const replayed = replay(initialSnapshot(def), events, def, impl).snapshot;
-      return live.value === replayed.value && contextEquals(live.context, replayed.context);
+      try {
+        for (const e of events) real.send(e);
+        const live = real.getSnapshot();
+        const replayed = replay(initialSnapshot(def), events, def, impl).snapshot;
+        return live.value === replayed.value && contextEquals(live.context, replayed.context);
+      } finally {
+        real.dispose();
+      }
     }),
     buildAssertOpts(opts)
   );
@@ -129,7 +127,8 @@ function guardsFalseNoTransition(def, impl, eventArbitraries, opts) {
   const blockedGuards = new Proxy(
     {},
     {
-      get: () => () => false
+      get: () => () => false,
+      getOwnPropertyDescriptor: () => ({ configurable: true })
     }
   );
   const blockedImpl = {
@@ -137,7 +136,7 @@ function guardsFalseNoTransition(def, impl, eventArbitraries, opts) {
     guards: blockedGuards
   };
   const isFullyGuarded = (value, eventType) => {
-    const candidates = normalizeTransitions(def.states[value]?.on?.[eventType]);
+    const candidates = normalizeTransitions(ownValue(def.states[value]?.on, eventType));
     return candidates.length > 0 && candidates.every((t) => t.guard !== void 0);
   };
   fc2.assert(
@@ -157,20 +156,28 @@ function guardsFalseNoTransition(def, impl, eventArbitraries, opts) {
     buildAssertOpts(opts)
   );
 }
+var ownState = (v) => [
+  ...Reflect.ownKeys(v).flatMap((k) => [k, v[k]]),
+  ...v instanceof Map || v instanceof Set ? [...v.entries()].flat() : [],
+  v instanceof Date && v.getTime()
+];
 function assignDoesNotMutate(def, impl, eventArbitraries, opts) {
-  const dummy = { a: 1, b: 2 };
-  const merged = mergeContext(dummy, { b: 3 });
-  if (merged === dummy) throw new Error("aifsmjs/pbt: mergeContext returned the same reference");
   fc2.assert(
     fc2.property(
       fc2.array(fc2.oneof(...Object.values(eventArbitraries)), { maxLength: 16 }),
       (events) => {
         let snap = initialSnapshot(def);
         for (const e of events) {
-          const beforeCtx = structuredClone(snap.context);
-          step(def, snap, e, impl);
-          if (!contextEquals(snap.context, beforeCtx)) return false;
+          const before = /* @__PURE__ */ new Map();
+          const walk = (v) => {
+            if (!v || typeof v !== "object" || before.has(v)) return;
+            const own = ownState(v);
+            before.set(v, own);
+            own.forEach(walk);
+          };
+          walk(snap.context);
           snap = step(def, snap, e, impl).snapshot;
+          for (const [obj, own] of before) if (!contextEquals(ownState(obj), own)) return false;
         }
         return true;
       }
@@ -188,7 +195,16 @@ function assertAll(def, impl, eventArbitraries, opts) {
 }
 
 // src/pbt/index.ts
-var properties = properties_exports;
+var properties = Object.freeze({
+  assertAll,
+  assignDoesNotMutate,
+  contextEquals,
+  guardsFalseNoTransition,
+  reachableStatesSubsetDeclared,
+  replayEqualsFold,
+  snapshotAlwaysFrozen,
+  unknownEventNoOp
+});
 
 export { assertAll, assignDoesNotMutate, commandsFromMachine, guardsFalseNoTransition, initialModel, properties, reachableStatesSubsetDeclared, replayEqualsFold, snapshotAlwaysFrozen, unknownEventNoOp };
 //# sourceMappingURL=index.js.map

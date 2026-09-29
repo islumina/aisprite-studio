@@ -1,6 +1,6 @@
 {
   "name": "aieventjs",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "description": "Small, strict, typed event emitter — on() returns an unsubscribe function, once is built-in, AbortSignal is first-class, dispose() is idempotent, wildcard '*' handlers preserved. Mitt-shaped API; ai*js conventions everywhere else.",
   "keywords": [
     "event-emitter",
@@ -30,9 +30,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [

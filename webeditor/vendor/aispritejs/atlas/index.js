@@ -1,4 +1,4 @@
-import { isObject, createSpriteAnimator } from '../chunk-EI4PHVNN.js';
+import { isObject, createSpriteAnimator } from '../chunk-NBMU2UNJ.js';
 
 // src/atlas/parse.ts
 var InvalidAtlasError = class extends Error {
@@ -9,6 +9,12 @@ var InvalidAtlasError = class extends Error {
 };
 function isForeignStates(states) {
   return isObject(states) && typeof states.initial === "string" && isObject(states.definitions);
+}
+function typeName(v) {
+  return v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
+}
+function assertEntry(v, what) {
+  if (!isObject(v)) throw new InvalidAtlasError(`${what} must be an object, got ${typeName(v)}`);
 }
 function assertAnimations(value) {
   if (!isObject(value)) {
@@ -21,6 +27,22 @@ function assertAnimations(value) {
   }
   return value;
 }
+function assertControlShape(src, p) {
+  if (!isObject(src.inputs)) throw new InvalidAtlasError(`${p}inputs must be an object`);
+  if (!isObject(src.states)) throw new InvalidAtlasError(`${p}states must be an object`);
+  if (!Array.isArray(src.transitions)) {
+    throw new InvalidAtlasError(`${p}transitions must be an array`);
+  }
+  for (const [key, val] of Object.entries(src.inputs)) assertEntry(val, `${p}input entry "${key}"`);
+  for (const [key, val] of Object.entries(src.states)) assertEntry(val, `${p}state entry "${key}"`);
+  src.transitions.forEach((entry, i) => {
+    assertEntry(entry, `${p}transitions[${i}]`);
+    const when = entry.when;
+    if (Array.isArray(when)) {
+      when.forEach((cond, j) => assertEntry(cond, `${p}transitions[${i}].when[${j}]`));
+    }
+  });
+}
 function parseAtlas(atlas, control) {
   if (!isObject(atlas)) {
     throw new InvalidAtlasError("atlas must be an object");
@@ -31,15 +53,18 @@ function parseAtlas(atlas, control) {
     throw new InvalidAtlasError("`frames`, if present, must be an object keyed by frame key");
   }
   if (isObject(frames)) {
-    for (const [key, entry] of Object.entries(frames)) {
-      if (!isObject(entry)) {
-        const actualType = entry === null ? "null" : Array.isArray(entry) ? "array" : typeof entry;
-        throw new InvalidAtlasError(`frame entry "${key}" must be an object, got ${actualType}`);
-      }
-    }
+    for (const [key, entry] of Object.entries(frames)) assertEntry(entry, `frame entry "${key}"`);
   }
   let resolved;
-  if (control) {
+  if (control != null) {
+    if (!isObject(control)) throw new InvalidAtlasError("control must be an object");
+    assertControlShape(control, "control.");
+    if (control.initial !== void 0 && typeof control.initial !== "string") {
+      throw new InvalidAtlasError("control.initial must be a string");
+    }
+    if (control.defaultFrameDuration !== void 0 && typeof control.defaultFrameDuration !== "number") {
+      throw new InvalidAtlasError("control.defaultFrameDuration must be a number");
+    }
     resolved = control;
   } else {
     if (isForeignStates(atlas.states)) {
@@ -52,42 +77,11 @@ function parseAtlas(atlas, control) {
         "atlas has no aispritejs control block (inputs/states/transitions); pass one as the second argument"
       );
     }
-    for (const [key, val] of Object.entries(atlas.inputs)) {
-      if (!isObject(val)) {
-        const actualType = val === null ? "null" : Array.isArray(val) ? "array" : typeof val;
-        throw new InvalidAtlasError(`input entry "${key}" must be an object, got ${actualType}`);
-      }
-    }
-    for (const [key, val] of Object.entries(atlas.states)) {
-      if (!isObject(val)) {
-        const actualType = val === null ? "null" : Array.isArray(val) ? "array" : typeof val;
-        throw new InvalidAtlasError(`state entry "${key}" must be an object, got ${actualType}`);
-      }
-    }
-    const rawTransitions = atlas.transitions;
-    for (let i = 0; i < rawTransitions.length; i++) {
-      const entry = rawTransitions[i];
-      if (!isObject(entry)) {
-        const actualType = entry === null ? "null" : Array.isArray(entry) ? "array" : typeof entry;
-        throw new InvalidAtlasError(`transitions[${i}] must be an object, got ${actualType}`);
-      }
-      if (Array.isArray(entry.when)) {
-        const rawWhen = entry.when;
-        for (let j = 0; j < rawWhen.length; j++) {
-          const cond = rawWhen[j];
-          if (!isObject(cond)) {
-            const actualType = cond === null ? "null" : Array.isArray(cond) ? "array" : typeof cond;
-            throw new InvalidAtlasError(
-              `transitions[${i}].when[${j}] must be an object, got ${actualType}`
-            );
-          }
-        }
-      }
-    }
+    assertControlShape(atlas, "");
     resolved = {
       inputs: atlas.inputs,
       states: atlas.states,
-      transitions: rawTransitions,
+      transitions: atlas.transitions,
       ...typeof atlas.initial === "string" ? { initial: atlas.initial } : {},
       ...typeof atlas.defaultFrameDuration === "number" ? { defaultFrameDuration: atlas.defaultFrameDuration } : {}
     };

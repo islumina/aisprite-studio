@@ -1,6 +1,6 @@
 {
   "name": "aibridgejs",
-  "version": "0.5.9",
+  "version": "0.6.0",
   "description": "Transport-agnostic bridge core for iframe, Flutter InAppWebView, and mock runtimes. JSON-safe request/response with AbortSignal cancellation and adapter-isolated host coupling.",
   "keywords": [
     "bridge",
@@ -32,29 +32,54 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./mock": {
-      "types": "./dist/mock/index.d.ts",
-      "import": "./dist/mock/index.js",
-      "require": "./dist/mock/index.cjs"
+      "import": {
+        "types": "./dist/mock/index.d.ts",
+        "default": "./dist/mock/index.js"
+      },
+      "require": {
+        "types": "./dist/mock/index.d.cts",
+        "default": "./dist/mock/index.cjs"
+      }
     },
     "./iframe": {
-      "types": "./dist/iframe/index.d.ts",
-      "import": "./dist/iframe/index.js",
-      "require": "./dist/iframe/index.cjs"
+      "import": {
+        "types": "./dist/iframe/index.d.ts",
+        "default": "./dist/iframe/index.js"
+      },
+      "require": {
+        "types": "./dist/iframe/index.d.cts",
+        "default": "./dist/iframe/index.cjs"
+      }
     },
     "./flutter": {
-      "types": "./dist/flutter/index.d.ts",
-      "import": "./dist/flutter/index.js",
-      "require": "./dist/flutter/index.cjs"
+      "import": {
+        "types": "./dist/flutter/index.d.ts",
+        "default": "./dist/flutter/index.js"
+      },
+      "require": {
+        "types": "./dist/flutter/index.d.cts",
+        "default": "./dist/flutter/index.cjs"
+      }
     },
     "./detect": {
-      "types": "./dist/detect/index.d.ts",
-      "import": "./dist/detect/index.js",
-      "require": "./dist/detect/index.cjs"
+      "import": {
+        "types": "./dist/detect/index.d.ts",
+        "default": "./dist/detect/index.js"
+      },
+      "require": {
+        "types": "./dist/detect/index.d.cts",
+        "default": "./dist/detect/index.cjs"
+      }
     }
   },
   "files": [

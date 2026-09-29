@@ -1,18 +1,53 @@
-import { isValidEnvelope, BridgeRemoteError, generateId, BridgeTimeoutError, now, BridgeResetError, BridgeDisposedError } from './chunk-4SMOCFWS.js';
-export { BridgeDisposedError, BridgeError, BridgeRemoteError, BridgeResetError, BridgeTimeoutError } from './chunk-4SMOCFWS.js';
+import { isObject, invalid, isValidEnvelope, BridgeRemoteError, BridgeResetError, BridgeDisposedError, BridgeTimeoutError } from './chunk-NI6QJ52U.js';
+export { BridgeDisposedError, BridgeError, BridgeRemoteError, BridgeResetError, BridgeTimeoutError } from './chunk-NI6QJ52U.js';
+
+// src/id.ts
+function generateId() {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) {
+    return c.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (ch) => {
+    const r = Math.random() * 16 | 0;
+    const v = ch === "x" ? r : r & 3 | 8;
+    return v.toString(16);
+  });
+}
+function now() {
+  return Date.now();
+}
 
 // src/bridge.ts
+function attempt(fn) {
+  try {
+    return Promise.resolve(fn());
+  } catch (err) {
+    return Promise.reject(err);
+  }
+}
 var DEFAULT_TIMEOUT_MS = 1e4;
+var MAX_TIMER_DELAY_MS = 2147483647;
+var ADAPTER_METHODS = ["ready", "post", "subscribe", "dispose"];
+function timeoutOr(timeoutMs, fallback) {
+  return timeoutMs === void 0 || Number.isNaN(timeoutMs) ? fallback : timeoutMs;
+}
+function clampDelay(timeoutMs) {
+  if (!(timeoutMs > 0) || timeoutMs === Number.POSITIVE_INFINITY) return void 0;
+  return Math.min(timeoutMs, MAX_TIMER_DELAY_MS);
+}
 function createBridge(options) {
+  if (!isObject(options)) invalid("options", "an object");
   const adapter = options.adapter;
-  const defaultTimeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  if (!isObject(adapter) || ADAPTER_METHODS.some((key) => typeof adapter[key] !== "function")) {
+    invalid("adapter", "an object with ready, post, subscribe and dispose functions");
+  }
+  const defaultTimeoutMs = timeoutOr(options.timeoutMs, DEFAULT_TIMEOUT_MS);
+  const inflight = /* @__PURE__ */ new Set();
   const pending = /* @__PURE__ */ new Map();
   const events = /* @__PURE__ */ new Map();
-  const internalController = new AbortController();
   let disposed = false;
   let readyPromise = null;
-  let readyReject = null;
-  let resetEpoch = 0;
+  let round = null;
   const unsubscribeAdapter = adapter.subscribe((envelope) => {
     if (disposed) return;
     if (!isValidEnvelope(envelope)) return;
@@ -38,32 +73,41 @@ function createBridge(options) {
           errorObject = void 0;
           readThrew = true;
         }
-        pending.delete(id);
-        entry.cleanup();
         if (!readThrew && ok) {
           entry.resolve(payload);
-        } else {
-          let message = "Remote error";
-          let code = "REMOTE_ERROR";
-          let detail;
-          try {
-            const rawMessage = errorObject?.message;
-            const rawCode = errorObject?.code;
-            if (typeof rawMessage === "string") message = rawMessage;
-            if (typeof rawCode === "string") code = rawCode;
-            detail = errorObject?.detail;
-          } catch {
-          }
-          entry.reject(new BridgeRemoteError(message, code, detail));
+          return;
         }
+        let message = "Remote error";
+        let code = "REMOTE_ERROR";
+        let detail;
+        try {
+          const rawMessage = errorObject?.message;
+          const rawCode = errorObject?.code;
+          if (typeof rawMessage === "string") message = rawMessage;
+          if (typeof rawCode === "string") code = rawCode;
+          detail = errorObject?.detail;
+        } catch {
+        }
+        entry.reject(new BridgeRemoteError(message, code, detail));
         return;
       }
       case "event": {
-        const set = events.get(envelope.event);
+        let eventName;
+        let eventPayload;
+        try {
+          eventName = envelope.event;
+          eventPayload = envelope.payload;
+        } catch {
+          return;
+        }
+        if (typeof eventName !== "string") return;
+        const set = events.get(eventName);
         if (!set) return;
         for (const listenerEntry of Array.from(set)) {
+          if (disposed) break;
+          if (listenerEntry.removed) continue;
           try {
-            listenerEntry.fn(envelope.payload);
+            listenerEntry.fn(eventPayload);
           } catch {
           }
         }
@@ -84,28 +128,20 @@ function createBridge(options) {
       return Promise.reject(userSignal.reason);
     }
     if (!readyPromise) {
+      const controller = new AbortController();
+      const { signal } = controller;
+      round = controller;
       readyPromise = new Promise((resolve, reject) => {
-        let onDisposed;
-        const wrappedReject = (reason) => {
-          internalController.signal.removeEventListener("abort", onDisposed);
-          if (readyReject === wrappedReject) readyReject = null;
-          reject(reason);
+        const settle = (fn) => {
+          signal.removeEventListener("abort", onAbort);
+          if (round === controller) round = null;
+          fn();
         };
-        readyReject = wrappedReject;
-        onDisposed = () => {
-          wrappedReject(new BridgeDisposedError());
-        };
-        internalController.signal.addEventListener("abort", onDisposed, { once: true });
-        adapter.ready(internalController.signal).then(
-          () => {
-            internalController.signal.removeEventListener("abort", onDisposed);
-            if (readyReject === wrappedReject) readyReject = null;
-            if (disposed) reject(new BridgeDisposedError());
-            else resolve();
-          },
-          (err) => {
-            wrappedReject(err);
-          }
+        const onAbort = () => settle(() => reject(signal.reason));
+        signal.addEventListener("abort", onAbort, { once: true });
+        attempt(() => adapter.ready(signal)).then(
+          () => settle(resolve),
+          (err) => settle(() => reject(err))
         );
       });
     }
@@ -130,71 +166,47 @@ function createBridge(options) {
       );
     });
   }
+  function send(signal, delay, timeoutMessage, envelope, id) {
+    return new Promise((resolve, reject) => {
+      let timer;
+      const settle = (fn) => {
+        if (!inflight.delete(entry)) return;
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        if (id !== void 0) pending.delete(id);
+        fn();
+      };
+      const entry = {
+        resolve: (value) => settle(() => resolve(value)),
+        reject: (reason) => settle(() => reject(reason))
+      };
+      const onAbort = () => entry.reject(signal?.reason);
+      inflight.add(entry);
+      signal?.addEventListener("abort", onAbort, { once: true });
+      if (delay !== void 0) {
+        timer = setTimeout(() => entry.reject(new BridgeTimeoutError(timeoutMessage)), delay);
+      }
+      ready().then(() => {
+        if (!inflight.has(entry)) return;
+        if (id !== void 0) pending.set(id, entry);
+        return attempt(() => adapter.post(envelope()));
+      }).then(id === void 0 ? entry.resolve : void 0, entry.reject);
+    });
+  }
   async function call(method, payload, opts) {
     throwIfDisposed();
     const signal = opts?.signal;
     if (signal?.aborted) {
       throw signal.reason;
     }
-    const capturedEpoch = resetEpoch;
-    await (signal !== void 0 ? ready({ signal }) : ready());
-    if (disposed) throw new BridgeDisposedError();
-    if (resetEpoch !== capturedEpoch) throw new BridgeResetError();
-    if (signal?.aborted) throw signal.reason;
     const id = generateId();
-    const callTimeoutMs = opts?.timeoutMs ?? defaultTimeoutMs;
-    return new Promise((resolve, reject) => {
-      let timer;
-      let abortHandler;
-      const cleanup = () => {
-        if (timer !== void 0) {
-          clearTimeout(timer);
-          timer = void 0;
-        }
-        if (signal && abortHandler) {
-          signal.removeEventListener("abort", abortHandler);
-          abortHandler = void 0;
-        }
-      };
-      pending.set(id, {
-        resolve,
-        reject,
-        cleanup
-      });
-      if (callTimeoutMs > 0) {
-        timer = setTimeout(() => {
-          const current = pending.get(id);
-          if (!current) return;
-          pending.delete(id);
-          current.cleanup();
-          reject(new BridgeTimeoutError(`Call timeout: ${method}`));
-        }, callTimeoutMs);
-      }
-      if (signal) {
-        abortHandler = () => {
-          const current = pending.get(id);
-          if (!current) return;
-          pending.delete(id);
-          current.cleanup();
-          reject(signal.reason);
-        };
-        signal.addEventListener("abort", abortHandler, { once: true });
-      }
-      const envelope = {
-        kind: "request",
-        id,
-        method,
-        payload,
-        timestamp: now()
-      };
-      adapter.post(envelope).catch((err) => {
-        const current = pending.get(id);
-        if (!current) return;
-        pending.delete(id);
-        current.cleanup();
-        reject(err);
-      });
-    });
+    return send(
+      signal,
+      clampDelay(timeoutOr(opts?.timeoutMs, defaultTimeoutMs)),
+      `Call timeout: ${method}`,
+      () => ({ kind: "request", id, method, payload, timestamp: now() }),
+      id
+    );
   }
   async function emit(event, payload, opts) {
     throwIfDisposed();
@@ -202,64 +214,17 @@ function createBridge(options) {
     if (signal?.aborted) {
       throw signal.reason;
     }
-    const capturedEpoch = resetEpoch;
-    await (signal !== void 0 ? ready({ signal }) : ready());
-    if (disposed) throw new BridgeDisposedError();
-    if (resetEpoch !== capturedEpoch) throw new BridgeResetError();
-    if (signal?.aborted) throw signal.reason;
-    const envelope = {
-      kind: "event",
-      event,
-      payload,
-      timestamp: now()
-    };
-    const emitTimeoutMs = opts?.timeoutMs;
-    if ((emitTimeoutMs === void 0 || emitTimeoutMs <= 0) && signal === void 0) {
-      await adapter.post(envelope);
-      return;
-    }
-    await new Promise((resolve, reject) => {
-      let timer;
-      let abortHandler;
-      let settled = false;
-      const cleanup = () => {
-        if (timer !== void 0) {
-          clearTimeout(timer);
-          timer = void 0;
-        }
-        if (signal && abortHandler) {
-          signal.removeEventListener("abort", abortHandler);
-          abortHandler = void 0;
-        }
-      };
-      const settleResolve = () => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        resolve();
-      };
-      const settleReject = (reason) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        reject(reason);
-      };
-      if (emitTimeoutMs !== void 0 && emitTimeoutMs > 0) {
-        timer = setTimeout(() => {
-          settleReject(new BridgeTimeoutError(`Emit timeout: ${event}`));
-        }, emitTimeoutMs);
-      }
-      if (signal) {
-        abortHandler = () => {
-          settleReject(signal.reason);
-        };
-        signal.addEventListener("abort", abortHandler, { once: true });
-      }
-      adapter.post(envelope).then(settleResolve, settleReject);
-    });
+    const timeoutMs = opts?.timeoutMs;
+    return send(
+      signal,
+      timeoutMs === void 0 ? void 0 : clampDelay(timeoutMs),
+      `Emit timeout: ${event}`,
+      () => ({ kind: "event", event, payload, timestamp: now() })
+    );
   }
   function on(event, listener, opts) {
     throwIfDisposed();
+    if (typeof listener !== "function") invalid("listener", "a function");
     let set = events.get(event);
     if (!set) {
       set = /* @__PURE__ */ new Set();
@@ -267,11 +232,10 @@ function createBridge(options) {
     }
     const signal = opts?.signal;
     const once = opts?.once === true;
-    let removed = false;
     let entry;
     const unsubscribe = () => {
-      if (removed) return;
-      removed = true;
+      if (entry.removed) return;
+      entry.removed = true;
       const s = events.get(event);
       if (s) {
         s.delete(entry);
@@ -283,7 +247,7 @@ function createBridge(options) {
       unsubscribe();
       listener(payload);
     } : listener;
-    entry = { fn: wrapped, unsubscribe };
+    entry = { fn: wrapped, unsubscribe, removed: false };
     set.add(entry);
     if (signal) {
       if (signal.aborted) {
@@ -298,41 +262,29 @@ function createBridge(options) {
     throwIfDisposed();
     return adapter.platform;
   }
-  function rejectAllPending(err) {
-    const entries = Array.from(pending.values());
-    pending.clear();
-    for (const entry of entries) {
-      entry.cleanup();
-      entry.reject(err);
-    }
+  function rejectInflight(err) {
+    for (const entry of Array.from(inflight)) entry.reject(err);
   }
-  function unsubscribeAllListeners() {
-    const allEntries = [];
-    for (const set of events.values()) {
-      for (const entry of set) allEntries.push(entry);
-    }
-    events.clear();
-    for (const entry of allEntries) {
-      entry.unsubscribe();
-    }
+  function endRound(reason) {
+    const live = round;
+    round = null;
+    readyPromise = null;
+    live?.abort(reason);
   }
   function reset() {
     throwIfDisposed();
-    resetEpoch++;
-    rejectAllPending(new BridgeResetError());
-    unsubscribeAllListeners();
-    if (readyReject) {
-      readyReject(new BridgeResetError());
-      readyReject = null;
-    }
-    readyPromise = null;
+    rejectInflight(new BridgeResetError());
+    endRound(new BridgeResetError());
   }
   function dispose() {
     if (disposed) return;
     disposed = true;
-    internalController.abort(new BridgeDisposedError());
-    rejectAllPending(new BridgeDisposedError());
-    unsubscribeAllListeners();
+    rejectInflight(new BridgeDisposedError());
+    endRound(new BridgeDisposedError());
+    const allEntries = [];
+    for (const set of events.values()) allEntries.push(...set);
+    events.clear();
+    for (const entry of allEntries) entry.unsubscribe();
     unsubscribeAdapter();
     adapter.dispose();
   }

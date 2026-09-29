@@ -1,4 +1,4 @@
-import { a as BridgeAdapter } from '../types-BuGIzhu1.js';
+import { a as BridgeAdapter } from '../types-CoeBJjfk.js';
 
 interface IframePostTarget {
     postMessage(message: unknown, targetOrigin: string): void;
