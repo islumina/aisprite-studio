@@ -24,7 +24,7 @@ AISPRITE_STUDIO_ROOT = "/absolute/path/to/aisprite-studio"
 
 ## Claude Code or Claude Desktop
 
-Project `.mcp.json`:
+Claude Code reads a project `.mcp.json`; Claude Desktop reads `claude_desktop_config.json`. Both use the same `mcpServers` object:
 
 ```json
 {
@@ -38,7 +38,11 @@ Project `.mcp.json`:
 }
 ```
 
-Claude Code can also register the same stdio command with `claude mcp add`.
+Claude Code can also register the same stdio command from the command line:
+
+```bash
+claude mcp add aisprite-studio -e AISPRITE_STUDIO_ROOT=/absolute/path/to/aisprite-studio -- node /absolute/path/to/aisprite-studio/mcp-server/dist/index.js
+```
 
 ## Gemini CLI
 
