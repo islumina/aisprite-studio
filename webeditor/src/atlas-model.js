@@ -186,13 +186,26 @@ export function setDuration(atlas, unitName, durationMs) {
   bus.emit(EV.ATLAS_CHANGED, { reason: `duration:${unitName}` });
 }
 
-/** Flip a T-Pose's `enabled` flag (artist opt-in) and republish. */
-export function setPoseEnabled(atlas, poseId, enabled) {
-  if (atlas.poses?.[poseId]) {
-    atlas.poses[poseId].enabled = enabled;
-    bus.emit(EV.POSE_TOGGLE, { id: poseId, enabled });
-    bus.emit(EV.ATLAS_CHANGED, { reason: `pose:${poseId}` });
-  }
+/** Set one frame's stored duration (ms), as edited in the timeline. */
+export function setFrameDuration(atlas, frameKey, durationMs) {
+  const frame = atlas.frames?.[frameKey];
+  if (!frame) return;
+  frame.duration = Math.max(1, Math.round(durationMs));
+  bus.emit(EV.ATLAS_CHANGED, { reason: `frame-duration:${frameKey}` });
+}
+
+/**
+ * Summarise the per-frame durations that actually play, for the Frame Duration control.
+ * @param {number[]} frameDurations  `resolvePlayback(...).frameDurations`.
+ * @returns {{ ms: number, uniform: boolean }} Rounded mean, and whether every frame matches it.
+ */
+export function summariseFrameDurations(frameDurations) {
+  if (!frameDurations?.length) return { ms: 0, uniform: true };
+  const total = frameDurations.reduce((sum, ms) => sum + ms, 0);
+  return {
+    ms: Math.round(total / frameDurations.length),
+    uniform: frameDurations.every((ms) => ms === frameDurations[0]),
+  };
 }
 
 /** Update the anchor for all frames in a unit's animation. */

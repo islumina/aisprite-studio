@@ -18,10 +18,11 @@
   },
   "scripts": {
     "serve": "node server.mjs",
-    "test": "npm run test:server && npm run test:mcp && npm run test:python",
+    "test": "npm run test:server && npm run test:webeditor && npm run test:mcp && npm run test:python",
     "test:mcp": "npm --prefix mcp-server run check",
     "test:python": "python3 -m unittest discover -s tests",
     "test:server": "node --test tests/server.test.mjs",
+    "test:webeditor": "node --test tests/webeditor.test.mjs",
     "vendor:check": "node tools/vendor-update.mjs --check",
     "vendor:update": "node tools/vendor-update.mjs"
   }
