@@ -27,7 +27,8 @@ function debounce(fn, ms) {
 const $ = (id) => document.getElementById(id);
 const els = {
   canvas: $('canvas-container'), crosshair: $('crosshair'), json: $('json-editor'),
-  unitSelect: $('unit-select'), bootError: $('boot-error'), jsonHint: $('json-hint'),
+  unitSelect: $('unit-select'), viewerUnitSelect: $('viewer-unit-select'), srStatus: $('sr-status'),
+  bootError: $('boot-error'), jsonHint: $('json-hint'),
   sourceBadge: $('source-badge'), typeBadge: $('assettype-badge'), stateBadge: $('current-state-badge'),
   speed: $('speed-slider'), durationVal: $('duration-val'),
   endLoop: $('end-loop'), endHold: $('end-hold'), endReturn: $('end-return'), endTarget: $('end-return-target'),
@@ -75,6 +76,11 @@ const els = {
   applyAllAnchors: $('btn-apply-all-anchors'),
   timelineList: $('timeline-list'),
 };
+
+/** Tell screen readers about a change they would otherwise miss (polite live region). */
+function announce(message) {
+  if (els.srStatus && els.srStatus.textContent !== message) els.srStatus.textContent = message;
+}
 
 // --- State ---
 let atlas = null;
@@ -254,7 +260,10 @@ async function configureAgentHandoff() {
       const payload = await response.json();
       configButton.dataset.config = JSON.stringify(payload.config ?? {}, null, 2);
       configButton.dataset.codex = payload.codexToml || '';
-      status.textContent = payload.ok ? 'Local MCP bridge is built and ready.' : `MCP needs build: ${payload.buildCommand}`;
+      // server.mjs answers 403 off localhost (e.g. ?mode=local on a LAN address).
+      status.textContent = payload.ok ? 'Local MCP bridge is built and ready.'
+        : response.ok ? `MCP needs build: ${payload.buildCommand}`
+          : `MCP config unavailable: ${payload.error ?? `HTTP ${response.status}`}`;
     } catch {
       status.textContent = 'MCP config unavailable. Start the editor with npm run serve.';
     }
@@ -411,6 +420,7 @@ function playState(name) {
     { onAnimEnd: () => fsm?.complete(), onFrameChange: (idx, total) => {
       curFrameIdx = idx; curFrameTotal = total;
       updateFrameLabel(idx, total);
+      if (preview.isPaused()) announce(`Frame ${idx + 1} of ${total}`);
       highlightTimelineFrame(idx);
       // Only refresh the per-frame prompt when its panel is open (avoid per-frame spam during playback).
       if (currentChar && els.framePromptDetails?.open) loadFramePrompt(currentChar, pb.animation, idx);
@@ -447,8 +457,9 @@ function updateFrameLabel(current, total) {
 
 function updatePlayPauseBtn(playing) {
   if (!els.framePlayPause) return;
-  els.framePlayPause.innerHTML = playing ? '<i data-lucide="pause" class="icon-md"></i>' : '<i data-lucide="play" class="icon-md"></i>';
-  if (window.lucide) window.lucide.createIcons({ root: els.framePlayPause });
+  // The icon shows the action (pause while playing); aria-pressed carries the state.
+  els.framePlayPause.querySelector('use')?.setAttribute('href', playing ? '#icon-pause' : '#icon-play');
+  els.framePlayPause.setAttribute('aria-pressed', String(playing));
   els.framePlayPause.classList.toggle('active', playing);
 }
 
@@ -469,36 +480,45 @@ function seekUnit(name) {
 }
 
 // --- UI rendering ---
+// The sidebar picker and the viewer-mode picker (narrow screens) show the same list.
+const unitSelects = [els.unitSelect, els.viewerUnitSelect].filter(Boolean);
+
 function renderUnitSelect() {
-  if (!els.unitSelect) return;
-  els.unitSelect.innerHTML = '';
-  for (const u of getUnits(atlas)) {
-    const opt = document.createElement('option');
-    opt.value = u.name;
-    opt.textContent = u.name;
-    if (u.name === currentUnit) opt.selected = true;
-    els.unitSelect.appendChild(opt);
+  for (const select of unitSelects) {
+    select.innerHTML = '';
+    for (const u of getUnits(atlas)) {
+      const opt = document.createElement('option');
+      opt.value = u.name;
+      opt.textContent = u.name;
+      if (u.name === currentUnit) opt.selected = true;
+      select.appendChild(opt);
+    }
   }
 }
 
-els.unitSelect?.addEventListener('change', () => {
-  const name = els.unitSelect.value;
-  if (!name) return;
-  // When user manually picks an animation, enable preview-lock so it stays on that state
-  previewLock = true;
-  if (els.previewLock) els.previewLock.checked = true;
-  seekUnit(name);
-});
+for (const select of unitSelects) {
+  select.addEventListener('change', () => {
+    const name = select.value;
+    if (!name) return;
+    // When user manually picks an animation, enable preview-lock so it stays on that state
+    previewLock = true;
+    if (els.previewLock) els.previewLock.checked = true;
+    seekUnit(name);
+  });
+}
 
 function reflectUnitUI(name, pb) {
+  if (els.stateBadge.textContent !== name) announce(`State: ${name}`);
   els.stateBadge.textContent = name;
-  if (els.unitSelect) els.unitSelect.value = name;
+  for (const select of unitSelects) select.value = name;
   // End-behaviour segmented control
   const isLoop = pb.onEnd === 'loop';
   const isHold = pb.onEnd === 'hold';
-  els.endLoop.classList.toggle('active', isLoop);
-  els.endHold.classList.toggle('active', isHold);
-  els.endReturn.classList.toggle('active', !isLoop && !isHold);
+  const segments = [[els.endLoop, isLoop], [els.endHold, isHold], [els.endReturn, !isLoop && !isHold]];
+  for (const [button, on] of segments) {
+    button.classList.toggle('active', on);
+    button.setAttribute('aria-pressed', String(on));
+  }
   populateReturnTargets(name, !isLoop && !isHold ? pb.onEnd : null);
   els.endTarget.style.display = !isLoop && !isHold ? '' : 'none';
   reflectDuration(pb);
@@ -594,13 +614,16 @@ async function applyJsonText(rewrite) {
     }
   } catch (err) {
     els.json.classList.add('json-invalid');
+    els.json.setAttribute('aria-invalid', 'true');
     if (errEl) {
       errEl.style.display = 'block';
-      errEl.textContent = err.message;
+      // role="alert" re-announces on every write; only write when the message changes.
+      if (errEl.textContent !== err.message) errEl.textContent = err.message;
     }
     return;
   }
   els.json.classList.remove('json-invalid');
+  els.json.removeAttribute('aria-invalid');
   jsonDirty = true; // user-edited atlas; auto-reload must not clobber it
   atlas = parsed;
   renderUnitSelect();
@@ -894,15 +917,16 @@ async function autoReloadAssets() {
 // --- Regenerate + save prompt handlers ---
 const flashes = new WeakMap(); // button → { original: Node[], timer }
 
-/** Briefly swap a button's label, keeping its lucide icon, then restore the original nodes. */
+/** Briefly swap a button's label, keeping its icon, then restore the original nodes. */
 function flashLabel(btn, label, ok = true) {
   if (!btn) return;
   const pending = flashes.get(btn);
   if (pending) clearTimeout(pending.timer);
   const original = pending?.original ?? [...btn.childNodes];
-  const icon = original.find((node) => node instanceof Element && node.matches('svg, [data-lucide]'));
+  const icon = original.find((node) => node instanceof Element && node.matches('svg'));
   btn.replaceChildren(...(icon ? [icon, ` ${label}`] : [label]));
   btn.classList.toggle('copied', ok);
+  announce(label.replace(/^[✓✗]\s*/, ''));
   const timer = setTimeout(() => {
     btn.replaceChildren(...original);
     btn.classList.remove('copied');

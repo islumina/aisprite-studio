@@ -31,6 +31,7 @@ let _onionEnabled = false;
 let viewport = null;
 let pivotGraphics = null;
 let draggingPivot = false;
+let hostObserver = null; // keeps the renderer the size of its host element
 
 export function setChroma(opts) { _chroma = { ..._chroma, ...opts }; }
 export function getChroma() { return { ..._chroma }; }
@@ -58,6 +59,8 @@ function drawPivotCrosshair(g) {
 
 /** Create the PixiJS app inside `container`; idempotent-safe. */
 export async function initPreview(container, crosshair) {
+  hostObserver?.disconnect();
+  hostObserver = null;
   if (app) {
     app.destroy(
       { removeView: true, releaseGlobalResources: true },
@@ -66,9 +69,10 @@ export async function initPreview(container, crosshair) {
   }
   app = new PIXI.Application();
 
-  const viewportEl = container.closest('.viewport-container');
-  const vw = viewportEl?.clientWidth || 512;
-  const vh = viewportEl?.clientHeight || 512;
+  // The canvas is absolutely positioned inside `container` (style.css), so the
+  // container's size comes from the layout alone and the canvas follows it.
+  const vw = container.clientWidth || 512;
+  const vh = container.clientHeight || 512;
   try {
     await app.init({ width: vw, height: vh, backgroundAlpha: 0, antialias: true });
   } catch (error) {
@@ -110,6 +114,40 @@ export async function initPreview(container, crosshair) {
   // Setup interactions
   setupViewportInteraction(app.canvas);
   setupPivotDrag();
+
+  // Follow the host: window resizes, the viewer-mode breakpoint, and layout changes
+  // that fire no window resize. Zoom and pan (the viewport transform) are kept.
+  hostObserver = new ResizeObserver(() => resizeToHost(container));
+  hostObserver.observe(container);
+}
+
+/** Match the renderer to its host element and re-fit the sprite. */
+function resizeToHost(container) {
+  if (!app) return;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (w === 0 || h === 0) return; // hidden or not laid out yet
+  if (w === app.renderer.width && h === app.renderer.height) return;
+  app.renderer.resize(w, h);
+  layoutSprite();
+  app.render(); // resizing clears the canvas; draw now rather than show a blank frame
+}
+
+/** Centre the sprite and fit its source frame to ~55% of the renderer. */
+function layoutSprite() {
+  if (!sprite || !app) return;
+  const rw = app.renderer.width;
+  const rh = app.renderer.height;
+  sprite.x = rw / 2;
+  sprite.y = rh * 0.65;
+  if (!currentPb) return;
+  // sourceSize is the original untrimmed frame size (e.g. 512x512)
+  const sourceH = currentPb.sourceSize?.h || canvasSize;
+  const sourceW = currentPb.sourceSize?.w || canvasSize;
+  const fitScale = Math.min((rh * 0.55) / sourceH, (rw * 0.55) / sourceW);
+  sprite.scale.set(fitScale, fitScale);
+  updateOnionSkin();
+  positionCrosshair(currentPb.anchor);
 }
 
 /**
@@ -195,19 +233,7 @@ export function playUnit(pb, opts = {}) {
 
   sprite.textures = textures;
   sprite.anchor.set(pb.anchor.x, pb.anchor.y);
-
-  // Position: centered horizontally, feet at 88% of viewport height
-  const rw = app.renderer.width;
-  const rh = app.renderer.height;
-  sprite.x = rw / 2;
-  sprite.y = rh * 0.65;
-
-  // Scale: fit the authored sourceSize to ~55% of viewport
-  // sourceSize is the original untrimmed frame size (e.g. 512x512)
-  const sourceH = pb.sourceSize?.h || canvasSize;
-  const sourceW = pb.sourceSize?.w || canvasSize;
-  const fitScale = Math.min((rh * 0.55) / sourceH, (rw * 0.55) / sourceW);
-  sprite.scale.set(fitScale, fitScale);
+  layoutSprite(); // centred, feet at 65% of the height, source frame fitted to ~55%
 
   sprite.animationSpeed = timed ? 1 : 1000 / pb.durationMs / 60;
   sprite.loop = pb.onEnd === 'loop';

@@ -52,7 +52,7 @@ npm ci
 npm run serve
 ```
 
-The server binds to `127.0.0.1` by default. For deliberate LAN testing, set `AISPRITE_STUDIO_HOST=0.0.0.0`; the development server has no authentication, so do not expose it on an untrusted network.
+The server binds to `127.0.0.1` by default. For deliberate LAN testing, set `AISPRITE_STUDIO_HOST=0.0.0.0`; the development server has no authentication, so do not expose it on an untrusted network. The editor defaults to its read-only demo on a non-loopback host, so add `?mode=local` when you open it by LAN address (e.g. `http://192.168.1.20:8080/?mode=local`).
 
 Open `http://localhost:8080/?char=reimu` in your browser. Use the timeline scrubber, pivot adjustments, and chroma key panel.
 

@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Sprite Studio — Sprite & FSM Workspace</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Inline icon, so the browser does not fall back to a missing /favicon.ico (an empty data: URL still falls back). -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%236a4dff'/%3E%3C/svg%3E">
 
-  <!-- Pure HTML5 + PixiJS + ai*js, no build step. Packages are vendored under ./vendor
-       so the editor runs offline from any static server. -->
+  <!-- Pure HTML5 + PixiJS + ai*js, no build step. Packages, fonts and icons are vendored
+       or inlined, so the editor runs offline from any static server and loads nothing
+       from a third-party origin. -->
   <script type="importmap">
   {
     "imports": {
@@ -29,13 +29,20 @@
   <link rel="modulepreload" href="./src/editor.js">
 
   <link rel="stylesheet" href="./style.css">
-  <script
-    src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"
-    integrity="sha384-LtmWBcrD5iuFIR4sFphS8IiiaftkypL5dJzLKywbyd9ATLB7ZbPz3JYnI9nvXHkV"
-    crossorigin="anonymous"
-  ></script>
 </head>
 <body>
+  <!-- Lucide 0.468.0 icons in use (ISC licence: vendor/lucide-license.txt). Reference with <use href="#icon-name">. -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="icon-clipboard-copy" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M16 4h2a2 2 0 0 1 2 2v4"/><path d="M21 14H11"/><path d="m15 10-4 4 4 4"/></symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="icon-skip-back" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></symbol>
+    <symbol id="icon-skip-forward" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+    <symbol id="icon-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  </svg>
   <div class="glow"></div>
   <div class="glow-right"></div>
 
@@ -44,7 +51,7 @@
     <div class="meta">
       <span class="badge type" id="assettype-badge">Character</span>
       <span class="badge" id="source-badge">Loading…</span>
-      <span class="badge active">aispritejs · aifsmjs · aipooljs · aieventjs · aibridgejs</span>
+      <span class="badge active libs">aispritejs · aifsmjs · aipooljs · aieventjs · aibridgejs</span>
     </div>
   </header>
 
@@ -54,7 +61,7 @@
       <div class="sidebar-title">Character</div>
       <div class="card">
         <div class="control-group">
-          <label>Asset Folder</label>
+          <label for="character-select">Asset Folder</label>
           <select id="character-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
             <option value="">Loading…</option>
           </select>
@@ -76,12 +83,12 @@
           <img id="tpose-img" src="" alt="Generated T-Pose" style="width: 100%; border-radius: 6px; border: 1px solid var(--border); cursor: pointer;" title="Click to open in new tab">
           <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; font-size: 0.75rem;">
             <span style="color: var(--text-muted); flex: 1;">tpose.png</span>
-            <button id="btn-copy-tpose-url" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Copy T-Pose image URL"><i data-lucide="link" class="icon-sm"></i> URL</button>
+            <button id="btn-copy-tpose-url" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Copy T-Pose image URL"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-link"/></svg> URL</button>
           </div>
           <details id="tpose-prompt-details" style="margin-top: 0.5rem; font-size: 0.73rem;">
             <summary style="cursor: pointer; color: var(--text-muted); user-select: none;">Generation Prompt</summary>
             <pre id="tpose-prompt-text" style="margin: 0.3rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #a7f3d0; white-space: pre-wrap; word-break: break-word; font-size: 0.7rem; line-height: 1.4; max-height: 200px; overflow-y: auto;"></pre>
-            <button id="btn-copy-tpose-prompt" class="btn btn-sm" style="margin-top: 0.3rem; padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
+            <button id="btn-copy-tpose-prompt" class="btn btn-sm" style="margin-top: 0.3rem; padding: 2px 8px; font-size: 0.7rem;"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard-copy"/></svg> Copy Prompt</button>
           </details>
         </div>
         <p id="tpose-placeholder" class="muted-note" style="margin: -0.2rem 0 0.2rem;">No tpose.png generated yet. Use the local MCP reference task to create one.</p>
@@ -90,23 +97,23 @@
       <div class="sidebar-title">Animation</div>
       <div class="card">
         <div class="control-group">
-          <label>State</label>
+          <label for="unit-select">State</label>
           <select id="unit-select" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;"></select>
         </div>
         <details id="anim-prompt-details" style="margin-top: 0.5rem; font-size: 0.73rem;">
           <summary style="cursor: pointer; color: var(--text-muted); user-select: none;">Animation Prompt</summary>
           <pre id="anim-prompt-text" style="margin: 0.3rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #a7f3d0; white-space: pre-wrap; word-break: break-word; font-size: 0.7rem; line-height: 1.4; max-height: 180px; overflow-y: auto;"></pre>
           <div style="display:flex; gap:0.3rem; margin-top:0.3rem;">
-            <button id="btn-copy-anim-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
-            <button id="btn-save-anim-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
+            <button id="btn-copy-anim-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard-copy"/></svg> Copy Prompt</button>
+            <button id="btn-save-anim-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-save"/></svg> Save</button>
           </div>
         </details>
         <details id="frame-prompt-details" style="margin-top: 0.4rem; font-size: 0.73rem; display: none;">
           <summary style="cursor: pointer; color: var(--text-muted); user-select: none;">Frame <span id="frame-prompt-idx">0</span> Prompt</summary>
           <pre id="frame-prompt-text" style="margin: 0.3rem 0 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 6px; color: #a7f3d0; white-space: pre-wrap; word-break: break-word; font-size: 0.7rem; line-height: 1.4; max-height: 180px; overflow-y: auto;"></pre>
           <div style="display:flex; gap:0.3rem; margin-top:0.3rem;">
-            <button id="btn-copy-frame-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Prompt</button>
-            <button id="btn-save-frame-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><i data-lucide="save" class="icon-sm"></i> Save</button>
+            <button id="btn-copy-frame-prompt" class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard-copy"/></svg> Copy Prompt</button>
+            <button id="btn-save-frame-prompt" data-local-only class="btn btn-sm" style="padding: 2px 8px; font-size: 0.7rem;" title="Save to assets/<char>/prompts/"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-save"/></svg> Save</button>
           </div>
         </details>
       </div>
@@ -139,12 +146,12 @@
       <div class="sidebar-title">Canvas</div>
       <div class="card">
         <div class="control-group">
-          <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
+          <label for="chroma-toggle" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
             <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Green-screen key (#00FF00 → transparent)
           </label>
         </div>
         <div class="control-group">
-          <div style="display:flex; justify-content:space-between;"><label>Key similarity</label><span style="font-size:0.8rem;" id="chroma-sim-val">0.30</span></div>
+          <div style="display:flex; justify-content:space-between;"><label for="chroma-sim">Key similarity</label><span style="font-size:0.8rem;" id="chroma-sim-val">0.30</span></div>
           <input type="range" class="slider" id="chroma-sim" min="0.05" max="0.7" step="0.01" value="0.30">
         </div>
       </div>
@@ -152,36 +159,36 @@
       <div class="sidebar-title">Playback Tuning</div>
       <div class="card">
         <div class="control-group">
-          <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <i data-lucide="lock" class="icon-sm"></i> Preview lock — force loop selected animation
+          <label for="preview-lock" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
+            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lock"/></svg> Preview lock — force loop selected animation
           </label>
           <div style="font-size:0.7rem; color:var(--text-dim); margin-top:0.2rem;">
             When off, animation follows End behaviour (loop / hold / return).
           </div>
         </div>
         <div class="control-group">
-          <label>End behaviour (loop / hold / return)</label>
-          <div class="seg">
-            <button class="btn" id="end-loop" title="Loop forever (e.g. a burning flame)">Loop</button>
-            <button class="btn" id="end-hold" title="Play once, freeze on last frame (e.g. an opened chest)">Hold</button>
-            <button class="btn" id="end-return" title="Play once, then transition to another state (e.g. attack → idle)">Return</button>
+          <label id="end-behaviour-label">End behaviour (loop / hold / return)</label>
+          <div class="seg" role="group" aria-labelledby="end-behaviour-label">
+            <button class="btn" id="end-loop" aria-pressed="false" title="Loop forever (e.g. a burning flame)">Loop</button>
+            <button class="btn" id="end-hold" aria-pressed="false" title="Play once, freeze on last frame (e.g. an opened chest)">Hold</button>
+            <button class="btn" id="end-return" aria-pressed="false" title="Play once, then transition to another state (e.g. attack → idle)">Return</button>
           </div>
-          <select id="end-return-target" style="display:none;"></select>
+          <select id="end-return-target" aria-label="Return to state" style="display:none;"></select>
         </div>
         <div class="control-group">
           <div style="display: flex; justify-content: space-between;">
-            <label>Frame Duration</label>
+            <label for="speed-slider">Frame Duration</label>
             <span style="font-size: 0.8rem;" id="duration-val">125ms</span>
           </div>
           <input type="range" class="slider" id="speed-slider" min="40" max="600" value="125" step="5">
         </div>
         <div class="control-group">
-          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; text-transform: none; letter-spacing: 0;">
+          <label for="show-pivot" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; text-transform: none; letter-spacing: 0;">
             <input type="checkbox" id="show-pivot" style="accent-color: var(--primary);"> Show pivot anchor
           </label>
         </div>
         <div class="control-group">
-          <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; text-transform: none; letter-spacing: 0;">
+          <label for="onion-skin" style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; text-transform: none; letter-spacing: 0;">
             <input type="checkbox" id="onion-skin" style="accent-color: var(--primary);"> Onion Skin (show prev/next frame outlines)
           </label>
         </div>
@@ -190,11 +197,11 @@
           <div style="display: flex; gap: 0.6rem; align-items: center;">
             <div style="flex:1; display:flex; flex-direction:column; gap:0.2rem;">
               <span style="font-size:0.68rem; color:var(--text-muted);">X</span>
-              <input type="number" class="anchor-input" id="anchor-x" min="0" max="1" step="0.01" value="0.50">
+              <input type="number" class="anchor-input" id="anchor-x" aria-label="Anchor X" min="0" max="1" step="0.01" value="0.50">
             </div>
             <div style="flex:1; display:flex; flex-direction:column; gap:0.2rem;">
               <span style="font-size:0.68rem; color:var(--text-muted);">Y</span>
-              <input type="number" class="anchor-input" id="anchor-y" min="0" max="1" step="0.01" value="0.86">
+              <input type="number" class="anchor-input" id="anchor-y" aria-label="Anchor Y" min="0" max="1" step="0.01" value="0.86">
             </div>
           </div>
           <button class="btn btn-sm" id="btn-apply-all-anchors" style="margin-top: 0.5rem; font-size: 0.72rem; padding: 4px 8px;" title="Apply this anchor to all frames in all animations">Apply to All Animations</button>
@@ -212,17 +219,25 @@
       </div>
       <div id="canvas-container"><div id="crosshair"></div></div>
       <div class="boot-error" id="boot-error" role="alert" hidden>The editor failed to load. Check the browser console for details.</div>
+      <!-- Viewer mode (narrow screens) only; the sidebar's State picker is hidden there. -->
+      <div class="viewer-only viewer-state">
+        <label for="viewer-unit-select">State</label>
+        <select id="viewer-unit-select"></select>
+      </div>
       <div class="frame-bar" id="frame-bar">
         <div class="frame-bar-controls">
-          <button id="frame-prev" title="Previous frame (←)"><i data-lucide="skip-back" class="icon-md"></i></button>
-          <button id="frame-playpause" title="Play / Pause (,)" class="active"><i data-lucide="pause" class="icon-md"></i></button>
-          <button id="frame-next" title="Next frame (→)"><i data-lucide="skip-forward" class="icon-md"></i></button>
+          <button id="frame-prev" title="Previous frame (←)" aria-label="Previous frame"><svg class="icon icon-md" aria-hidden="true"><use href="#icon-skip-back"/></svg></button>
+          <button id="frame-playpause" title="Play / Pause (,)" aria-label="Play" aria-pressed="true" class="active"><svg class="icon icon-md" aria-hidden="true"><use href="#icon-pause"/></svg></button>
+          <button id="frame-next" title="Next frame (→)" aria-label="Next frame"><svg class="icon icon-md" aria-hidden="true"><use href="#icon-skip-forward"/></svg></button>
           <span class="frame-label" id="frame-label"><strong>1</strong> / 1</span>
-          <button id="frame-regen" data-local-only title="Copy this frame's prompt for an image-capable agent"><i data-lucide="refresh-cw" class="icon-sm"></i> Regenerate</button>
-          <button id="frame-copy-path" data-local-only title="Copy the file path of this frame to clipboard"><i data-lucide="clipboard-copy" class="icon-sm"></i> Copy Path</button>
+          <button id="frame-regen" data-local-only title="Copy this frame's prompt for an image-capable agent"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-refresh-cw"/></svg> Regenerate</button>
+          <button id="frame-copy-path" data-local-only title="Copy the file path of this frame to clipboard"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard-copy"/></svg> Copy Path</button>
         </div>
         <div class="timeline-container" id="timeline-list"></div>
       </div>
+      <p class="viewer-only viewer-note">Editing tools need a wider screen</p>
+      <!-- Announces state, paused frame and copy feedback; the frame counter itself changes too often. -->
+      <div class="sr-only" id="sr-status" role="status" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <!-- Right: JSON editor -->
@@ -232,17 +247,17 @@
         <button class="btn primary" id="btn-apply" style="padding: 0.4rem 0.8rem; font-size: 0.74rem;">Apply</button>
       </div>
       <p class="muted-note" id="json-hint" style="margin-top: -0.6rem;">Edits reflect live. After an agent regenerates the sheet, hit <strong>Reload</strong> — your JSON tuning is kept.</p>
-      <textarea class="editor-textarea" id="json-editor" spellcheck="false"></textarea>
-      <div id="json-error-msg" style="display: none; font-size: 0.72rem; color: var(--accent); margin-top: 0.3rem; margin-bottom: 0.3rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-word; line-height: 1.4;"></div>
+      <textarea class="editor-textarea" id="json-editor" spellcheck="false" aria-label="atlas.json" aria-describedby="json-error-msg"></textarea>
+      <div id="json-error-msg" role="alert" style="display: none; font-size: 0.72rem; color: var(--accent); margin-top: 0.3rem; margin-bottom: 0.3rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-word; line-height: 1.4;"></div>
       <div class="toolbar">
-        <button class="btn" id="btn-reload" data-local-only><i data-lucide="refresh-cw" class="icon-sm"></i> Reload assets</button>
-        <button class="btn primary" id="btn-save-disk" data-local-only title="Save atlas.json and keyed PNG directly to local disk"><i data-lucide="save" class="icon-sm"></i> Save to local disk</button>
+        <button class="btn" id="btn-reload" data-local-only><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-refresh-cw"/></svg> Reload assets</button>
+        <button class="btn primary" id="btn-save-disk" data-local-only title="Save atlas.json and keyed PNG directly to local disk"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-save"/></svg> Save to local disk</button>
       </div>
       <div class="toolbar" style="margin-top: 0.4rem;">
         <button class="btn" id="btn-export">Export JSON</button>
         <button class="btn" id="btn-export-sheet" title="Download the green-keyed transparent spritesheet">Export keyed PNG</button>
       </div>
-      <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.74rem; color:var(--text-muted); cursor:pointer;">
+      <label for="auto-reload" style="display:flex; align-items:center; gap:0.4rem; font-size:0.74rem; color:var(--text-muted); cursor:pointer;">
         <input type="checkbox" id="auto-reload" checked style="accent-color: var(--primary);">
         Auto-reload when generated assets change
       </label>
@@ -251,6 +266,5 @@
 
   <!-- onerror fires when a module in the graph (e.g. vendor/pixi.min.mjs) fails to load, before editor.js can run. -->
   <script type="module" src="./src/editor.js" onerror="document.getElementById('boot-error').hidden = false; document.getElementById('source-badge').textContent = 'Failed to load';"></script>
-  <script>lucide.createIcons();</script>
 </body>
 </html>

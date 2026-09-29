@@ -42,6 +42,7 @@ const MIME_TYPES = new Map([
   [".svg", "image/svg+xml"],
   [".txt", "text/plain; charset=utf-8"],
   [".webp", "image/webp"],
+  [".woff2", "font/woff2"],
   [".yml", "text/yaml; charset=utf-8"],
   [".yaml", "text/yaml; charset=utf-8"],
 ]);

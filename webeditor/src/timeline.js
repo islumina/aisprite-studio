@@ -23,9 +23,14 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
         frameEl.className = `timeline-frame${idx === curFrameIdx ? ' active' : ''}`;
         frameEl.dataset.index = idx;
 
-        const numSpan = document.createElement('span');
-        numSpan.className = 'timeline-frame-num';
-        numSpan.textContent = `#${idx}`;
+        // A real button, so Tab reaches the frame and Enter/Space select it (the click bubbles
+        // to frameEl). It sits beside the duration field because a button cannot contain one.
+        const numBtn = document.createElement('button');
+        numBtn.type = 'button';
+        numBtn.className = 'timeline-frame-num';
+        numBtn.textContent = `#${idx}`;
+        numBtn.setAttribute('aria-label', `Frame #${idx}`);
+        if (idx === curFrameIdx) numBtn.setAttribute('aria-current', 'true');
 
         const durInput = document.createElement('input');
         durInput.type = 'number';
@@ -33,6 +38,7 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
         durInput.min = '20';
         durInput.max = '2000';
         durInput.step = '10';
+        durInput.setAttribute('aria-label', `Frame #${idx} duration (ms)`);
 
         const dur = atlas.frames[fk]?.duration || pb.durationMs;
         durInput.value = dur;
@@ -55,7 +61,7 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
           e.stopPropagation();
         });
 
-        frameEl.appendChild(numSpan);
+        frameEl.appendChild(numBtn);
         frameEl.appendChild(durInput);
         els.timelineList.appendChild(frameEl);
       });
@@ -67,15 +73,16 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
       cards.forEach((card, i) => {
         const isActive = i === idx;
         card.classList.toggle('active', isActive);
+        const numBtn = card.querySelector('.timeline-frame-num');
+        if (isActive) numBtn?.setAttribute('aria-current', 'true');
+        else numBtn?.removeAttribute('aria-current');
         if (isActive) {
-          // Use container.scrollTo instead of scrollIntoView to avoid vertical page shaking
+          // Use container.scrollTo instead of scrollIntoView to avoid vertical page shaking.
+          // Smoothness comes from CSS scroll-behavior, which prefers-reduced-motion turns off.
           const container = els.timelineList;
           const cardCenter = card.offsetLeft + card.clientWidth / 2;
           const containerCenter = container.clientWidth / 2;
-          container.scrollTo({
-            left: cardCenter - containerCenter,
-            behavior: 'smooth'
-          });
+          container.scrollTo({ left: cardCenter - containerCenter });
         }
       });
     }

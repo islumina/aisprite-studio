@@ -35,6 +35,7 @@ before(async () => {
   await mkdir(path.join(root, "assets", "hero", "output"), { recursive: true });
   await mkdir(path.join(root, "mcp-server", "dist"), { recursive: true });
   await writeFile(path.join(root, "webeditor", "index.html"), "<!doctype html><title>studio</title>");
+  await writeFile(path.join(root, "webeditor", "font.woff2"), "fixture");
   await writeFile(path.join(root, "assets", "hero", "tpose.png"), "fixture");
   await writeFile(path.join(root, "assets", "hero", "output", "sheet.png"), "fixture");
   await writeFile(path.join(root, "assets", "hero", "output", "atlas.json"), JSON.stringify({ meta: { image: "sheet.png" } }));
@@ -63,6 +64,12 @@ test("serves the editor and reports declared assets", async () => {
     atlasPrefix: "output",
     hasReference: true,
   }]);
+});
+
+test("serves self-hosted fonts as font/woff2", async () => {
+  const response = await request("/font.woff2");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["content-type"], "font/woff2");
 });
 
 test("blocks static path traversal", async () => {
