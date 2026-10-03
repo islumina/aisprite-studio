@@ -145,8 +145,9 @@
       <div class="card">
         <div class="control-group">
           <label for="chroma-toggle" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Green-screen key (#00FF00 → transparent)
+            <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Chroma key (background colour → transparent)
           </label>
+          <p class="muted-note" id="chroma-key-info" style="margin: 0.3rem 0 0;">The key colour is detected from each image's border.</p>
         </div>
         <div class="control-group">
           <div style="display:flex; justify-content:space-between;"><label for="chroma-sim">Key similarity</label><span style="font-size:0.8rem;" id="chroma-sim-val">0.30</span></div>
@@ -253,7 +254,7 @@
       </div>
       <div class="toolbar" style="margin-top: 0.4rem;">
         <button class="btn" id="btn-export">Export JSON</button>
-        <button class="btn" id="btn-export-sheet" title="Download the green-keyed transparent spritesheet">Export keyed PNG</button>
+        <button class="btn" id="btn-export-sheet" title="Download the chroma-keyed transparent spritesheet">Export keyed PNG</button>
       </div>
       <label for="auto-reload" style="display:flex; align-items:center; gap:0.4rem; font-size:0.74rem; color:var(--text-muted); cursor:pointer;">
         <input type="checkbox" id="auto-reload" checked style="accent-color: var(--primary);">

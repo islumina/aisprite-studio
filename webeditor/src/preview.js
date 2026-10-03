@@ -9,7 +9,8 @@
 // no seek API).
 import * as PIXI from 'pixi.js';
 import { bus, EV } from './bus.js';
-import { keyGreen } from './chroma.js';
+import { CHROMA_DEFAULTS, detectKeyColor, readBorderPixels } from './chroma.js';
+import { createChromaFilter, setChromaUniforms } from './chroma-filter.js';
 
 let app = null;
 let sprite = null;
@@ -17,9 +18,14 @@ let crosshairEl = null;
 const canvasSize = 512; // fallback source frame size when an atlas omits sourceSize
 let currentPb = null;
 let _sheet = null; // current parsed Spritesheet instance
-// Green-screen key: generation uses solid #00FF00, keyed to transparency at load.
-let _chroma = { enabled: true, similarity: 0.30, smoothness: 0.10, key: [0, 255, 0] };
-let _keyedCanvas = null; // last keyed sheet canvas (for "Export keyed PNG")
+let _sheetTexture = null; // the whole sheet image, for export
+let _sheetBitmap = null; // ImageBitmap behind _sheetTexture; closed when the sheet is replaced
+// Chroma key: the colour comes from the sheet's border (chroma.js) and is keyed on the GPU.
+let _chroma = { enabled: true, similarity: CHROMA_DEFAULTS.similarity };
+let _sheetKey = { key: null, reason: 'empty' }; // detectKeyColor() result for the loaded sheet
+let keyFilter = null; // main sprite; attached only while a key applies
+let prevFilter = null; // onion skins: always attached, they also carry the onion tint
+let nextFilter = null;
 let prevSprite = null;
 let nextSprite = null;
 let _onionEnabled = false;
@@ -32,13 +38,77 @@ let dragAnchor = null; // last anchor reported during the current pivot drag
 let hostObserver = null; // keeps the renderer the size of its host element
 const dragPoint = new PIXI.Point(); // reused out-parameter for toLocal() on every pointermove
 
-export function setChroma(opts) { _chroma = { ..._chroma, ...opts }; }
+/** Update the chroma key settings ({ enabled, similarity }); only uniforms change, nothing reloads. */
+export function setChroma(opts) {
+  _chroma = { ..._chroma, ...opts };
+  applyChroma();
+}
 export function getChroma() { return { ..._chroma }; }
-export function getKeyedCanvas() { return _keyedCanvas; }
+/** The key detected for the loaded sheet: `{ key: [r, g, b] }`, or `{ key: null, reason }`. */
+export function getSheetKey() { return _sheetKey; }
 
-async function loadBitmap(url) {
-  const blob = await (await fetch(url)).blob();
-  return await createImageBitmap(blob);
+function activeKey(detection) {
+  return _chroma.enabled ? detection?.key ?? null : null;
+}
+
+function applyChroma() {
+  const settings = { key: activeKey(_sheetKey), similarity: _chroma.similarity };
+  for (const filter of [keyFilter, prevFilter, nextFilter]) if (filter) setChromaUniforms(filter, settings);
+  if (sprite) sprite.filters = settings.key ? [keyFilter] : null;
+}
+
+/** Fetch and decode an image. The caller owns the bitmap and must close() it. */
+export async function loadBitmap(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return createImageBitmap(await response.blob());
+}
+
+/** Detect the key colour of a decoded image (see chroma.js). */
+export function detectImageKey(bitmap) {
+  try {
+    return detectKeyColor(readBorderPixels(bitmap));
+  } catch (error) {
+    console.warn('Chroma key detection failed; not keying this image:', error);
+    return { key: null, reason: 'empty' };
+  }
+}
+
+/** Wrap a bitmap in a texture the way PixiJS's own loader does. */
+function bitmapTexture(bitmap) {
+  return new PIXI.Texture({
+    source: new PIXI.ImageSource({ resource: bitmap, alphaMode: 'premultiply-alpha-on-upload' }),
+  });
+}
+
+/**
+ * Render an image through the chroma key at its own pixel size, for export.
+ * @param {ImageBitmap | PIXI.Texture} source
+ * @param {{ key: [number, number, number] | null }} detection  Usually detectImageKey(source).
+ * @returns {HTMLCanvasElement | null} null when nothing would be keyed (key off, or the image has alpha).
+ */
+export function keyedCanvas(source, detection) {
+  const key = activeKey(detection);
+  if (!app || !key) return null;
+  const texture = source instanceof PIXI.Texture ? source : bitmapTexture(source);
+  const filter = createChromaFilter({ straightAlpha: true });
+  setChromaUniforms(filter, { key, similarity: _chroma.similarity });
+  const keyedSprite = new PIXI.Sprite(texture);
+  keyedSprite.filters = [filter];
+  const root = new PIXI.Container(); // the filter sits on a child, so it is part of what is rendered
+  root.addChild(keyedSprite);
+  try {
+    return app.renderer.extract.canvas({ target: root, resolution: 1 });
+  } finally {
+    root.destroy({ children: true });
+    filter.destroy();
+    if (texture !== source) texture.destroy(true); // the caller still owns and closes the bitmap
+  }
+}
+
+/** The loaded sheet keyed to transparency (for Export keyed PNG / Save), or null when nothing is keyed. */
+export function getKeyedSheetCanvas() {
+  return _sheetTexture ? keyedCanvas(_sheetTexture, _sheetKey) : null;
 }
 
 /** Draw a premium glowing crosshair for pivot anchor. */
@@ -92,10 +162,13 @@ export async function initPreview(container, crosshair) {
 
   prevSprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
   nextSprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
-  prevSprite.alpha = 0.22;
-  nextSprite.alpha = 0.22;
-  prevSprite.tint = 0xff8888;
-  nextSprite.tint = 0x8888ff;
+  // Onion skins: 22% alpha, red-ish behind and blue-ish ahead, applied after keying.
+  keyFilter = createChromaFilter();
+  prevFilter = createChromaFilter({ tint: [1, 0.53, 0.53, 0.22] });
+  nextFilter = createChromaFilter({ tint: [0.53, 0.53, 1, 0.22] });
+  prevSprite.filters = [prevFilter];
+  nextSprite.filters = [nextFilter];
+  applyChroma();
 
   // Initialize interactive pivot crosshair
   pivotGraphics = new PIXI.Graphics();
@@ -151,47 +224,38 @@ function layoutSprite() {
 }
 
 /**
- * Load a spritesheet via PixiJS Assets — handles trim, sourceSize, anchor automatically.
- * @param {string} imageUrl - path to the sheet PNG
+ * Load a spritesheet image and parse it with PixiJS Spritesheet (trim, sourceSize, anchor).
+ * The image is fetched and decoded here rather than through PixiJS Assets, so no
+ * cache-busted URL is left in the Assets cache, and its bitmap is closed on replace.
+ * @param {string} imageUrl - path to the sheet image
  * @param {object} atlasData - parsed atlas.json object
+ * @returns {Promise<{ key: [number, number, number] | null, reason?: string }>} the detected chroma key
  */
 export async function loadSheet(imageUrl, atlasData) {
-  // Stop animation and reset active sprite textures before destroying them
-  if (sprite) {
-    sprite.stop();
-    sprite.textures = [PIXI.Texture.EMPTY];
-  }
-  if (prevSprite) prevSprite.texture = PIXI.Texture.EMPTY;
-  if (nextSprite) nextSprite.texture = PIXI.Texture.EMPTY;
-
-  // Clean up previous sheet from cache to avoid stale textures
-  if (_sheet) {
-    _sheet.destroy(true); // destroyBaseTexture = true
-    _sheet = null;
-  }
-  // Bust cache for hot-reload
   // Query strings corrupt data URLs. Hosted/demo sheets are generated in-memory,
   // while file-backed sheets still need cache busting for regeneration previews.
   const bustUrl = /^(data:|blob:)/.test(imageUrl)
     ? imageUrl
     : imageUrl + (imageUrl.includes('?') ? '&' : '?') + `_t=${Date.now()}`;
+  const bitmap = await loadBitmap(bustUrl); // before releasing anything, so a failed fetch keeps the old sheet
+  const detection = detectImageKey(bitmap);
 
-  let baseTexture;
-  if (_chroma.enabled) {
-    // Key #00FF00 → transparent on a canvas, then build the sheet from that.
-    const bmp = await loadBitmap(bustUrl);
-    _keyedCanvas = keyGreen(bmp, _chroma);
-    baseTexture = PIXI.Texture.from(_keyedCanvas);
-  } else {
-    _keyedCanvas = null;
-    baseTexture = await PIXI.Assets.load({ src: bustUrl, parser: 'texture' });
-  }
+  // Detach the old textures before destroying them.
+  if (sprite) sprite.textures = [PIXI.Texture.EMPTY];
+  if (prevSprite) prevSprite.texture = PIXI.Texture.EMPTY;
+  if (nextSprite) nextSprite.texture = PIXI.Texture.EMPTY;
+  _sheet?.destroy(true); // also destroys the base texture and its source
+  _sheet = null;
+  _sheetTexture = null;
+  _sheetBitmap?.close();
+  _sheetBitmap = bitmap;
 
-  _sheet = new PIXI.Spritesheet({
-    texture: baseTexture,
-    data: atlasData,
-  });
+  _sheetTexture = bitmapTexture(bitmap);
+  _sheet = new PIXI.Spritesheet({ texture: _sheetTexture, data: atlasData });
   await _sheet.parse();
+  _sheetKey = detection;
+  applyChroma();
+  return detection;
 }
 
 /** Get the current parsed Spritesheet (or null). */

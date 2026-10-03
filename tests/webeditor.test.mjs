@@ -11,6 +11,7 @@ import {
   summariseFrameDurations,
 } from "../webeditor/src/atlas-model.js";
 import { bus, EV } from "../webeditor/src/bus.js";
+import { detectKeyColor, spillMask } from "../webeditor/src/chroma.js";
 import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
 import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
@@ -287,4 +288,36 @@ test("every bus event is named ns:verb and is both emitted and handled", async (
     assert.match(source, new RegExp(`bus\\.emit\\(EV\\.${key}\\b`), `${key} is emitted`);
     assert.match(source, new RegExp(`bus\\.on\\(EV\\.${key}\\b`), `${key} is handled`);
   }
+});
+
+/** RGBA border bytes: `count` pixels per [r, g, b, a] entry. */
+function border(...runs) {
+  return Uint8ClampedArray.from(runs.flatMap(([count, rgba]) => Array.from({ length: count }, () => rgba).flat()));
+}
+
+test("the chroma key colour comes from the image border", () => {
+  assert.deepEqual(detectKeyColor(border([400, [0, 255, 0, 255]], [40, [200, 30, 30, 255]])), { key: [0, 255, 0] });
+  // reimu's tpose: a noisy blue that straddles histogram bins, around rgb(20, 62, 182).
+  const blue = [];
+  for (let i = 0; i < 300; i++) blue.push([1, [18 + (i % 5), 58 + (i % 9), 178 + (i % 8), 255]]);
+  const { key } = detectKeyColor(border(...blue, [60, [240, 240, 240, 255]]));
+  assert.ok(key.every((channel, i) => Math.abs(channel - [20, 62, 182][i]) <= 4), String(key));
+});
+
+test("images that already have alpha, or no flat background, are not keyed", () => {
+  // Packed sheets are pre-keyed: a transparent border.
+  assert.deepEqual(detectKeyColor(border([300, [0, 0, 0, 0]], [100, [0, 255, 0, 255]])), { key: null, reason: "alpha" });
+  assert.deepEqual(detectKeyColor(border([100, [0, 0, 0, 0]])), { key: null, reason: "alpha" });
+  assert.deepEqual(
+    detectKeyColor(border([100, [255, 0, 0, 255]], [100, [0, 255, 0, 255]], [100, [0, 0, 255, 255]])),
+    { key: null, reason: "mixed" },
+  );
+  assert.deepEqual(detectKeyColor(new Uint8ClampedArray(0)), { key: null, reason: "empty" });
+});
+
+test("spill suppression targets the key's dominant channel only", () => {
+  assert.deepEqual(spillMask([0, 255, 0]), [0, 1, 0]);
+  assert.deepEqual(spillMask([20, 62, 182]), [0, 0, 1]);
+  assert.deepEqual(spillMask([128, 128, 128]), [0, 0, 0]);
+  assert.deepEqual(spillMask([200, 180, 60]), [0, 0, 0]);
 });

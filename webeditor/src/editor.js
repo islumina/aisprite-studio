@@ -13,7 +13,6 @@ import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
 import * as preview from './preview.js';
 import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
-import { keyGreen } from './chroma.js';
 import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
 import { ANCHOR_DRAG_THROTTLE_MS } from './constants.js';
@@ -73,6 +72,7 @@ const els = {
   chromaToggle: $('chroma-toggle'),
   chromaSim: $('chroma-sim'),
   chromaSimVal: $('chroma-sim-val'),
+  chromaKeyInfo: $('chroma-key-info'),
   btnExportSheet: $('btn-export-sheet'),
   previewLock: $('preview-lock'),
   btnSaveDisk: $('btn-save-disk'),
@@ -336,53 +336,72 @@ async function updateReferencePose(charName) {
   els.refPosePlaceholder.style.display = 'block';
 }
 
-/** Show generated tpose.png in the T-Pose Grid section + load prompt. */
+let tposeUrl = null; // object URL shown in the T-Pose panel, revoked when replaced
+let tposeRequest = 0; // latest updateTpose() call; older ones drop their result
+
+/** Show generated tpose.png in the T-Pose Grid section (keyed like the sheet) + load its prompt. */
 async function updateTpose(charName) {
   if (staticMode) return; // section is hidden and assets/ does not exist on a static host
+  const request = ++tposeRequest;
   const src = `assets/${charName}/tpose.png`;
+  let blob = null;
   try {
-    const res = await fetch(src, { method: 'HEAD' });
-    if (res.ok) {
-      const bustUrl = src + `?_t=${Date.now()}`;
-      els.tposeGenerated.style.display = 'block';
-      els.tposePlaceholder.style.display = 'none';
-      els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
+    const response = await fetch(`${src}?_t=${Date.now()}`);
+    if (response.ok) blob = await response.blob();
+  } catch { /* no server: same as missing */ }
+  if (request !== tposeRequest) return;
+  if (!blob) {
+    els.tposeGenerated.style.display = 'none';
+    els.tposePlaceholder.style.display = 'block';
+    return;
+  }
+  els.tposeGenerated.style.display = 'block';
+  els.tposePlaceholder.style.display = 'none';
+  els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
 
-      if (els.chromaToggle && els.chromaToggle.checked) {
-        try {
-          const blob = await (await fetch(bustUrl)).blob();
-          const bmp = await createImageBitmap(blob);
-          const keyed = keyGreen(bmp, {
-            similarity: parseFloat(els.chromaSim.value),
-            smoothness: 0.10,
-            key: [0, 255, 0]
-          });
-          els.tposeImg.src = keyed.toDataURL();
-        } catch (e) {
-          console.warn('Failed to chroma key tpose.png:', e);
-          els.tposeImg.src = bustUrl;
-        }
-      } else {
-        els.tposeImg.src = bustUrl;
-      }
+  const shown = await tposeDisplayBlob(blob);
+  if (request !== tposeRequest) return;
+  if (tposeUrl) URL.revokeObjectURL(tposeUrl);
+  tposeUrl = URL.createObjectURL(shown);
+  els.tposeImg.src = tposeUrl;
 
-      // Load generation prompt if available
-      try {
-        const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
-        if (promptRes.ok) {
-          const promptTxt = await promptRes.text();
-          els.tposePromptText.textContent = promptTxt.trim();
-        } else {
-          els.tposePromptText.textContent = '(no tpose-prompt.txt found)';
-        }
-      } catch {
-        els.tposePromptText.textContent = '(failed to load prompt)';
-      }
-      return;
-    }
-  } catch { /* ignore */ }
-  els.tposeGenerated.style.display = 'none';
-  els.tposePlaceholder.style.display = 'block';
+  // Load generation prompt if available
+  try {
+    const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
+    els.tposePromptText.textContent = promptRes.ok ? (await promptRes.text()).trim() : '(no tpose-prompt.txt found)';
+  } catch {
+    els.tposePromptText.textContent = '(failed to load prompt)';
+  }
+}
+
+/** The T-Pose image keyed with its own border colour on the GPU, or the original when nothing is keyed. */
+async function tposeDisplayBlob(blob) {
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(blob);
+    const keyed = preview.keyedCanvas(bitmap, preview.detectImageKey(bitmap));
+    if (!keyed) return blob;
+    return await new Promise((resolve) => keyed.toBlob((png) => resolve(png ?? blob), 'image/png'));
+  } catch (error) {
+    console.warn('Failed to chroma key tpose.png:', error);
+    return blob;
+  } finally {
+    bitmap?.close();
+  }
+}
+
+/** Load a sheet image into the preview and show which chroma key it got. */
+async function loadSheetImage(imageUrl, atlasData) {
+  reflectChromaKey(await preview.loadSheet(imageUrl, atlasData));
+}
+
+function reflectChromaKey(detection) {
+  if (!els.chromaKeyInfo) return;
+  els.chromaKeyInfo.textContent = detection?.key
+    ? `Sheet key: rgb(${detection.key.join(', ')}), from its border`
+    : detection?.reason === 'alpha'
+      ? 'Sheet already has transparency, so it is not keyed.'
+      : 'No flat background colour found, so the sheet is not keyed.';
 }
 
 /** Load an atlas object + its sheet image, then render every panel. */
@@ -392,7 +411,7 @@ async function loadAtlas(atlasObj, imageUrl, badge) {
   atlas = next;
   baseImageUrl = imageUrl;
   // Use PixiJS Spritesheet for correct trim/anchor handling
-  await preview.loadSheet(imageUrl, atlasObj);
+  await loadSheetImage(imageUrl, atlasObj);
 
   els.sourceBadge.textContent = badge;
   els.sourceBadge.classList.add('active');
@@ -665,22 +684,24 @@ els.exportBtn.onclick = () => {
   a.remove();
 };
 
-// --- Green-screen chroma key ---
-async function reloadSheetForChroma() {
-  preview.setChroma({ enabled: els.chromaToggle.checked, similarity: parseFloat(els.chromaSim.value) });
-  if (baseImageUrl) {
-    await preview.loadSheet(baseImageUrl, atlas);
-    if (currentUnit) playState(currentUnit);
-  }
+// --- Chroma key (GPU filter: settings only update uniforms, nothing reloads) ---
+els.chromaToggle?.addEventListener('change', () => {
+  preview.setChroma({ enabled: els.chromaToggle.checked });
   if (currentChar) updateTpose(currentChar);
-}
-els.chromaToggle?.addEventListener('change', reloadSheetForChroma);
-els.chromaSim?.addEventListener('input', () => { els.chromaSimVal.textContent = parseFloat(els.chromaSim.value).toFixed(2); });
-els.chromaSim?.addEventListener('change', reloadSheetForChroma);
+});
+els.chromaSim?.addEventListener('input', () => {
+  const similarity = parseFloat(els.chromaSim.value);
+  els.chromaSimVal.textContent = similarity.toFixed(2);
+  preview.setChroma({ similarity });
+});
+els.chromaSim?.addEventListener('change', () => { if (currentChar) updateTpose(currentChar); });
 
 els.btnExportSheet?.addEventListener('click', () => {
-  const cv = preview.getKeyedCanvas();
-  if (!cv) { alert('Enable the green-screen key first, then export.'); return; }
+  const cv = preview.getKeyedSheetCanvas();
+  if (!cv) {
+    flashLabel(els.btnExportSheet, '✗ nothing to key', false);
+    return;
+  }
   cv.toBlob((blob) => {
     if (!blob) return;
     const a = document.createElement('a');
@@ -697,7 +718,7 @@ els.btnExportSheet?.addEventListener('click', () => {
 els.reload.onclick = async () => {
   if (!baseImageUrl) return;
   els.reload.classList.add('busy');
-  await preview.loadSheet(baseImageUrl, atlas);
+  await loadSheetImage(baseImageUrl, atlas);
   if (currentUnit) playState(currentUnit);
   els.reload.classList.remove('busy');
   els.sourceBadge.textContent = `Reloaded ×${++reloadCount}`;
@@ -931,7 +952,7 @@ async function autoReloadAssets() {
   const atlasBase = prefix ? `assets/${currentChar}/${prefix}` : `assets/${currentChar}`;
   if (jsonDirty) {
     const imageName = atlas.meta?.image || `${currentChar}.png`;
-    await preview.loadSheet(`${atlasBase}/${imageName}`, atlas);
+    await loadSheetImage(`${atlasBase}/${imageName}`, atlas);
     if (currentUnit) playState(currentUnit);
     els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
   } else {
@@ -1028,19 +1049,10 @@ els.btnSaveDisk?.addEventListener('click', async () => {
   els.btnSaveDisk.classList.add('busy');
 
   const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const payload = {
-    char: currentChar,
-    prefix: prefix,
-    atlas: atlas,
-    keyedImage: null
-  };
-
-  if (els.chromaToggle && els.chromaToggle.checked) {
-    const cv = preview.getKeyedCanvas();
-    if (cv) {
-      payload.keyedImage = cv.toDataURL('image/png');
-    }
-  }
+  const payload = { char: currentChar, prefix, atlas };
+  // Only when a key applies; server.mjs rejects a keyedImage that is not a PNG data URL (null included).
+  const keyed = preview.getKeyedSheetCanvas();
+  if (keyed) payload.keyedImage = keyed.toDataURL('image/png');
 
   try {
     const r = await fetch('/api/save', {
