@@ -25,6 +25,8 @@ const execFileAsync = promisify(execFile);
 const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const ASSET_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SAFE_FILE = /[^A-Za-z0-9_.-]/g;
+const NAME_ID = /^[A-Za-z0-9_-]{1,160}$/;
+const WORKSPACE_MODULE = new URL("./mcp-server/dist/workspace.js", import.meta.url);
 const MAX_BODY_BYTES = 30 * 1024 * 1024;
 const MAX_PNG_BYTES = 20 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -336,6 +338,25 @@ async function serveStatic(request, response, projectRoot, webeditorRoot, pathna
   stream.pipe(response);
 }
 
+let workspace;
+
+// Generation tasks are built by the MCP server's workspace module, so the editor shows
+// exactly the prompt and references an agent receives.
+async function generationTask(build) {
+  workspace ??= import(WORKSPACE_MODULE.href).catch((error) => {
+    workspace = undefined;
+    console.error(`Cannot load ${WORKSPACE_MODULE.pathname}: ${error.message}`);
+    throw new HttpError(503, "Generation tasks need the MCP server build. Run npm ci.");
+  });
+  const module = await workspace;
+  try {
+    return await build(module);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(404, error instanceof Error ? error.message : "Task not found");
+  }
+}
+
 function isLocalAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
@@ -405,6 +426,24 @@ export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
         const segments = ["assets", asset, "prompts", filename];
         if (!await isContainedFile(resolvedRoot, segments)) return sendJson(response, { exists: false, text: "" });
         return sendJson(response, { exists: true, text: await readFile(path.join(resolvedRoot, ...segments), "utf8") });
+      }
+      if (request.method === "GET" && url.pathname === "/api/frame-task") {
+        const asset = url.searchParams.get("char");
+        const frame = url.searchParams.get("frame");
+        if (!isAssetId(asset) || !NAME_ID.test(frame ?? "")) throw new HttpError(400, "char and frame required");
+        const task = await generationTask((module) => module.getGenerationTask(resolvedRoot, asset, frame));
+        return sendJson(response, {
+          asset,
+          frame: task.frame.name,
+          prompt: task.prompt,
+          references: task.reference_paths.map((reference) => path.relative(resolvedRoot, reference)),
+        });
+      }
+      if (request.method === "GET" && url.pathname === "/api/animation-task") {
+        const asset = url.searchParams.get("char");
+        const animation = url.searchParams.get("animation");
+        if (!isAssetId(asset) || !NAME_ID.test(animation ?? "")) throw new HttpError(400, "char and animation required");
+        return sendJson(response, await generationTask((module) => module.getAnimationOutline(resolvedRoot, asset, animation)));
       }
       if (request.method === "GET" && url.pathname === "/api/agent-config") {
         if (!isLocalAddress(request.socket.remoteAddress)) throw new HttpError(403, "Agent config is available only from localhost.");

@@ -4,7 +4,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { getGenerationTask, getReferenceTask, listAssets, parsePng, submitFrame, submitReference } from "../src/workspace.js";
+import {
+  getAnimationOutline,
+  getGenerationTask,
+  getPendingTasks,
+  getReferenceTask,
+  listAssets,
+  parsePng,
+  submitFrame,
+  submitReference,
+} from "../src/workspace.js";
 
 function png(width: number, height: number): Buffer {
   const value = Buffer.alloc(24);
@@ -106,4 +115,37 @@ test("does not follow asset image or frames directory symlinks", async () => {
     submitFrame(root, "hero", "idle_front_00", png(64, 64).toString("base64"), false),
     /real directory/,
   );
+});
+
+test("names frames without a direction and outlines the animation", async () => {
+  const root = await fixture();
+  const dir = path.join(root, "assets", "fish");
+  await mkdir(path.join(dir, "frames"), { recursive: true });
+  await writeFile(path.join(dir, "request.yml"), [
+    "style: flat",
+    "frame_size: 64",
+    "asset_type: character",
+    "animations:",
+    "  - action: swim",
+    "    direction: \"\"",
+    "    frames: 2",
+  ].join("\n"));
+  await writeFile(path.join(dir, "tpose.png"), png(64, 64));
+  await writeFile(path.join(dir, "frames", "swim_00.png"), png(64, 64));
+
+  const pending = await getPendingTasks(root, "fish");
+  assert.deepEqual(pending.map((task) => task.frame.name), ["swim_01"]);
+  assert.match(pending[0]!.prompt, /Continue motion from swim_00\.png/);
+  assert.equal(pending[0]!.reference_paths.length, 2);
+
+  const outline = await getAnimationOutline(root, "fish", "swim");
+  assert.deepEqual(outline.frames.map((frame) => frame.name), ["swim_00", "swim_01"]);
+  await assert.rejects(getAnimationOutline(root, "fish", "walk"), /not declared/);
+});
+
+test("frame prompts carry the pose and facing for known actions", async () => {
+  const root = await fixture();
+  const task = await getGenerationTask(root, "hero", "idle_front_01");
+  assert.match(task.prompt, /facing the viewer/);
+  assert.match(task.prompt, /Pose: slight inhale/);
 });

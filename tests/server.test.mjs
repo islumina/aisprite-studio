@@ -39,6 +39,14 @@ before(async () => {
   await writeFile(path.join(root, "assets", "hero", "tpose.png"), "fixture");
   await writeFile(path.join(root, "assets", "hero", "output", "sheet.png"), "fixture");
   await writeFile(path.join(root, "assets", "hero", "output", "atlas.json"), JSON.stringify({ meta: { image: "sheet.png" } }));
+  await writeFile(path.join(root, "assets", "hero", "request.yml"), [
+    "style: test sprite",
+    "frame_size: 64",
+    "animations:",
+    "  - action: walk",
+    "    direction: left",
+    "    frames: 2",
+  ].join("\n"));
   await writeFile(path.join(root, "mcp-server", "dist", "index.js"), "// fixture");
   server = createStudioServer({ projectRoot: root });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -232,4 +240,21 @@ test("does not read prompts through symlinks", async () => {
 test("caps asset identifiers at 64 characters", async () => {
   const response = await request(`/api/status?char=${"a".repeat(65)}`);
   assert.equal(response.status, 400);
+});
+
+test("serves the MCP generation task for a declared frame", async () => {
+  const response = await request("/api/frame-task?char=hero&frame=walk_left_01");
+  assert.equal(response.status, 200);
+  const task = JSON.parse(response.body);
+  assert.equal(task.frame, "walk_left_01");
+  assert.match(task.prompt, /Pose: passing/);
+  assert.match(task.prompt, /side profile facing left/);
+  assert.deepEqual(task.references, [path.join("assets", "hero", "tpose.png")]);
+
+  const undeclared = await request("/api/frame-task?char=hero&frame=walk_left_09");
+  assert.equal(undeclared.status, 404);
+  assert.match(JSON.parse(undeclared.body).error, /not declared/);
+
+  const outline = JSON.parse((await request("/api/animation-task?char=hero&animation=walk_left")).body);
+  assert.deepEqual(outline.frames.map((frame) => frame.name), ["walk_left_00", "walk_left_01"]);
 });

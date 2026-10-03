@@ -67,11 +67,11 @@ npm run serve
 3. 放入原初參考圖 `assets/my_hero/tpose.png`（需為乾淨的正面站立姿勢、綠幕背景）。
 
 #### 步驟 B：生成生圖計畫 (Generation Plan)
-在本地終端機執行 generate 指令：
+印出所有待生成 frame 的 task（與 MCP server 回傳的 prompt 和參考圖相同）：
 ```bash
-python3 -m tools.sprite_pipeline.cli generate assets/my_hero
+npm run plan -- assets/my_hero
 ```
-腳本將分析您的 `request.yml`，並在終端機印出給 AI 助理專用的**生圖計畫文字**。
+請先執行 `npm ci`，plan 會用到 MCP server 及其依賴。
 
 #### 步驟 C：交給 image-capable agent
 連接本機 MCP server，呼叫 `aisprite_studio_get_generation_task`，使用所有回傳的 PNG references 產生指定影格，再透過 `aisprite_studio_submit_generated_frame` 驗證並提交。沒有 MCP 的 host 可使用 editor 的 **Copy active frame task**，產圖後交由已連線的 MCP agent 提交。
