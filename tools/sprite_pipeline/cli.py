@@ -3,6 +3,8 @@
 Generation tasks come from the MCP server (or `npm run plan -- assets/<asset>`).
 
 Usage:
+    python -m tools.sprite_pipeline.cli row-guide assets/reimu idle_front
+    python -m tools.sprite_pipeline.cli extract-row assets/reimu idle_front [--raw PATH] [--replace]
     python -m tools.sprite_pipeline.cli qa assets/reimu [--skip-vision]
     python -m tools.sprite_pipeline.cli pack assets/reimu
     python -m tools.sprite_pipeline.cli validate assets/reimu/output/atlas.json
@@ -30,6 +32,16 @@ def _parse_args() -> argparse.Namespace:
     )
 
     sub = p.add_subparsers(dest="command", required=True)
+
+    # row generation
+    guide = sub.add_parser("row-guide", help="Write the layout guide for a whole-animation row task (JSON on stdout)")
+    guide.add_argument("asset_dir", type=Path, help="Asset directory")
+    guide.add_argument("animation", help="Animation name, e.g. idle_front")
+    extract = sub.add_parser("extract-row", help="Cut a generated row picture into the animation's frames (JSON on stdout)")
+    extract.add_argument("asset_dir", type=Path, help="Asset directory")
+    extract.add_argument("animation", help="Animation name, e.g. idle_front")
+    extract.add_argument("--raw", type=Path, help="Row picture (default: raw/<animation>.png)")
+    extract.add_argument("--replace", action="store_true", help="Overwrite existing frames of the animation")
 
     # sync
     sync_cmd = sub.add_parser("sync", help="Remove timestamps from generated frame filenames")
@@ -101,6 +113,26 @@ def _require_pack_approval(asset_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
+
+def _cmd_row_guide(args: argparse.Namespace) -> None:
+    from .row import RowError, write_guide
+
+    try:
+        print(json.dumps(write_guide(args.asset_dir, _load_request(args.asset_dir), args.animation)))
+    except RowError as exc:
+        raise SystemExit(f"Row guide failed: {exc}") from exc
+
+
+def _cmd_extract_row(args: argparse.Namespace) -> None:
+    from .row import RowError, extract_row
+
+    raw = args.raw or args.asset_dir / "raw" / f"{args.animation}.png"
+    try:
+        report = extract_row(args.asset_dir, _load_request(args.asset_dir), args.animation, raw, replace=args.replace)
+    except (RowError, OSError) as exc:
+        raise SystemExit(f"Row extraction failed: {exc}") from exc
+    print(json.dumps(report))
+
 
 def _cmd_sync(args: argparse.Namespace) -> None:
     import re
@@ -210,7 +242,11 @@ def main() -> None:
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=level, format="%(name)s %(levelname)s %(message)s")
 
-    if args.command == "sync":
+    if args.command == "row-guide":
+        _cmd_row_guide(args)
+    elif args.command == "extract-row":
+        _cmd_extract_row(args)
+    elif args.command == "sync":
         _cmd_sync(args)
     elif args.command == "qa":
         asyncio.run(_cmd_qa(args))

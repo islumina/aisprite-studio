@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
-import { getGenerationTask, getReferenceTask, listAssets, readQaReport, runDeterministicQa, submitFrame, submitReference, } from "./workspace.js";
+import { getGenerationTask, getReferenceTask, getRowTask, listAssets, readQaReport, runDeterministicQa, submitFrame, submitReference, submitRow, } from "./workspace.js";
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ROOT = path.resolve(process.env.AISPRITE_STUDIO_ROOT ?? process.env.AIPLAYBOOK_ROOT ?? DEFAULT_ROOT);
 const AssetId = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
@@ -34,7 +34,7 @@ function failure(error) {
 }
 export function createServer() {
     const server = new McpServer({ name: "aisprite-studio-mcp-server", version: "0.1.0" }, {
-        instructions: "Use aisprite_studio_list_assets first. Existing bundled generated images are failed, unapproved artifacts. Repair the canonical reference with aisprite_studio_get_reference_task when needed, then generate only the exact frame returned by aisprite_studio_get_generation_task using every returned reference. Submit the PNG and run deterministic QA. Deterministic QA is not visual approval and never authorises packing.",
+        instructions: "Use aisprite_studio_list_assets first. Existing bundled generated images are failed, unapproved artifacts. Repair the canonical reference with aisprite_studio_get_reference_task when needed. Then either draw a whole animation in one image with aisprite_studio_get_row_task (most consistent; heed its warning about enlargement) or generate the exact frame returned by aisprite_studio_get_generation_task, always using every returned reference. Submit the PNG and run deterministic QA. Deterministic QA is not visual approval and never authorises packing.",
     });
     server.registerTool("aisprite_studio_list_assets", {
         title: "List Sprite Generation Assets",
@@ -140,6 +140,44 @@ export function createServer() {
         try {
             const result = await submitFrame(ROOT, asset, frame, png_base64, replace);
             return success(result, `Saved ${result.path}. Run aisprite_studio_run_deterministic_qa next.`);
+        }
+        catch (error) {
+            return failure(error);
+        }
+    });
+    server.registerTool("aisprite_studio_get_row_task", {
+        title: "Get One Whole-Animation Row Task",
+        description: "Return a prompt for drawing every frame of one animation in a single image, plus the identity reference and a numbered layout guide. Poses drawn together stay more consistent than frames drawn one by one. Check `warning`: for large frame_size the poses are enlarged and per-frame tasks are better. Omit animation to select the first one with missing frames.",
+        inputSchema: z.object({
+            asset: AssetId,
+            animation: FrameId.optional().describe("Declared animation, e.g. idle_front, or swim when it has no direction"),
+        }).strict(),
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async ({ asset, animation }) => {
+        try {
+            const task = await getRowTask(ROOT, asset, animation);
+            const images = await Promise.all(task.reference_paths.map(imageContent));
+            const structured = { ...task, reference_paths: task.reference_paths.map((referencePath) => path.relative(ROOT, referencePath)) };
+            return { content: [{ type: "text", text: JSON.stringify(structured, null, 2) }, ...images], structuredContent: structured };
+        }
+        catch (error) {
+            return failure(error);
+        }
+    });
+    server.registerTool("aisprite_studio_submit_generated_row", {
+        title: "Submit a Generated Row PNG",
+        description: "Save one row picture as raw/<animation>.png, key it, find exactly the declared number of poses, and write them as the animation's frames at one shared scale. Writes all frames or none; the error names what was found. Set replace to overwrite existing frames of the animation.",
+        inputSchema: z.object({
+            asset: AssetId,
+            animation: FrameId,
+            png_base64: z.string().min(16).max(28_000_000).describe("Raw base64 or a data:image/png;base64 URL, maximum decoded size 20 MiB"),
+            replace: z.boolean().default(false),
+        }).strict(),
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    }, async ({ asset, animation, png_base64, replace }) => {
+        try {
+            const result = await submitRow(ROOT, asset, animation, png_base64, replace);
+            return success(result, `Wrote ${result.frames.length} frames from ${result.raw}. Run aisprite_studio_run_deterministic_qa next.`);
         }
         catch (error) {
             return failure(error);

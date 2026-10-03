@@ -63,6 +63,25 @@ export interface AnimationOutline {
   prompt: string;
 }
 
+export interface RowLayout {
+  frames: number;
+  columns: number;
+  rows: number;
+  slot: number;
+  canvas: [number, number];
+}
+
+export interface RowTask {
+  asset: string;
+  animation: string;
+  frames: string[];
+  layout: RowLayout;
+  upscale: number;
+  warning: string | null;
+  prompt: string;
+  reference_paths: string[];
+}
+
 export interface ReferenceTask {
   asset: string;
   request: AssetRequest;
@@ -384,7 +403,8 @@ export async function submitFrame(root: string, asset: string, frameName: string
   return savePng(root, target, encoded, request.frame_size, replace, `Frame '${frameName}'`);
 }
 
-async function savePng(root: string, target: string, encoded: string, frameSize: number, replace: boolean, label: string): Promise<{ path: string; bytes: number; width: number; height: number }> {
+// `frameSize` null accepts any size from 64 to 4096 px per side (a row picture).
+async function savePng(root: string, target: string, encoded: string, frameSize: number | null, replace: boolean, label: string): Promise<{ path: string; bytes: number; width: number; height: number }> {
   const payload = encoded.replace(/^data:image\/png;base64,/, "");
   if (payload.length > Math.ceil(MAX_PNG_BYTES * 4 / 3) + 8) throw new Error("PNG exceeds the 20 MiB limit.");
   if (payload.length === 0 || payload.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
@@ -393,7 +413,11 @@ async function savePng(root: string, target: string, encoded: string, frameSize:
   const buffer = Buffer.from(payload, "base64");
   if (buffer.length > MAX_PNG_BYTES) throw new Error("PNG exceeds the 20 MiB limit.");
   const dimensions = parsePng(buffer);
-  if (dimensions.width !== frameSize || dimensions.height !== frameSize) {
+  if (frameSize === null) {
+    if (Math.min(dimensions.width, dimensions.height) < 64 || Math.max(dimensions.width, dimensions.height) > 4096) {
+      throw new Error(`Row PNG sides must be 64-4096 px; received ${dimensions.width}x${dimensions.height}.`);
+    }
+  } else if (dimensions.width !== frameSize || dimensions.height !== frameSize) {
     throw new Error(`PNG must be ${frameSize}x${frameSize}; received ${dimensions.width}x${dimensions.height}.`);
   }
 
@@ -419,6 +443,119 @@ export async function submitReference(root: string, asset: string, encoded: stri
   const request = await loadRequest(root, asset);
   const target = path.join(assetDirectory(root, asset), "tpose.png");
   return savePng(root, target, encoded, request.frame_size, replace, `Reference '${asset}/tpose.png'`);
+}
+
+const ROW_UPSCALE_LIMIT = 1.25;
+
+function rowPrompt(asset: string, request: AssetRequest, frames: FrameSpec[], layout: RowLayout): string {
+  const first = frames[0]!;
+  const facing = FACING[first.direction] ?? (first.direction ? `facing '${first.direction}'` : "");
+  const order = layout.rows > 1 ? "left to right, then top to bottom" : "left to right";
+  const floor = request.asset_type === "effect" ? "centred in" : "standing on the floor line of";
+  return [
+    `Draw all ${frames.length} frames of the '${first.action}' animation of ${asset}${facing ? `, ${facing}` : ""}, in ONE ${layout.canvas[0]}x${layout.canvas[1]} image: ${layout.columns} per row, ${layout.rows} row(s), in reading order (${order}).`,
+    `Subject: ${asset}. Asset type: ${request.asset_type}. Style: ${request.style}.`,
+    FRAME_RULES[request.asset_type],
+    `The attached layout guide shows the numbered boxes. Draw pose k inside box k, within its inner safe area and ${floor} its box. Do not draw the boxes, lines, or numbers.`,
+    "Every pose shows the same subject at the same scale; only the pose changes. Keep clear background between neighbouring poses: no pose may touch another pose or the image edge.",
+    "Treat references as identity guidance only and do not copy their visible defects.",
+    "Poses:",
+    ...frames.map((frame, index) => `  ${index + 1}. ${frame.name}: ${poseFor(frame)}`),
+    BACKGROUND_RULE.replace("Use one flat, solid", "Fill the whole image with one flat, solid"),
+    LIGHTING_RULE,
+  ].join("\n");
+}
+
+function animationFrames(request: AssetRequest, asset: string, animation: string): FrameSpec[] {
+  const frames = frameSpecs(request).filter((frame) => frame.animation === animation);
+  if (frames.length === 0) throw new Error(`Animation '${animation}' is not declared in ${asset}/request.yml.`);
+  return frames;
+}
+
+export async function getRowTask(root: string, asset: string, requestedAnimation?: string): Promise<RowTask> {
+  const request = await loadRequest(root, asset);
+  const dir = assetDirectory(root, asset);
+  let animation = requestedAnimation;
+  if (animation) {
+    safeId(animation, "animation", FRAME_ID);
+  } else {
+    for (const frame of frameSpecs(request)) {
+      if (!await isFile(path.join(dir, "frames", `${frame.name}.png`))) {
+        animation = frame.animation;
+        break;
+      }
+    }
+  }
+  if (!animation) throw new Error(`Asset '${asset}' has no missing frames. Specify a declared animation to redo it.`);
+  const frames = animationFrames(request, asset, animation);
+
+  await assertDirectoryIfPresent(path.join(dir, "raw"), `Asset '${asset}' raw path`);
+  const result = await runPipeline(root, ["row-guide", path.join("assets", asset), animation], 30_000);
+  if (result.exit_code !== 0) throw new Error(result.output.trim() || `row-guide exited ${result.exit_code}`);
+  const guide = JSON.parse(result.output) as { guide: string; layout: RowLayout; pose_px: number; upscale: number };
+
+  const references: string[] = [];
+  for (const candidate of [path.join(dir, "tpose.png"), path.join(dir, "input.png")]) {
+    if (await isFile(candidate)) {
+      references.push(candidate);
+      break;
+    }
+  }
+  if (references.length === 0) throw new Error(`Asset '${asset}' has no usable tpose.png or input.png.`);
+  references.push(path.join(root, guide.guide));
+
+  return {
+    asset,
+    animation,
+    frames: frames.map((frame) => frame.name),
+    layout: guide.layout,
+    upscale: guide.upscale,
+    warning: guide.upscale > ROW_UPSCALE_LIMIT
+      ? `Each pose is drawn at about ${guide.pose_px}px and enlarged ${guide.upscale}x to ${request.frame_size}px. Prefer per-frame tasks for this asset, or a smaller frame_size.`
+      : null,
+    prompt: rowPrompt(asset, request, frames, guide.layout),
+    reference_paths: references,
+  };
+}
+
+export async function submitRow(root: string, asset: string, animation: string, encoded: string, replace: boolean): Promise<{ raw: string; frames: string[]; scale: number }> {
+  const request = await loadRequest(root, asset);
+  safeId(animation, "animation", FRAME_ID);
+  animationFrames(request, asset, animation);
+  const target = path.join(assetDirectory(root, asset), "raw", `${animation}.png`);
+  // The row picture is the source of truth for these frames, so it is always replaced.
+  const saved = await savePng(root, target, encoded, null, true, `Row '${asset}/raw/${animation}.png'`);
+  const args = ["extract-row", path.join("assets", asset), animation, ...(replace ? ["--replace"] : [])];
+  const result = await runPipeline(root, args, 60_000);
+  if (result.exit_code !== 0) throw new Error(result.output.trim() || `extract-row exited ${result.exit_code}`);
+  const report = JSON.parse(result.output) as { frames: string[]; scale: number };
+  return { raw: saved.path, frames: report.frames, scale: report.scale };
+}
+
+async function runPipeline(root: string, args: string[], timeoutMs: number): Promise<{ exit_code: number; output: string }> {
+  return await new Promise((resolve, reject) => {
+    const child = spawn("python3", ["-m", "tools.sprite_pipeline.cli", ...args], {
+      cwd: root,
+      env: { ...process.env, PYTHONPYCACHEPREFIX: path.join(tmpdir(), "aisprite-studio-mcp-pycache") },
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    const timer = setTimeout(() => child.kill("SIGTERM"), timeoutMs);
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      const out = Buffer.concat(stdout).toString("utf8");
+      const err = Buffer.concat(stderr).toString("utf8").slice(-4_000);
+      resolve({ exit_code: code ?? 1, output: code === 0 ? out : err || out });
+    });
+  });
 }
 
 export async function runDeterministicQa(root: string, asset: string): Promise<{ exit_code: number; output: string }> {

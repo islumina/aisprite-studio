@@ -49,6 +49,23 @@ export interface AnimationOutline {
     }[];
     prompt: string;
 }
+export interface RowLayout {
+    frames: number;
+    columns: number;
+    rows: number;
+    slot: number;
+    canvas: [number, number];
+}
+export interface RowTask {
+    asset: string;
+    animation: string;
+    frames: string[];
+    layout: RowLayout;
+    upscale: number;
+    warning: string | null;
+    prompt: string;
+    reference_paths: string[];
+}
 export interface ReferenceTask {
     asset: string;
     request: AssetRequest;
@@ -83,6 +100,12 @@ export declare function submitReference(root: string, asset: string, encoded: st
     bytes: number;
     width: number;
     height: number;
+}>;
+export declare function getRowTask(root: string, asset: string, requestedAnimation?: string): Promise<RowTask>;
+export declare function submitRow(root: string, asset: string, animation: string, encoded: string, replace: boolean): Promise<{
+    raw: string;
+    frames: string[];
+    scale: number;
 }>;
 export declare function runDeterministicQa(root: string, asset: string): Promise<{
     exit_code: number;
