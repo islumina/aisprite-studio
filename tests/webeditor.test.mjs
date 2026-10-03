@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
@@ -258,4 +258,33 @@ test("the removed states.definitions shape fails with aispritejs's message", () 
     states: { initial: "idle", definitions: { idle: { animation: "idle" } } },
   });
   assert.throws(() => validateAtlas(legacy), /event-driven/);
+});
+
+test("a throwing bus handler is logged and does not stop the others", () => {
+  const seen = [];
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args);
+  const offThrowing = bus.on(EV.ATLAS_CHANGED, () => { throw new Error("boom"); });
+  const offRecording = bus.on(EV.ATLAS_CHANGED, ({ reason }) => seen.push(reason));
+  try {
+    bus.emit(EV.ATLAS_CHANGED, { reason: "test" });
+  } finally {
+    offThrowing();
+    offRecording();
+    console.error = original;
+  }
+  assert.deepEqual(seen, ["test"]);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0][0]), /atlas:changed/);
+});
+
+test("every bus event is named ns:verb and is both emitted and handled", async () => {
+  const files = (await readdir(new URL("src/", WEBEDITOR))).filter((file) => file.endsWith(".js"));
+  const source = (await Promise.all(files.map((file) => readWebeditor(`src/${file}`)))).join("\n");
+  for (const [key, name] of Object.entries(EV)) {
+    assert.match(name, /^[a-z]+:[a-z]+$/, key);
+    assert.match(source, new RegExp(`bus\\.emit\\(EV\\.${key}\\b`), `${key} is emitted`);
+    assert.match(source, new RegExp(`bus\\.on\\(EV\\.${key}\\b`), `${key} is handled`);
+  }
 });

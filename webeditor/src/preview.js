@@ -28,6 +28,7 @@ let _onionEnabled = false;
 let viewport = null;
 let pivotGraphics = null;
 let draggingPivot = false;
+let dragAnchor = null; // last anchor reported during the current pivot drag
 let hostObserver = null; // keeps the renderer the size of its host element
 const dragPoint = new PIXI.Point(); // reused out-parameter for toLocal() on every pointermove
 
@@ -439,6 +440,7 @@ function setupPivotDrag() {
   pivotGraphics.on('pointerdown', (e) => {
     if (e.button === 0) { // Left click only for dragging anchor
       draggingPivot = true;
+      dragAnchor = null;
       pivotGraphics.cursor = 'grabbing';
       e.stopPropagation(); // prevent panning the viewport
     }
@@ -466,13 +468,15 @@ function setupPivotDrag() {
     pivotGraphics.x = localPos.x;
     pivotGraphics.y = localPos.y;
 
-    bus.emit(EV.ANCHOR_DRAGGED, { x: clampedX, y: clampedY });
+    dragAnchor = { x: clampedX, y: clampedY };
+    bus.emit(EV.ANCHOR_DRAG, dragAnchor);
   });
 
   window.addEventListener('pointerup', () => {
-    if (draggingPivot) {
-      draggingPivot = false;
-      if (pivotGraphics) pivotGraphics.cursor = 'pointer';
-    }
+    if (!draggingPivot) return;
+    draggingPivot = false;
+    if (pivotGraphics) pivotGraphics.cursor = 'pointer';
+    if (dragAnchor) bus.emit(EV.ANCHOR_DROP, dragAnchor);
+    dragAnchor = null;
   });
 }

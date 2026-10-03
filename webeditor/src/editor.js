@@ -16,6 +16,7 @@ import { initKeyboard } from './keyboard.js';
 import { keyGreen } from './chroma.js';
 import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
+import { ANCHOR_DRAG_THROTTLE_MS } from './constants.js';
 
 // --- Utilities ---
 function debounce(fn, ms) {
@@ -739,10 +740,20 @@ bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
     playState(currentUnit); // apply loop/hold live
   }
 });
-bus.on(EV.ANCHOR_DRAGGED, ({ x, y }) => {
+// Pivot drag: mirror the crosshair into the inputs on every move (cheap). Writing
+// the anchor rewrites every frame of the clip, so live writes are throttled, and
+// the drop commits the final position, which the throttle may have skipped.
+function commitAnchor({ x, y }) {
+  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+}
+bus.on(EV.ANCHOR_DRAG, ({ x, y }) => {
   if (els.anchorX) els.anchorX.value = x.toFixed(2);
   if (els.anchorY) els.anchorY.value = y.toFixed(2);
-  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+});
+bus.on(EV.ANCHOR_DRAG, commitAnchor, { throttleMs: ANCHOR_DRAG_THROTTLE_MS });
+bus.on(EV.ANCHOR_DROP, (anchor) => {
+  commitAnchor(anchor);
+  preview.setAnchor(anchor.x, anchor.y); // the chosen point becomes the pivot, like typing it
 });
 
 // --- Character switch ---
