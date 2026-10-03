@@ -1,11 +1,20 @@
 {
   "meta": {
     "image": "fireball.webp",
+    "format": "RGBA8888",
     "size": {
-      "w": 3072,
-      "h": 2048
+      "w": 2140,
+      "h": 1705
     },
-    "scale": "1"
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "idle_loop",
+        "from": 0,
+        "to": 5,
+        "direction": "forward"
+      }
+    ]
   },
   "assetType": "effect",
   "frames": {
@@ -13,151 +22,151 @@
       "frame": {
         "x": 0,
         "y": 0,
-        "w": 1024,
-        "h": 1024
+        "w": 733,
+        "h": 873
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 133,
+        "y": 78,
+        "w": 733,
+        "h": 873
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     },
     "idle_loop_01": {
       "frame": {
-        "x": 1024,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 620,
+        "y": 875,
+        "w": 675,
+        "h": 798
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 103,
+        "y": 77,
+        "w": 675,
+        "h": 798
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     },
     "idle_loop_02": {
       "frame": {
-        "x": 2048,
+        "x": 1524,
         "y": 0,
-        "w": 1024,
-        "h": 1024
+        "w": 616,
+        "h": 863
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 206,
+        "y": 24,
+        "w": 616,
+        "h": 863
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     },
     "idle_loop_03": {
       "frame": {
-        "x": 0,
-        "y": 1024,
-        "w": 1024,
-        "h": 1024
+        "x": 735,
+        "y": 0,
+        "w": 787,
+        "h": 871
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 121,
+        "y": 77,
+        "w": 787,
+        "h": 871
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     },
     "idle_loop_04": {
       "frame": {
-        "x": 1024,
-        "y": 1024,
-        "w": 1024,
-        "h": 1024
+        "x": 0,
+        "y": 875,
+        "w": 618,
+        "h": 830
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 203,
+        "y": 76,
+        "w": 618,
+        "h": 830
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     },
     "idle_loop_05": {
       "frame": {
-        "x": 2048,
-        "y": 1024,
-        "w": 1024,
-        "h": 1024
+        "x": 1297,
+        "y": 875,
+        "w": 522,
+        "h": 795
       },
       "rotated": false,
-      "trimmed": false,
+      "trimmed": true,
       "spriteSourceSize": {
-        "x": 0,
-        "y": 0,
-        "w": 1024,
-        "h": 1024
+        "x": 249,
+        "y": 79,
+        "w": 522,
+        "h": 795
       },
       "sourceSize": {
         "w": 1024,
         "h": 1024
       },
       "anchor": {
-        "x": 0.5,
-        "y": 0.5
+        "x": 0.486,
+        "y": 0.477
       },
-      "duration": 100
+      "duration": 125
     }
   },
   "animations": {
