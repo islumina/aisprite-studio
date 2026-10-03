@@ -22,6 +22,7 @@ import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
 import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
 import { createPreviewRuntime, previewControls, toSpriteGraph, validateAtlas } from "../webeditor/src/runtime.js";
+import { nextZoomScale, zoomAround, ZOOM } from "../webeditor/src/viewport.js";
 
 // An aispritejs graph whose animationConfig fps implies 167 ms while every frame stores 150 ms.
 function demoAtlas() {
@@ -348,4 +349,17 @@ test("anchor, size and frame-duration fallbacks come from constants.js", () => {
   assert.equal(parseAnchorValue("1.4", 0.5), 1);
   assert.equal(parseAnchorValue("", 0.5), 0.5);
   assert.equal(parseAnchorValue("abc", 0.25), 0.25);
+});
+
+test("wheel zoom keeps the world point under the cursor and stays within limits", () => {
+  const view = { x: 40, y: -20, scale: 1.5 };
+  const cursor = { x: 300, y: 210 };
+  const world = (v) => [(cursor.x - v.x) / v.scale, (cursor.y - v.y) / v.scale];
+  for (const deltaY of [-120, 120]) {
+    const next = zoomAround(view, cursor, nextZoomScale(view.scale, deltaY));
+    assert.notEqual(next.scale, view.scale);
+    world(next).forEach((value, axis) => assert.ok(Math.abs(value - world(view)[axis]) < 1e-9));
+  }
+  assert.equal(nextZoomScale(ZOOM.max, -1), ZOOM.max);
+  assert.equal(nextZoomScale(ZOOM.min, 1), ZOOM.min);
 });

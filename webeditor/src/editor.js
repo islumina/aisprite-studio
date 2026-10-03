@@ -15,6 +15,8 @@ import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
 import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
+import { configureAgentHandoff } from './agent-handoff.js';
+import { createPosePanels } from './pose-panels.js';
 import { ANCHOR_DRAG_THROTTLE_MS, DEFAULT_ANCHOR, DEFAULT_SOURCE_SIZE, parseAnchorValue } from './constants.js';
 
 // --- Utilities ---
@@ -135,6 +137,8 @@ let curFrameTotal = 1;
 let previewLock = true; // loop the pinned state for inspection; a trigger still plays once and returns
 const studioMode = resolveStudioMode(window.location);
 const staticMode = studioMode === 'static';
+// The pose panels are hidden on a static host, where assets/ does not exist.
+const posePanels = staticMode ? null : createPosePanels(els);
 
 function configureStaticUi() {
   // Controls that need server.mjs or assets/ on disk are marked in index.html.
@@ -187,7 +191,7 @@ async function start() {
   });
 
   if (staticMode) {
-    configureAgentHandoff();
+    setupAgentHandoff();
     const m = generateMockSheet();
     els.characterSelect.innerHTML = '<option value="demo">Procedural demo</option>';
     els.characterSelect.disabled = true;
@@ -230,164 +234,64 @@ async function start() {
   }
 
   const charName = els.characterSelect?.value || 'reimu';
-  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
   try {
-    const res = await fetch(`${atlasBase}/atlas.json`);
-    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-
-    const atlasData = await res.json();
-    const imageName = atlasData.meta?.image || `${charName}.png`;
-
-    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
-    currentChar = charName;
-    updateReferencePose(charName);
-    updateTpose(charName);
-    await afterCharLoaded(charName);
+    await loadAsset(charName);
   } catch (e) {
-    console.info('Falling back to procedural mock:', e.message);
+    console.warn('Falling back to procedural mock:', e);
     const m = generateMockSheet();
     await loadAtlas(m.atlas, m.imageUrl, 'Mock Mode');
   }
-  configureAgentHandoff();
+  setupAgentHandoff();
   await hostBridge?.ready(studioContext());
 }
 
-async function configureAgentHandoff() {
-  const status = $('agent-status');
-  const configButton = $('btn-copy-agent-config');
-  const taskButton = $('btn-copy-agent-task');
-  const clientSelect = $('agent-client');
-  if (staticMode) {
-    status.textContent = 'Hosted demo is read-only. Clone aisprite-studio and connect its local MCP server to generate or submit frames.';
-    configButton.textContent = 'Copy local setup template';
-  } else {
-    try {
-      const response = await fetch('/api/agent-config');
-      const payload = await response.json();
-      configButton.dataset.config = JSON.stringify(payload.config ?? {}, null, 2);
-      configButton.dataset.codex = payload.codexToml || '';
-      // server.mjs answers 403 off localhost (e.g. ?mode=local on a LAN address).
-      status.textContent = payload.ok ? 'Local MCP bridge is built and ready.'
-        : response.ok ? `MCP needs build: ${payload.buildCommand}`
-          : `MCP config unavailable: ${payload.error ?? `HTTP ${response.status}`}`;
-    } catch {
-      status.textContent = 'MCP config unavailable. Start the editor with npm run serve.';
-    }
-  }
-  configButton.onclick = async () => {
-    const fallback = {
-      mcpServers: {
-        'aisprite-studio': {
-          command: 'node',
-          args: ['/absolute/path/to/aisprite-studio/mcp-server/dist/index.js'],
-          env: { AISPRITE_STUDIO_ROOT: '/absolute/path/to/aisprite-studio' },
-        },
-      },
-    };
-    const manual = 'Use “Copy active frame task”, give its prompt and references to the image-capable AI, then submit the resulting PNG through a local MCP-capable agent.';
-    const selected = clientSelect?.value || 'json';
-    const value = selected === 'codex'
-      ? (configButton.dataset.codex || '[mcp_servers.aisprite-studio]\ncommand = "node"\nargs = ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"]')
-      : selected === 'manual'
-        ? manual
-        : (configButton.dataset.config || JSON.stringify(fallback, null, 2));
-    await navigator.clipboard.writeText(value);
-    flashLabel(configButton, selected === 'manual' ? '✓ handoff copied' : '✓ MCP config copied');
-  };
-  taskButton.onclick = async () => {
-    if (!atlas || !currentUnit) return flashLabel(taskButton, '✗ no active frame', false);
-    const pb = resolvePlayback(atlas, currentUnit);
-    if (!pb) return flashLabel(taskButton, '✗ invalid state', false);
-    const frameName = `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`;
-    const refs = frameRefs(pb.animation, curFrameIdx);
-    const task = {
-      schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
-      asset: currentChar,
-      frame: frameName,
-      prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
-      references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
-      note: staticMode
-        ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
-        : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
-    };
-    await navigator.clipboard.writeText(JSON.stringify(task, null, 2));
-    flashLabel(taskButton, '✓ task copied');
+// --- Asset loading (served assets/<name>) ---
+/** Directory holding an asset's atlas.json: assets/<name>, or the prefix /api/assets reported (e.g. output). */
+function assetBase(charName) {
+  const option = Array.from(els.characterSelect?.options ?? []).find((candidate) => candidate.value === charName);
+  const prefix = option?.dataset.prefix || '';
+  return prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
+}
+
+/** Fetch an asset's atlas.json and resolve the sheet image next to it. */
+async function fetchAssetAtlas(charName) {
+  const base = assetBase(charName);
+  const response = await fetch(`${base}/atlas.json`);
+  if (!response.ok) throw new Error(`${charName} atlas not reachable (HTTP ${response.status})`);
+  const atlasData = await response.json();
+  return { atlasData, imageUrl: `${base}/${atlasData.meta?.image || `${charName}.png`}` };
+}
+
+/** Load a served asset and refresh every panel that depends on it. */
+async function loadAsset(charName) {
+  const { atlasData, imageUrl } = await fetchAssetAtlas(charName);
+  await loadAtlas(atlasData, imageUrl, `assets/${charName} Loaded`);
+  currentChar = charName;
+  posePanels?.showReferencePose(charName);
+  posePanels?.showTpose(charName);
+  await afterCharLoaded(charName);
+}
+
+/** The active frame's generation task for the Agent Handoff card, or why there is none. */
+function activeFrameTask() {
+  if (!atlas || !currentUnit) return 'no active frame';
+  const pb = resolvePlayback(atlas, currentUnit);
+  if (!pb) return 'invalid state';
+  const refs = frameRefs(pb.animation, curFrameIdx);
+  return {
+    schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
+    asset: currentChar,
+    frame: `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`,
+    prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
+    references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
+    note: staticMode
+      ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
+      : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
   };
 }
 
-/** Show the user's original input.png as Reference Pose. */
-async function updateReferencePose(charName) {
-  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
-  const src = `assets/${charName}/input.png`;
-  try {
-    const res = await fetch(src, { method: 'HEAD' });
-    if (res.ok) {
-      els.refPoseImg.src = src;
-      els.refPoseImg.style.display = 'block';
-      els.refPoseInfo.style.display = 'block';
-      els.refPosePlaceholder.style.display = 'none';
-      els.refPoseFilename.textContent = 'input.png';
-      return;
-    }
-  } catch { /* ignore */ }
-  els.refPoseImg.style.display = 'none';
-  els.refPoseInfo.style.display = 'none';
-  els.refPosePlaceholder.style.display = 'block';
-}
-
-let tposeUrl = null; // object URL shown in the T-Pose panel, revoked when replaced
-let tposeRequest = 0; // latest updateTpose() call; older ones drop their result
-
-/** Show generated tpose.png in the T-Pose Grid section (keyed like the sheet) + load its prompt. */
-async function updateTpose(charName) {
-  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
-  const request = ++tposeRequest;
-  const src = `assets/${charName}/tpose.png`;
-  let blob = null;
-  try {
-    const response = await fetch(`${src}?_t=${Date.now()}`);
-    if (response.ok) blob = await response.blob();
-  } catch { /* no server: same as missing */ }
-  if (request !== tposeRequest) return;
-  if (!blob) {
-    els.tposeGenerated.style.display = 'none';
-    els.tposePlaceholder.style.display = 'block';
-    return;
-  }
-  els.tposeGenerated.style.display = 'block';
-  els.tposePlaceholder.style.display = 'none';
-  els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
-
-  const shown = await tposeDisplayBlob(blob);
-  if (request !== tposeRequest) return;
-  if (tposeUrl) URL.revokeObjectURL(tposeUrl);
-  tposeUrl = URL.createObjectURL(shown);
-  els.tposeImg.src = tposeUrl;
-
-  // Load generation prompt if available
-  try {
-    const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
-    els.tposePromptText.textContent = promptRes.ok ? (await promptRes.text()).trim() : '(no tpose-prompt.txt found)';
-  } catch {
-    els.tposePromptText.textContent = '(failed to load prompt)';
-  }
-}
-
-/** The T-Pose image keyed with its own border colour on the GPU, or the original when nothing is keyed. */
-async function tposeDisplayBlob(blob) {
-  let bitmap = null;
-  try {
-    bitmap = await createImageBitmap(blob);
-    const keyed = preview.keyedCanvas(bitmap, preview.detectImageKey(bitmap));
-    if (!keyed) return blob;
-    return await new Promise((resolve) => keyed.toBlob((png) => resolve(png ?? blob), 'image/png'));
-  } catch (error) {
-    console.warn('Failed to chroma key tpose.png:', error);
-    return blob;
-  } finally {
-    bitmap?.close();
-  }
+function setupAgentHandoff() {
+  configureAgentHandoff({ staticMode, flashLabel, activeFrameTask });
 }
 
 /** Load a sheet image into the preview and show which chroma key it got. */
@@ -687,14 +591,14 @@ els.exportBtn.onclick = () => {
 // --- Chroma key (GPU filter: settings only update uniforms, nothing reloads) ---
 els.chromaToggle?.addEventListener('change', () => {
   preview.setChroma({ enabled: els.chromaToggle.checked });
-  if (currentChar) updateTpose(currentChar);
+  if (currentChar) posePanels?.showTpose(currentChar);
 });
 els.chromaSim?.addEventListener('input', () => {
   const similarity = parseFloat(els.chromaSim.value);
   els.chromaSimVal.textContent = similarity.toFixed(2);
   preview.setChroma({ similarity });
 });
-els.chromaSim?.addEventListener('change', () => { if (currentChar) updateTpose(currentChar); });
+els.chromaSim?.addEventListener('change', () => { if (currentChar) posePanels?.showTpose(currentChar); });
 
 els.btnExportSheet?.addEventListener('click', () => {
   const cv = preview.getKeyedSheetCanvas();
@@ -781,20 +685,8 @@ bus.on(EV.ANCHOR_DROP, (anchor) => {
 els.characterSelect?.addEventListener('change', async () => {
   const charName = els.characterSelect.value;
   if (!charName) return;
-  const prefix = els.characterSelect.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
   try {
-    const res = await fetch(`${atlasBase}/atlas.json`);
-    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-
-    const atlasData = await res.json();
-    const imageName = atlasData.meta?.image || `${charName}.png`;
-
-    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
-    currentChar = charName;
-    updateReferencePose(charName);
-    updateTpose(charName);
-    await afterCharLoaded(charName);
+    await loadAsset(charName);
     publishStudioContext();
   } catch (e) {
     console.warn('Failed to load character:', charName, e);
@@ -944,22 +836,17 @@ async function checkForUpdates() {
 }
 
 async function autoReloadAssets() {
-  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${currentChar}/${prefix}` : `assets/${currentChar}`;
-  if (jsonDirty) {
-    const imageName = atlas.meta?.image || `${currentChar}.png`;
-    await loadSheetImage(`${atlasBase}/${imageName}`, atlas);
-    if (currentUnit) playState(currentUnit);
-    els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
-  } else {
-    try {
-      const res = await fetch(`${atlasBase}/atlas.json`);
-      if (res.ok) {
-        const atlasData = await res.json();
-        const imageName = atlasData.meta?.image || `${currentChar}.png`;
-        await loadAtlas(atlasData, `${atlasBase}/${imageName}`, '↻ auto-reloaded');
-      }
-    } catch { /* ignore */ }
+  try {
+    if (jsonDirty) { // keep the edited atlas, swap only the sheet image
+      await loadSheetImage(`${assetBase(currentChar)}/${atlas.meta?.image || `${currentChar}.png`}`, atlas);
+      if (currentUnit) playState(currentUnit);
+      els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
+    } else {
+      const { atlasData, imageUrl } = await fetchAssetAtlas(currentChar);
+      await loadAtlas(atlasData, imageUrl, '↻ auto-reloaded');
+    }
+  } catch (error) {
+    console.warn('Auto-reload failed:', error);
   }
 }
 

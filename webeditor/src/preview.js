@@ -12,6 +12,7 @@ import { bus, EV } from './bus.js';
 import { CHROMA_DEFAULTS, detectKeyColor, readBorderPixels } from './chroma.js';
 import { createChromaFilter, setChromaUniforms } from './chroma-filter.js';
 import { DEFAULT_SOURCE_SIZE } from './constants.js';
+import { setupViewportInteraction } from './viewport.js';
 
 let app = null;
 let sprite = null;
@@ -36,6 +37,7 @@ let pivotGraphics = null;
 let draggingPivot = false;
 let dragAnchor = null; // last anchor reported during the current pivot drag
 let hostObserver = null; // keeps the renderer the size of its host element
+let windowListeners = null; // AbortController for this app's window listeners
 const dragPoint = new PIXI.Point(); // reused out-parameter for toLocal() on every pointermove
 
 /** Update the chroma key settings ({ enabled, similarity }); only uniforms change, nothing reloads. */
@@ -130,6 +132,8 @@ function drawPivotCrosshair(g) {
 export async function initPreview(container, crosshair) {
   hostObserver?.disconnect();
   hostObserver = null;
+  windowListeners?.abort();
+  windowListeners = new AbortController();
   if (app) {
     app.destroy(
       { removeView: true, releaseGlobalResources: true },
@@ -195,8 +199,8 @@ export async function initPreview(container, crosshair) {
   viewport.addChild(pivotGraphics);
 
   // Setup interactions
-  setupViewportInteraction(app.canvas);
-  setupPivotDrag();
+  setupViewportInteraction(app.canvas, viewport, windowListeners.signal);
+  setupPivotDrag(windowListeners.signal);
   app.ticker.add(advanceClock);
 
   // Follow the host: window resizes, the viewer-mode breakpoint, and layout changes
@@ -440,77 +444,8 @@ function updateOnionSkin() {
   }
 }
 
-// --- Viewport Zoom & Pan ---
-function setupViewportInteraction(canvas) {
-  let panning = false;
-  let panStart = { x: 0, y: 0 };
-  let viewportStart = { x: 0, y: 0 };
-
-  // 1. Mouse wheel Zoom (centered on cursor)
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    if (!viewport) return;
-
-    const zoomFactor = 1.15;
-    const oldScale = viewport.scale.x;
-    let newScale = oldScale;
-
-    if (e.deltaY < 0) {
-      newScale = Math.min(25, oldScale * zoomFactor);
-    } else {
-      newScale = Math.max(0.4, oldScale / zoomFactor);
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Keep the world point under the cursor fixed while the scale changes.
-    const worldX = (mouseX - viewport.x) / oldScale;
-    const worldY = (mouseY - viewport.y) / oldScale;
-    viewport.scale.set(newScale);
-    viewport.x = mouseX - worldX * newScale;
-    viewport.y = mouseY - worldY * newScale;
-  }, { passive: false });
-
-  // 2. Mouse Drag Pan (Middle, Right click or Alt + Left click)
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 2 || e.button === 1 || e.altKey) {
-      panning = true;
-      panStart.x = e.clientX;
-      panStart.y = e.clientY;
-      viewportStart.x = viewport.x;
-      viewportStart.y = viewport.y;
-      canvas.style.cursor = 'grabbing';
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (panning && viewport) {
-      const dx = e.clientX - panStart.x;
-      const dy = e.clientY - panStart.y;
-      viewport.x = viewportStart.x + dx;
-      viewport.y = viewportStart.y + dy;
-      e.preventDefault();
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (panning) {
-      panning = false;
-      canvas.style.cursor = 'default';
-    }
-  });
-
-  canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-  });
-}
-
 // --- PixiJS Pivot Dragging ---
-function setupPivotDrag() {
+function setupPivotDrag(signal) {
   if (!pivotGraphics) return;
 
   pivotGraphics.on('pointerdown', (e) => {
@@ -554,5 +489,5 @@ function setupPivotDrag() {
     if (pivotGraphics) pivotGraphics.cursor = 'pointer';
     if (dragAnchor) bus.emit(EV.ANCHOR_DROP, dragAnchor);
     dragAnchor = null;
-  });
+  }, { signal });
 }
