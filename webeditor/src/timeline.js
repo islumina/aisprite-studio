@@ -1,5 +1,6 @@
 import { setFrameDuration } from './atlas-model.js';
 import * as preview from './preview.js';
+import { DEFAULT_FRAME_DURATION_MS } from './constants.js';
 
 /**
  * Setup and return the Timeline module interface.
@@ -52,7 +53,7 @@ export function setupTimeline(els, getAtlas, getCurFrameIdx, setPlayStatePause) 
 
         // Realtime duration tuning
         durInput.addEventListener('change', () => {
-          const ms = parseInt(durInput.value, 10) || 125;
+          const ms = parseInt(durInput.value, 10) || DEFAULT_FRAME_DURATION_MS;
           setFrameDuration(atlas, fk, ms);
         });
 

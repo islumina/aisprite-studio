@@ -4,6 +4,7 @@
 // blocked by CORS, so we draw a throwaway robot spritesheet on a canvas and ship
 // a matching atlas. This is ONLY for instant out-of-the-box play in the editor —
 // it is not part of the sprite pipeline and never touches real assets.
+import { DEFAULT_ANCHOR } from './constants.js';
 
 /**
  * The demo atlas: an aispritejs input-driven graph (the same shape the pipeline
@@ -15,7 +16,7 @@ export function mockAtlas() {
   const cell = (x, y) => ({
     frame: { x, y, w: 128, h: 128 }, rotated: false, trimmed: false,
     spriteSourceSize: { x: 0, y: 0, w: 128, h: 128 }, sourceSize: { w: 128, h: 128 },
-    anchor: { x: 0.5, y: 0.85 }, duration: 150,
+    anchor: { ...DEFAULT_ANCHOR }, duration: 150,
   });
 
   return {

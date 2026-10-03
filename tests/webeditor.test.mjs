@@ -12,6 +12,12 @@ import {
 } from "../webeditor/src/atlas-model.js";
 import { bus, EV } from "../webeditor/src/bus.js";
 import { detectKeyColor, spillMask } from "../webeditor/src/chroma.js";
+import {
+  DEFAULT_ANCHOR,
+  DEFAULT_FRAME_DURATION_MS,
+  DEFAULT_SOURCE_SIZE,
+  parseAnchorValue,
+} from "../webeditor/src/constants.js";
 import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
 import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
@@ -320,4 +326,26 @@ test("spill suppression targets the key's dominant channel only", () => {
   assert.deepEqual(spillMask([20, 62, 182]), [0, 0, 1]);
   assert.deepEqual(spillMask([128, 128, 128]), [0, 0, 0]);
   assert.deepEqual(spillMask([200, 180, 60]), [0, 0, 0]);
+});
+
+test("anchor, size and frame-duration fallbacks come from constants.js", () => {
+  const atlas = normaliseAtlas({ frames: { blink_00: {}, blink_01: {} }, animations: { blink: ["blink_00", "blink_01"] } });
+  const pb = resolvePlayback(atlas, "blink");
+  assert.deepEqual(pb.anchor, DEFAULT_ANCHOR);
+  assert.deepEqual(pb.sourceSize, DEFAULT_SOURCE_SIZE);
+  assert.deepEqual(pb.frameDurations, [DEFAULT_FRAME_DURATION_MS, DEFAULT_FRAME_DURATION_MS]);
+  // The animator falls back to the same duration, so what plays matches what the UI shows.
+  assert.equal(toSpriteGraph(atlas).defaultFrameDuration, DEFAULT_FRAME_DURATION_MS);
+  const { runtime } = recordRuntime(atlas);
+  runtime.tick(DEFAULT_FRAME_DURATION_MS - 1);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(1);
+  assert.equal(runtime.frameIndex, 1);
+  runtime.dispose();
+  for (const frame of Object.values(mockAtlas().frames)) assert.deepEqual(frame.anchor, DEFAULT_ANCHOR);
+
+  assert.equal(parseAnchorValue("0", 0.5), 0, "0 is a valid anchor");
+  assert.equal(parseAnchorValue("1.4", 0.5), 1);
+  assert.equal(parseAnchorValue("", 0.5), 0.5);
+  assert.equal(parseAnchorValue("abc", 0.25), 0.25);
 });

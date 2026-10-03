@@ -11,11 +11,11 @@ import * as PIXI from 'pixi.js';
 import { bus, EV } from './bus.js';
 import { CHROMA_DEFAULTS, detectKeyColor, readBorderPixels } from './chroma.js';
 import { createChromaFilter, setChromaUniforms } from './chroma-filter.js';
+import { DEFAULT_SOURCE_SIZE } from './constants.js';
 
 let app = null;
 let sprite = null;
 let crosshairEl = null;
-const canvasSize = 512; // fallback source frame size when an atlas omits sourceSize
 let currentPb = null;
 let _sheet = null; // current parsed Spritesheet instance
 let _sheetTexture = null; // the whole sheet image, for export
@@ -143,7 +143,18 @@ export async function initPreview(container, crosshair) {
   const vw = container.clientWidth || 512;
   const vh = container.clientHeight || 512;
   try {
-    await app.init({ width: vw, height: vh, backgroundAlpha: 0, antialias: true });
+    await app.init({
+      width: vw,
+      height: vh,
+      backgroundAlpha: 0,
+      antialias: true,
+      // Render at the device pixel ratio. autoDensity keeps the canvas CSS size at
+      // width × height, so stage units, Pixi pointer events and the wheel/pan maths
+      // (client coordinates) all stay in CSS pixels.
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+      preference: 'webgl', // the chroma filter is GLSL only
+    });
   } catch (error) {
     app = null; // keep every other export a no-op instead of touching a half-built app
     throw new Error(`PixiJS renderer failed to initialise: ${error?.message ?? error}`, { cause: error });
@@ -200,8 +211,9 @@ function resizeToHost(container) {
   const w = container.clientWidth;
   const h = container.clientHeight;
   if (w === 0 || h === 0) return; // hidden or not laid out yet
-  if (w === app.renderer.width && h === app.renderer.height) return;
-  app.renderer.resize(w, h);
+  const resolution = window.devicePixelRatio || 1; // browser zoom changes it along with the CSS size
+  if (w === app.screen.width && h === app.screen.height && resolution === app.renderer.resolution) return;
+  app.renderer.resize(w, h, resolution);
   layoutSprite();
   app.render(); // resizing clears the canvas; draw now rather than show a blank frame
 }
@@ -209,14 +221,14 @@ function resizeToHost(container) {
 /** Centre the sprite and fit its source frame to ~55% of the renderer. */
 function layoutSprite() {
   if (!sprite || !app) return;
-  const rw = app.renderer.width;
-  const rh = app.renderer.height;
+  const rw = app.screen.width; // CSS pixels, whatever the resolution
+  const rh = app.screen.height;
   sprite.x = rw / 2;
   sprite.y = rh * 0.65;
   if (!currentPb) return;
   // sourceSize is the original untrimmed frame size (e.g. 512x512)
-  const sourceH = currentPb.sourceSize?.h || canvasSize;
-  const sourceW = currentPb.sourceSize?.w || canvasSize;
+  const sourceH = currentPb.sourceSize?.h || DEFAULT_SOURCE_SIZE.h;
+  const sourceW = currentPb.sourceSize?.w || DEFAULT_SOURCE_SIZE.w;
   const fitScale = Math.min((rh * 0.55) / sourceH, (rw * 0.55) / sourceW);
   sprite.scale.set(fitScale, fitScale);
   updateOnionSkin();
@@ -515,8 +527,8 @@ function setupPivotDrag() {
 
     const localPos = viewport.toLocal(e.global, undefined, dragPoint);
 
-    const sourceW = currentPb.sourceSize?.w || canvasSize;
-    const sourceH = currentPb.sourceSize?.h || canvasSize;
+    const sourceW = currentPb.sourceSize?.w || DEFAULT_SOURCE_SIZE.w;
+    const sourceH = currentPb.sourceSize?.h || DEFAULT_SOURCE_SIZE.h;
     const fitScale = sprite.scale.x;
 
     // Formulas:

@@ -9,6 +9,7 @@
 import { createSpriteAnimator } from 'aispritejs';
 import { parseAtlas } from 'aispritejs/atlas';
 import { getUnits, hasControlBlock } from './atlas-model.js';
+import { DEFAULT_FRAME_DURATION_MS } from './constants.js';
 
 // Words that mark a Number input as the movement speed WASD drives.
 const MOVE_INPUT_WORDS = ['speed', 'velocity', 'move'];
@@ -42,12 +43,7 @@ function unitControl(atlas) {
       ...(returns ? { onEnd: unit.onEnd } : {}),
     };
   }
-  return {
-    inputs: {},
-    states,
-    transitions: [],
-    ...(typeof atlas.defaultFrameDuration === 'number' ? { defaultFrameDuration: atlas.defaultFrameDuration } : {}),
-  };
+  return { inputs: {}, states, transitions: [] };
 }
 
 /**
@@ -58,7 +54,9 @@ function unitControl(atlas) {
  * @returns {import('aispritejs').SpriteGraph}
  */
 export function toSpriteGraph(atlas) {
-  return hasControlBlock(atlas) ? parseAtlas(atlas) : parseAtlas(atlas, unitControl(atlas));
+  const graph = hasControlBlock(atlas) ? parseAtlas(atlas) : parseAtlas(atlas, unitControl(atlas));
+  // Same fallback as the editor's duration display (atlas-model.js), instead of aispritejs's 100 ms.
+  return { ...graph, defaultFrameDuration: graph.defaultFrameDuration ?? DEFAULT_FRAME_DURATION_MS };
 }
 
 /** Fail fast on an atlas the preview cannot play; builds and discards an animator. */

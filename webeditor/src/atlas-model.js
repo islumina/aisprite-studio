@@ -5,6 +5,7 @@
 // announce changes on the bus. No PixiJS, no DOM — this is the single source of
 // truth for "what should play, how, and for how long".
 import { bus, EV } from './bus.js';
+import { DEFAULT_ANCHOR, DEFAULT_FRAME_DURATION_MS, DEFAULT_SOURCE_SIZE } from './constants.js';
 
 // --- Name-convention loop defaults -----------------------------------------
 // "依名稱讓工具調整": an animation's name implies its end behaviour. A flame loops,
@@ -129,7 +130,8 @@ export function resolvePlayback(atlas, unitName) {
   // aispritejs applies state.speed at playback; these values are for the UI,
   // which shows the time a frame is on screen.
   const speed = (unit.kind === 'state' && atlas.states[unitName]?.speed) || 1;
-  const rawDurationMs = cfg.fps ? Math.round(1000 / cfg.fps) : (first.duration || atlas.defaultFrameDuration || 125);
+  const frameFallback = atlas.defaultFrameDuration || DEFAULT_FRAME_DURATION_MS; // as runtime.js gives the animator
+  const rawDurationMs = cfg.fps ? Math.round(1000 / cfg.fps) : (first.duration || frameFallback);
   const durationMs = Math.max(1, Math.round(rawDurationMs / speed));
 
   return {
@@ -139,10 +141,10 @@ export function resolvePlayback(atlas, unitName) {
     loop: (unit.onEnd ?? 'loop') === 'loop',
     durationMs,
     frameDurations: frameKeys.map((fk) => Math.max(1, Math.round(
-      (atlas.frames[fk]?.duration || rawDurationMs) / speed,
+      (atlas.frames[fk]?.duration || frameFallback) / speed,
     ))),
-    anchor: first.anchor || { x: 0.5, y: 0.5 },
-    sourceSize: first.sourceSize || { w: 256, h: 256 },
+    anchor: first.anchor || { ...DEFAULT_ANCHOR },
+    sourceSize: first.sourceSize || { ...DEFAULT_SOURCE_SIZE },
   };
 }
 

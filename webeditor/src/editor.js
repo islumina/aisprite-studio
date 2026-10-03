@@ -15,7 +15,7 @@ import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
 import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
-import { ANCHOR_DRAG_THROTTLE_MS } from './constants.js';
+import { ANCHOR_DRAG_THROTTLE_MS, DEFAULT_ANCHOR, DEFAULT_SOURCE_SIZE, parseAnchorValue } from './constants.js';
 
 // --- Utilities ---
 function debounce(fn, ms) {
@@ -93,7 +93,6 @@ let runtime = null; // runtime.js preview runtime (the playback clock), or null 
 let pinnedUnit = null; // the state the preview lock keeps looping: the one picked, or the start state
 let currentUnit = null;
 let currentChar = null; // current character folder name
-let currentSpec = null; // parsed spec.json for the current character (drives prompt synthesis)
 let currentPb = null; // current active playback config
 let reloadCount = 0;
 let promptTemplate = ''; // prompts/generation-agent.md, fetched once
@@ -225,7 +224,8 @@ async function start() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const requestedChar = urlParams.get('char');
-  if (requestedChar && els.characterSelect.querySelector(`option[value="${requestedChar}"]`)) {
+  // Compare option values directly: the query value never becomes part of a CSS selector.
+  if (requestedChar && Array.from(els.characterSelect.options).some((option) => option.value === requestedChar && !option.disabled)) {
     els.characterSelect.value = requestedChar;
   }
 
@@ -557,8 +557,8 @@ function reflectUnitUI(name, pb) {
   els.endTarget.style.display = !isLoop && !isHold ? '' : 'none';
   reflectDuration(pb);
   // Anchor
-  if (els.anchorX) els.anchorX.value = pb.anchor?.x?.toFixed(2) ?? '0.50';
-  if (els.anchorY) els.anchorY.value = pb.anchor?.y?.toFixed(2) ?? '0.86';
+  if (els.anchorX) els.anchorX.value = (pb.anchor?.x ?? DEFAULT_ANCHOR.x).toFixed(2);
+  if (els.anchorY) els.anchorY.value = (pb.anchor?.y ?? DEFAULT_ANCHOR.y).toFixed(2);
 }
 
 /** Show the per-frame duration that actually plays (the mean when frames differ). */
@@ -620,13 +620,13 @@ els.speed.oninput = (e) => {
 
 els.pivot.onchange = () => {
   const pb = currentUnit && resolvePlayback(atlas, currentUnit);
-  preview.positionCrosshair(pb ? pb.anchor : { x: 0.5, y: 0.72 }, els.pivot.checked);
+  preview.positionCrosshair(pb ? pb.anchor : DEFAULT_ANCHOR, els.pivot.checked);
 };
 
 // Anchor inputs
 function onAnchorInput() {
-  const x = parseFloat(els.anchorX.value) || 0.5;
-  const y = parseFloat(els.anchorY.value) || 0.5;
+  const x = parseAnchorValue(els.anchorX.value, DEFAULT_ANCHOR.x);
+  const y = parseAnchorValue(els.anchorY.value, DEFAULT_ANCHOR.y);
   preview.setAnchor(x, y);
   if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
 }
@@ -858,10 +858,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Prompt synthesis (fallback when no saved prompt file) ---
-/** A spec for the prompt builder: the real spec.json, or one derived from the atlas. */
+/** A spec for the prompt builder, derived from the atlas (the pipeline's request.yml is not served). */
 function effectiveSpec() {
-  if (currentSpec) return currentSpec;
-  let frameSize = [256, 256];
+  let frameSize = [DEFAULT_SOURCE_SIZE.w, DEFAULT_SOURCE_SIZE.h];
   const u0 = getUnits(atlas)[0];
   const pb0 = u0 && resolvePlayback(atlas, u0.name);
   if (pb0?.sourceSize) frameSize = [pb0.sourceSize.w, pb0.sourceSize.h];
@@ -905,11 +904,8 @@ function poseForDemo(animName, frameIdx, total) {
   return `Show the intended ${animName} motion at phase ${frameIdx + 1} of ${total}.`;
 }
 
-// --- After a character loads: spec, mtime seed, polling ---
+// --- After a character loads: mtime seed, polling ---
 async function afterCharLoaded(charName) {
-  currentSpec = null;
-  try { const r = await fetch(`assets/${charName}/spec.json`); if (r.ok) currentSpec = await r.json(); }
-  catch { /* mock / no spec — effectiveSpec() derives from atlas */ }
   await seedMtime(charName);
   startPolling();
 }
@@ -1079,8 +1075,8 @@ els.onionSkin?.addEventListener('change', () => {
 
 // Apply anchor to all animations
 els.applyAllAnchors?.addEventListener('click', () => {
-  const x = parseFloat(els.anchorX.value) || 0.5;
-  const y = parseFloat(els.anchorY.value) || 0.5;
+  const x = parseAnchorValue(els.anchorX.value, DEFAULT_ANCHOR.x);
+  const y = parseAnchorValue(els.anchorY.value, DEFAULT_ANCHOR.y);
   setAnchorAll(atlas, { x, y });
   flashLabel(els.applyAllAnchors, '✓ Applied to all');
 });
