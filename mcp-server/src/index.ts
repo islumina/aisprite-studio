@@ -16,6 +16,7 @@ import {
   readQaReport,
   runDeterministicQa,
   submitFrame,
+  summariseQaReport,
   submitReference,
   submitRow,
 } from "./workspace.js";
@@ -206,14 +207,19 @@ export function createServer(): McpServer {
 
   server.registerTool("aisprite_studio_run_deterministic_qa", {
     title: "Run Deterministic Sprite QA",
-    description: "Run local file, dimension, chroma-key, coverage, and drift checks for an asset. This updates qa-report.json but does not perform or claim visual approval.",
+    description: "Run local checks for an asset and update qa-report.json: per frame file, dimension, chroma-key, coverage and drift; per animation duplicate frames, no motion, scale drift, colour drift and edge contact. Returns a summary: overall status, a 0-100 score per animation (the asset score is the lowest), repair hints, and the failing frames with their repair_hint. Deterministic QA does not perform or claim visual approval.",
     inputSchema: z.object({ asset: AssetId }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ asset }): Promise<CallToolResult> => {
     try {
       const result = await runDeterministicQa(ROOT, asset);
       if (result.exit_code !== 0) return failure(new Error(`QA exited ${result.exit_code}: ${result.output}`));
-      return success(result, "Deterministic QA completed. Visual review is still required before packing.");
+      const summary = summariseQaReport(await readQaReport(ROOT, asset));
+      const score = summary.score === null ? "" : `, score ${summary.score}/100`;
+      return success(
+        { ...result, summary },
+        `Deterministic QA completed: overall ${summary.overall}${score}. Visual review is still required before packing.`,
+      );
     } catch (error) {
       return failure(error);
     }

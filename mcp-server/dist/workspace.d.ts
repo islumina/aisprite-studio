@@ -111,5 +111,22 @@ export declare function runDeterministicQa(root: string, asset: string): Promise
     exit_code: number;
     output: string;
 }>;
+export interface QaSummary {
+    overall: string;
+    score: number | null;
+    animations: Record<string, {
+        score: number;
+        hints: string[];
+        more_hints: number;
+    }>;
+    failing_frames: {
+        frame: string;
+        status: string;
+        repair_hint: string | null;
+    }[];
+    failing_frame_count: number;
+    visual_review: string;
+}
+export declare function summariseQaReport(report: unknown): QaSummary;
 export declare function readQaReport(root: string, asset: string): Promise<unknown>;
 export {};
