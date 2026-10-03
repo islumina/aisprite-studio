@@ -22,3 +22,6 @@ Thumbs.db
 
 # Packed sheet PNGs are derivable from frames/; atlases reference the .webp
 assets/*/output/*.png
+
+# Row-task layout guides are regenerated on demand
+assets/*/raw/*.guide.png

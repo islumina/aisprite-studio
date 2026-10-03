@@ -46,9 +46,11 @@ test("stdio server exposes the generation workflow", async () => {
       "aisprite_studio_get_generation_task",
       "aisprite_studio_get_qa_report",
       "aisprite_studio_get_reference_task",
+      "aisprite_studio_get_row_task",
       "aisprite_studio_list_assets",
       "aisprite_studio_run_deterministic_qa",
       "aisprite_studio_submit_generated_frame",
+      "aisprite_studio_submit_generated_row",
       "aisprite_studio_submit_reference",
       ],
     );
