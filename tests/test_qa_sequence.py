@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import tempfile
 import unittest
@@ -13,6 +12,7 @@ from PIL import Image
 
 
 qa = importlib.import_module("tools.sprite_pipeline.qa")
+qa_sequence = importlib.import_module("tools.sprite_pipeline.qa_sequence")
 
 SIZE = 128
 GREEN = (0, 255, 0)
@@ -47,7 +47,7 @@ def _frame(
 
 
 def _run(asset: Path, names: list[str], asset_type: str = "character") -> dict:
-    return asyncio.run(qa.run_suite(asset, names, expected_size=SIZE, skip_vision=True, asset_type=asset_type))
+    return qa.run_suite(asset, names, expected_size=SIZE, skip_vision=True, asset_type=asset_type)
 
 
 def _names(count: int, animation: str = "walk_front") -> list[str]:
@@ -167,7 +167,7 @@ class SequenceCheckTests(unittest.TestCase):
 
         frame = report["frames"]["walk_front_02"]
         self.assertFalse(frame["checks"]["colour_drift"]["pass"])
-        self.assertLess(frame["checks"]["colour_drift"]["overlap"], qa.COLOUR_MIN_OVERLAP)
+        self.assertLess(frame["checks"]["colour_drift"]["overlap"], qa_sequence.COLOUR_MIN_OVERLAP)
         self.assertRegex(frame["repair_hint"], r"Match walk_front_02's palette to walk_front_0\d: mostly red")
         self.assertIn("without the blue areas", frame["repair_hint"])
         for name in names:
@@ -190,7 +190,7 @@ class SequenceCheckTests(unittest.TestCase):
         for i, name in enumerate(names):
             _frame(self.frames / f"{name}.png", phase=i, colour=RED if i != 3 else BLUE, fmt="JPEG")
 
-        report = asyncio.run(qa.run_suite(self.asset, names, expected_size=SIZE, skip_vision=True, asset_type="effect"))
+        report = qa.run_suite(self.asset, names, expected_size=SIZE, skip_vision=True, asset_type="effect")
 
         frame = report["frames"]["idle_loop_03"]
         self.assertEqual(frame["checks"]["exists"]["detail"], "File is JPEG data, not PNG")
@@ -228,8 +228,8 @@ class ScoreTests(unittest.TestCase):
     def test_penalties_add_up_per_frame_and_cap_per_check(self) -> None:
         names = _names(8)
         reports = self._reports(names, {"walk_front_00": ["alpha_coverage"], "walk_front_01": ["alpha_coverage"]})
-        findings = [qa._Finding("colour_drift", (name,), "d", f"hint {name}") for name in names[2:7]]
-        findings.append(qa._Finding("duplicate_frame", ("walk_front_07",), "d", "hint dup"))
+        findings = [qa_sequence.Finding("colour_drift", (name,), "d", f"hint {name}") for name in names[2:7]]
+        findings.append(qa_sequence.Finding("duplicate_frame", ("walk_front_07",), "d", "hint dup"))
 
         result = qa._animation_report(names, reports, findings, "character")
 
@@ -243,7 +243,7 @@ class ScoreTests(unittest.TestCase):
     def test_score_never_drops_below_zero(self) -> None:
         names = _names(4)
         reports = self._reports(names, {name: ["exists", "alpha_coverage"] for name in names})
-        findings = [qa._Finding("no_motion", tuple(names[1:]), "d", "static")]
+        findings = [qa_sequence.Finding("no_motion", tuple(names[1:]), "d", "static")]
 
         self.assertEqual(qa._animation_report(names, reports, findings, "character")["score"], 0)
 

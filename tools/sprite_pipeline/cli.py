@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import logging
 import sys
@@ -163,7 +162,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
         print(f"Synced {count} files.")
 
 
-async def _cmd_qa(args: argparse.Namespace) -> None:
+def _cmd_qa(args: argparse.Namespace) -> None:
     from . import qa
 
     from .spec import frame_specs
@@ -176,7 +175,7 @@ async def _cmd_qa(args: argparse.Namespace) -> None:
 
     print(f"Running QA on {len(frame_names)} frames (size={expected_size})...")
 
-    report = await qa.run_suite(
+    report = qa.run_suite(
         asset_dir=args.asset_dir,
         frame_names=frame_names,
         expected_size=expected_size,
@@ -256,7 +255,7 @@ def main() -> None:
     elif args.command == "sync":
         _cmd_sync(args)
     elif args.command == "qa":
-        asyncio.run(_cmd_qa(args))
+        _cmd_qa(args)
     elif args.command == "pack":
         _cmd_pack(args)
     elif args.command == "validate":

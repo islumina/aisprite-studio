@@ -1,29 +1,7 @@
-import * as z from "zod/v4";
-declare const RequestSchema: z.ZodObject<{
-    character: z.ZodOptional<z.ZodString>;
-    style: z.ZodDefault<z.ZodString>;
-    frame_size: z.ZodDefault<z.ZodNumber>;
-    asset_type: z.ZodDefault<z.ZodEnum<{
-        character: "character";
-        effect: "effect";
-        object: "object";
-    }>>;
-    animations: z.ZodArray<z.ZodObject<{
-        action: z.ZodString;
-        direction: z.ZodDefault<z.ZodString>;
-        frames: z.ZodDefault<z.ZodNumber>;
-        fps: z.ZodOptional<z.ZodNumber>;
-    }, z.core.$strict>>;
-}, z.core.$loose>;
-export type AssetRequest = z.infer<typeof RequestSchema>;
-export interface FrameSpec {
-    name: string;
-    animation: string;
-    action: string;
-    direction: string;
-    index: number;
-    total: number;
-}
+import { type RowLayout } from "./prompts.js";
+import { type AssetRequest, type FrameSpec } from "./request.js";
+export { animationName, frameName, frameSpecs, type AssetRequest, type FrameSpec } from "./request.js";
+export { poseFor, type RowLayout } from "./prompts.js";
 export interface AssetSummary {
     name: string;
     asset_type: AssetRequest["asset_type"];
@@ -49,13 +27,6 @@ export interface AnimationOutline {
     }[];
     prompt: string;
 }
-export interface RowLayout {
-    frames: number;
-    columns: number;
-    rows: number;
-    slot: number;
-    canvas: [number, number];
-}
 export interface RowTask {
     asset: string;
     animation: string;
@@ -76,11 +47,7 @@ export interface ReferenceTask {
 }
 export declare function assetDirectory(root: string, asset: string): string;
 export declare function loadRequest(root: string, asset: string): Promise<AssetRequest>;
-export declare function animationName(action: string, direction: string): string;
-export declare function frameName(action: string, direction: string, index: number): string;
-export declare function frameSpecs(request: AssetRequest): FrameSpec[];
 export declare function listAssets(root: string): Promise<AssetSummary[]>;
-export declare function poseFor(frame: FrameSpec): string;
 export declare function getReferenceTask(root: string, asset: string): Promise<ReferenceTask>;
 export declare function getGenerationTask(root: string, asset: string, requestedFrame?: string): Promise<GenerationTask>;
 export declare function getAnimationOutline(root: string, asset: string, animation: string): Promise<AnimationOutline>;
@@ -129,4 +96,3 @@ export interface QaSummary {
 }
 export declare function summariseQaReport(report: unknown): QaSummary;
 export declare function readQaReport(root: string, asset: string): Promise<unknown>;
-export {};

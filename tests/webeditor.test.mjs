@@ -486,3 +486,11 @@ test("every import map entry and bare import in the editor resolves to a vendore
     }
   }
 });
+
+test("prompt panels name frames and list task references", async () => {
+  const { demoFramePrompt, frameName, taskText } = await import("../webeditor/src/prompts.js");
+  assert.equal(frameName("swim", 3), "swim_03");
+  assert.equal(taskText({ prompt: "Draw it.", references: ["assets/hero/tpose.png"] }), "Draw it.\n\nReferences:\n  assets/hero/tpose.png");
+  assert.equal(taskText({ error: "not declared" }), "(no generation task: not declared)");
+  assert.match(demoFramePrompt("idle", 0, 4, { w: 64, h: 64 }), /idle_00\.png, frame 1 of 4\..*64x64 PNG/);
+});
