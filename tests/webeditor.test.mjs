@@ -97,16 +97,50 @@ test("?mode=local opts into local mode on any host, e.g. a LAN address", () => {
   assert.equal(resolveStudioMode({ hostname: "islumina.org", search: "?mode=static&mode=local" }), "static");
 });
 
-test("the editor page loads nothing from a third-party origin", async () => {
-  const withoutComments = (await readWebeditor("index.html")).replace(/<!--[\s\S]*?-->/g, "")
-    + (await readWebeditor("style.css")).replace(/\/\*[\s\S]*?\*\//g, "");
-  const refs = [...withoutComments.matchAll(/(?:\b(?:src|href)\s*=\s*["']|url\(\s*["']?|@import\s+["'])([^"')\s]+)/g)]
-    .map((match) => match[1]);
-  assert.ok(refs.some((ref) => ref.endsWith(".woff2")), "fonts are referenced");
-  assert.deepEqual(refs.filter((ref) => /^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(ref)), [], "absolute or protocol-relative URLs");
-  for (const ref of refs.filter((candidate) => !candidate.startsWith("#") && !candidate.startsWith("data:"))) {
-    await access(new URL(ref, WEBEDITOR)); // every local reference resolves to a vendored file
+/** Every file under webeditor/ except vendor/, as posix paths relative to it. */
+async function listWebeditor(prefix = "") {
+  const files = [];
+  for (const entry of await readdir(new URL(prefix || ".", WEBEDITOR), { withFileTypes: true })) {
+    const relative = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      if (relative !== "vendor") files.push(...await listWebeditor(`${relative}/`));
+    } else {
+      files.push(relative);
+    }
   }
+  return files;
+}
+
+// Absolute URLs that appear in editor code as data, never fetched or loaded.
+const NON_FETCHED_URLS = new Set([
+  "https://github.com/islumina/aisprite-studio/tree/main/mcp-server", // `schema` id in the copied frame task
+]);
+
+test("no HTML, CSS or JS file under webeditor/ loads from a third-party origin", async () => {
+  const files = (await listWebeditor()).filter((file) => /\.(?:html|css|m?js)$/.test(file));
+  assert.ok(["index.html", "style.css", "src/editor.js", "src/preview.js"].every((file) => files.includes(file)), files.join(", "));
+  const absolute = /^(?:[a-z][a-z\d+.-]*:)?\/\//i;
+  let fonts = 0;
+  for (const file of files) {
+    const text = await readWebeditor(file);
+    if (file.endsWith("js")) {
+      // Quoted absolute or protocol-relative URLs: fetch(), import(), src assignments, new URL().
+      const urls = [...text.matchAll(/(['"`])((?:[a-z][a-z\d+.-]*:)?\/\/[^'"`\s]*)\1/gi)]
+        .map((match) => match[2])
+        .filter((url) => !NON_FETCHED_URLS.has(url));
+      assert.deepEqual(urls, [], `${file}: absolute URLs`);
+      continue;
+    }
+    const withoutComments = text.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const refs = [...withoutComments.matchAll(/(?:\b(?:src|href)\s*=\s*["']|url\(\s*["']?|@import\s+["'])([^"')\s]+)/g)]
+      .map((match) => match[1]);
+    assert.deepEqual(refs.filter((ref) => absolute.test(ref)), [], `${file}: absolute or protocol-relative URLs`);
+    for (const ref of refs.filter((candidate) => !candidate.startsWith("#") && !candidate.startsWith("data:"))) {
+      await access(new URL(ref, new URL(file, WEBEDITOR))); // every local reference resolves to a vendored file
+      if (ref.endsWith(".woff2")) fonts++;
+    }
+  }
+  assert.ok(fonts > 0, "fonts are referenced");
 });
 
 test("every icon reference has an inline symbol", async () => {
