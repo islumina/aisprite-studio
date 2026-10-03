@@ -5,14 +5,6 @@
 import * as PIXI from 'pixi.js';
 import { bus, EV } from './bus.js';
 import { keyGreen } from './chroma.js';
-import { createPool } from 'aipooljs';
-
-// Coordinate/Point object pool to recycle temporary objects in high-frequency events (wheel, drag)
-const pointPool = createPool({
-  size: 16,
-  create: () => ({ x: 0, y: 0 }),
-  reset: (pt) => { pt.x = 0; pt.y = 0; }
-});
 
 let app = null;
 let sprite = null;
@@ -32,6 +24,7 @@ let viewport = null;
 let pivotGraphics = null;
 let draggingPivot = false;
 let hostObserver = null; // keeps the renderer the size of its host element
+const dragPoint = new PIXI.Point(); // reused out-parameter for toLocal() on every pointermove
 
 export function setChroma(opts) { _chroma = { ..._chroma, ...opts }; }
 export function getChroma() { return { ..._chroma }; }
@@ -424,15 +417,12 @@ function setupViewportInteraction(canvas) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Use pointPool to borrow temporary point for world coordinate calculation to avoid GC allocations
-    pointPool.borrow((worldPt) => {
-      worldPt.x = (mouseX - viewport.x) / oldScale;
-      worldPt.y = (mouseY - viewport.y) / oldScale;
-
-      viewport.scale.set(newScale);
-      viewport.x = mouseX - worldPt.x * newScale;
-      viewport.y = mouseY - worldPt.y * newScale;
-    });
+    // Keep the world point under the cursor fixed while the scale changes.
+    const worldX = (mouseX - viewport.x) / oldScale;
+    const worldY = (mouseY - viewport.y) / oldScale;
+    viewport.scale.set(newScale);
+    viewport.x = mouseX - worldX * newScale;
+    viewport.y = mouseY - worldY * newScale;
   }, { passive: false });
 
   // 2. Mouse Drag Pan (Middle, Right click or Alt + Left click)
@@ -486,30 +476,26 @@ function setupPivotDrag() {
   pivotGraphics.on('globalpointermove', (e) => {
     if (!draggingPivot || !sprite || !currentPb) return;
 
-    // Use pointPool to borrow temporary point.
-    // Pass it as the third parameter (outPoint) to viewport.toLocal to prevent PixiJS from allocating a new Point instance under high frequency dragging
-    pointPool.borrow((tempPt) => {
-      const localPos = viewport.toLocal(e.global, undefined, tempPt);
+    const localPos = viewport.toLocal(e.global, undefined, dragPoint);
 
-      const sourceW = currentPb.sourceSize?.w || canvasSize;
-      const sourceH = currentPb.sourceSize?.h || canvasSize;
-      const fitScale = sprite.scale.x;
+    const sourceW = currentPb.sourceSize?.w || canvasSize;
+    const sourceH = currentPb.sourceSize?.h || canvasSize;
+    const fitScale = sprite.scale.x;
 
-      // Formulas:
-      // ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x
-      // ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y
-      const ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x;
-      const ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y;
+    // Formulas:
+    // ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x
+    // ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y
+    const ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x;
+    const ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y;
 
-      const clampedX = parseFloat(Math.max(0, Math.min(1, ax)).toFixed(4));
-      const clampedY = parseFloat(Math.max(0, Math.min(1, ay)).toFixed(4));
+    const clampedX = parseFloat(Math.max(0, Math.min(1, ax)).toFixed(4));
+    const clampedY = parseFloat(Math.max(0, Math.min(1, ay)).toFixed(4));
 
-      // Live update crosshair position during dragging for a responsive feel
-      pivotGraphics.x = localPos.x;
-      pivotGraphics.y = localPos.y;
+    // Live update crosshair position during dragging for a responsive feel
+    pivotGraphics.x = localPos.x;
+    pivotGraphics.y = localPos.y;
 
-      bus.emit(EV.ANCHOR_DRAGGED, { x: clampedX, y: clampedY });
-    });
+    bus.emit(EV.ANCHOR_DRAGGED, { x: clampedX, y: clampedY });
   });
 
   window.addEventListener('pointerup', () => {
