@@ -25,9 +25,9 @@ If omitted, defaults to `character`.
 
 ## Agent 1: Generation Agent
 
-**Role**: Read `request.yml` + reference image → produce individual frame PNGs.
+**Role**: Read `request.yml` + reference image → produce the frame PNGs, either a whole animation at once (row task) or one frame at a time (frame task).
 
-**System prompt**: `prompts/generation-agent.md`
+**System prompt**: `prompts/generation-agent.md`. The exact task prompt comes from the MCP server (`mcp-server/src/prompts.ts`); use it verbatim.
 
 **Input artifacts**:
 - `assets/{name}/request.yml` — animation spec (actions, directions, frame counts, style, asset_type)
@@ -35,23 +35,29 @@ If omitted, defaults to `character`.
 - `assets/{name}/input.png` — (optional) original user-provided reference
 
 **Output artifacts**:
-- `assets/{name}/frames/{action}_{direction}_{index:02d}.png` — individual frames
+- Row task: `assets/{name}/raw/{animation}.png`, one picture with every pose of the animation. `aisprite_studio_submit_generated_row` keys it, finds exactly the declared number of poses by content, and writes them as frames at one shared scale, or writes nothing and says what it found.
+- Frame task: `assets/{name}/frames/{action}_{direction}_{index:02d}.png` (`{action}_{index:02d}.png` without a direction).
+
+**Choosing a mode**: row tasks keep identity, scale, and palette more consistent because the poses are drawn together. Each pose gets a slot of the 1536×1024 canvas, so the row task warns when a pose must be enlarged more than 1.25× to reach `frame_size`; prefer frame tasks then.
 
 **Constraints**:
 - When generating the initial T-Pose / reference image, prompt for "FLAT EVEN LIGHTING" and "ABSOLUTELY NO SHADOWS" (no body shadows, no ground plane shadow). This is crucial to prevent baking unwanted lighting into subsequent frames.
+- Paint the background as one flat, solid chroma colour (green, or blue for a mostly green subject). The pipeline measures the painted colour per frame, so an off-spec shade is fine, but gradients, floors, shadows, or scenery make the frame unkeyable and QA rejects it.
 - MUST explicitly prompt to prevent color spill from the background (e.g. "Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors"). The character must NOT be interfered with by the blue/green screen.
 - MUST use the connected host's native image-editing capability with the returned PNG references, not pure text-to-image
 - MUST NOT add direct model API calls or API keys to this repository. Obtain the task through MCP, generate with the host capability, then submit through MCP.
-- MUST output 1:1 square aspect ratio matching `frame_size` from `request.yml`
-- MUST NOT modify files outside `assets/{name}/frames/`
+- Frame tasks MUST output a 1:1 square PNG matching `frame_size` from `request.yml`; row tasks output the canvas size the task states
+- MUST NOT modify files outside `assets/{name}/frames/` and `assets/{name}/raw/`
 - MUST NOT deploy, publish, or run production commands
-- Use content-hash cache (`.sprite-pipeline-cache/`) to skip already-generated frames
-- On API failure (429/5xx): retry 3× with exponential backoff, then mark frame as failed
+- Generate only missing frames: tasks without an explicit frame or animation select the first missing one
+- If the host's image generation fails (rate limit or server error), retry up to 3 times with backoff, then report the frame as failed
 
-**Reference image priority** (pass up to 3 through the host's image-input mechanism):
+**Reference image priority** for frame tasks (pass up to 3 through the host's image-input mechanism):
 1. Reference image (tpose.png) — always included, visual anchor
 2. Frame 0 of current animation — locks scale, palette, framing
 3. Previous frame (N-1) — motion continuity
+
+Row tasks attach the reference image and the numbered layout guide. The guide only places the poses: draw pose k in box k, and never draw the boxes, lines, or numbers.
 
 **Repair flow** (no separate agent):
 When QA fails a frame, re-generate using multi-turn image editing:
@@ -63,7 +69,7 @@ When QA fails a frame, re-generate using multi-turn image editing:
 
 ## Agent 2: QA Agent
 
-**Role**: Validate generated frames → produce `qa-report.json`.
+**Role**: Review generated frames visually and record the verdict as `visual_qa` in `qa-report.json`, after the deterministic QA below has run.
 
 **System prompt**: `prompts/qa-agent.md`
 
@@ -75,19 +81,17 @@ When QA fails a frame, re-generate using multi-turn image editing:
 **Output artifacts**:
 - `assets/{name}/qa-report.json` — structured validation report
 
-**Checks** (ordered by cost):
-1. **File check**: all expected frames exist, non-zero size, valid PNG
-2. **Dimension check**: all frames match `frame_size` in `request.yml`
-3. **Alpha coverage**: if chroma-keyed, non-transparent area is 5–95% of frame
-4. **Vision QA** (API call): subject consistency, pose/state accuracy, inter-frame stability
-   - Category-aware: characters check identity, objects check body stability, effects check palette
-   - Only called if checks 1-3 pass (skip expensive API call for obvious failures)
-5. **repair_hint**: if a frame fails, provide actionable one-line fix for Generation Agent
+**Deterministic checks** (`python3 -m tools.sprite_pipeline.cli qa`, or `aisprite_studio_run_deterministic_qa`, which also returns a scored summary):
+1. **Per frame**: the file exists and is PNG data (a renamed JPEG fails with its real format), dimensions match `frame_size`, the background is one keyable chroma colour, the keyed subject covers 5–95% of the frame, and its centroid does not jump from the previous frame.
+2. **Per animation**: duplicate frames (including a last frame that copies frame 0) and no motion, scale drift and colour drift against the surrounding frames, and a subject touching the canvas edge.
+3. **Score and hints**: each animation gets a 0–100 score, `issues`, and `hints`; the report's `score` is the lowest animation score. Every failing frame gets a `repair_hint` the Generation Agent can act on.
+
+**Vision QA** (this agent, only after the deterministic checks pass): subject consistency, pose/state accuracy, and inter-frame stability, category-aware (characters check identity, objects body stability, effects palette). Record the result as `"visual_qa": {"status": "pass" | "fail", ...}`. Re-running deterministic QA rewrites the report, so record the visual verdict last.
 
 **Constraints**:
 - MUST NOT modify frame files
 - MUST NOT re-generate frames (that's the generation agent's job)
-- MUST write `qa-report.json` even if all frames pass
+- A deterministic score of 100 is never visual approval
 
 ## Pipeline Order
 
@@ -111,18 +115,21 @@ request.yml + tpose.png
          │ no                ▼
          ▼            QA Agent (re-validate)
   ┌─────────────┐
-  │   Packer     │  → spritesheet.png + atlas.json + .webp
+  │   Packer     │  → {asset}.webp + atlas.json
   │  (no agent)  │
   └─────────────┘
 ```
 
-Packer is a deterministic script, not an agent. It reads `frames/` and outputs
-the final spritesheet + atlas JSON + WebP compressed version. No LLM involvement.
+Packer is a deterministic script, not an agent. It runs only when `qa-report.json`
+has `overall: "pass"` and `visual_qa.status: "pass"`. It keys, trims, and
+shelf-packs the declared frames into `{asset}.webp` (`{asset}.png` without
+`cwebp`) and writes `atlas.json`, keeping anchors, durations, and the state graph
+already tuned in the editor. No LLM involvement.
 
 ## Shared Schema
 
 All agents reference `schemas/atlas.schema.json` for output format.
-Frame naming convention: `{action}_{direction}_{index:02d}.png`
+Frame naming convention: `{action}_{direction}_{index:02d}.png`, or `{action}_{index:02d}.png` when `direction` is empty
 Actions, directions, and asset_type are defined in `request.yml`.
 
 ## request.yml Format
@@ -135,8 +142,9 @@ asset_type: object         # character | object | effect (default: character)
 
 animations:
   - action: open
-    direction: front
+    direction: front       # optional; empty for subjects without a facing
     frames: 6
+    fps: 10                # optional; default 8
   - action: shine
     direction: front
     frames: 4

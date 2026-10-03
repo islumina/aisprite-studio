@@ -149,6 +149,8 @@ function configureStaticUi() {
   if (els.jsonHint) els.jsonHint.textContent = 'Edits reflect live in this read-only demo. Use Export JSON to keep them.';
 }
 
+const assetTypeLabel = (assetType) => ({ object: 'Object / Icon', effect: 'Effect' })[assetType] ?? 'Character';
+
 // --- Prompt loading ---
 const prompts = createPromptSource({ staticMode });
 
@@ -309,7 +311,7 @@ async function loadAtlas(atlasObj, imageUrl, badge, charName = currentChar) {
 
   els.sourceBadge.textContent = badge;
   els.sourceBadge.classList.add('active');
-  els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
+  els.typeBadge.textContent = assetTypeLabel(atlas.assetType);
 
   jsonDirty = false; // fresh load — in sync with disk
   writeJson();
@@ -557,7 +559,7 @@ async function applyJsonText(rewrite) {
   jsonDirty = true; // user-edited atlas; auto-reload must not clobber it
   atlas = parsed;
   renderUnitSelect();
-  els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
+  els.typeBadge.textContent = assetTypeLabel(atlas.assetType);
   restartRuntime(currentUnit);
   if (rewrite) {
     writeJson();
@@ -876,7 +878,7 @@ els.btnSaveDisk?.addEventListener('click', async () => {
 
   const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
   const payload = { char: currentChar, prefix, atlas };
-  // Only when a key applies; server.mjs rejects a keyedImage that is not a PNG data URL (null included).
+  // A keyed copy only when the editor keyed the sheet; pre-keyed sheets need none.
   const keyed = preview.getKeyedSheetCanvas();
   if (keyed) payload.keyedImage = keyed.toDataURL('image/png');
 

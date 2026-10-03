@@ -25,6 +25,8 @@ Different categories require different validation criteria:
 
 ## Checks (ordered by cost, cheapest first)
 
+Run these only after deterministic QA (`aisprite_studio_run_deterministic_qa`) has passed: it already covers file format, dimensions, keyability, coverage, centroid drift, duplicate frames, scale and colour drift, and edge contact. Your verdict is recorded as `visual_qa` in `qa-report.json` and is what the pack gate requires.
+
 ### 1. Subject Consistency (Critical)
 Compare the generated frame to the reference:
 - **Characters**: Same face, outfit, proportions, colour palette? Same art style?
@@ -58,7 +60,7 @@ Does the frame match the expected action, direction, and frame phase?
 - **FAIL if bounding box dramatically changed** (±20% tolerance)
 
 ### 3. Background Cleanliness (Warning)
-- Background should be solid #00FF00
+- Background should be one solid chroma colour (green, or blue for a mostly green subject). Deterministic QA already fails frames whose background cannot be keyed.
 - Flag if: gradients present, shadow on ground, subject bleeding into background
 - **WARN** (don't fail) — chroma key can usually handle minor issues
 
