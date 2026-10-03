@@ -28,11 +28,11 @@ The pipeline handles three distinct categories. Each has different consistency r
 ### Core (all categories)
 1. **Visual anchor.** Every frame MUST depict the same subject with consistent identity. Pass the reference image and, when available, the previous frame as image inputs.
 2. **Image editing mode only.** Always generate through the host's image-editing mode with the provided PNG references. Never use pure text-to-image because it causes subject drift.
-3. **Chroma-key background.** If the subject is mostly green, use a solid #0000FF blue screen. If the subject is mostly blue, use a solid #00FF00 green screen. In all other cases, default to a solid #00FF00 green screen. Clean, uniform, no gradients, no ground planes, and ABSOLUTELY NO SHADOWS on the body or ground. FLAT EVEN LIGHTING. MUST explicitly prompt to prevent color spill from the background (e.g. "Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors"). The character must NOT be interfered with by the chroma key screen.
+3. **Chroma-key background.** Use a solid #00FF00 green screen, or a solid #0000FF blue screen when the subject is mostly green. The pipeline measures the painted colour on every frame, so an off-spec shade is fine, but the background must be one clean, uniform colour: no gradients, no ground planes, and ABSOLUTELY NO SHADOWS on the body or ground. FLAT EVEN LIGHTING. MUST explicitly prompt to prevent color spill from the background (e.g. "Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors"). The character must NOT be interfered with by the chroma key screen.
 4. **Centred composition.** Subject centred with ~10% padding on all sides.
 5. **No text, watermarks, or UI elements.**
 6. **Art style lock.** Match the reference exactly — do not shift between pixel art, anime, 3D cartoon, etc. Use the same level of detail, line weight, and colour palette throughout.
-7. **1:1 square aspect ratio.** Output dimensions match `frame_size` from `request.yml`.
+7. **Output size.** A frame task outputs a 1:1 square at `frame_size` from `request.yml`; a row task outputs the canvas size it states.
 
 ### Iterative consistency (preventing drift)
 8. **Anchor frame priority.** When generating frame N, pass images in priority order:
@@ -70,23 +70,14 @@ The pipeline handles three distinct categories. Each has different consistency r
     - `hit_{dir}` — impact flash or sparks
     - Maintain colour palette and approximate bounding box. Individual particle positions vary.
 
-## Prompt Template
+## Task Prompts
 
-```
-Generate animation frame {index} of {total} for a "{action}" animation.
-Subject: {subject_description} ({style}, {asset_type}).
-{direction_phrase}
-Pose/State: {pose_description}
-{continuity_note}
-Background: If subject is mostly green use solid #0000FF blue screen, if mostly blue use #00FF00 green screen, otherwise use #00FF00 green screen. FLAT EVEN LIGHTING. ABSOLUTELY NO SHADOWS on the body or ground plane. Ensure there is NO green/blue tint or spill on the character's body or clothing. Perfect original colors.
-Composition: subject centred, ~10% padding, {frame_size}×{frame_size} px, square.
-```
+Do not compose prompts yourself. The MCP server builds every task prompt (`mcp-server/src/prompts.ts`) from `request.yml`: subject, style, category rule, facing, a pose for each frame, continuity, output size, background, and lighting. Use it verbatim with every returned reference.
 
-### Variables
-- `{subject_description}` — from `request.yml` character field + style field
-- `{direction_phrase}` — e.g. "Facing the viewer (front view)" or omitted for effects
-- `{pose_description}` — specific phase description (see POSE_CYCLES in prompt-builder.js)
-- `{continuity_note}` — "This is the FIRST FRAME. Establish the size, framing, and palette..." or "This is NOT the first frame. You MUST heavily reference the previous frame..."
+- **Frame task** (`aisprite_studio_get_generation_task`): one frame; references are the T-Pose, frame 0, and the previous frame.
+- **Row task** (`aisprite_studio_get_row_task`): every pose of one animation in a single image, laid out on the attached numbered guide. Draw pose k in box k, keep clear background between poses, and never draw the guide's boxes, lines, or numbers. If the task carries a `warning` about enlargement, prefer frame tasks for that asset.
+
+Hosts without MCP can print the same frame tasks with `npm run plan -- assets/<asset>`.
 
 ## Repair Flow
 
@@ -98,6 +89,6 @@ When QA rejects a frame, regenerate via multi-turn image editing:
 
 ## Error Handling
 
-- API 429 (rate limit): wait and retry, up to 3 attempts with exponential backoff
-- API 5xx: retry up to 3 attempts
-- After 3 failures: mark frame as `failed` in output, do not block other frames
+- Image generation failed in the host (rate limit or server error): retry up to 3 times with backoff.
+- After 3 failures: report the frame or row as failed and continue with other frames.
+- A refused row submission names what was found (for example "grid row 2: found 3 pose(s), expected 4"): redraw the row so every pose stands apart in its own box.

@@ -56,6 +56,6 @@ If the host supports local stdio MCP, use the same JSON configuration. Otherwise
 
 - The hosted Playground has no write endpoint.
 - Existing generated references and frames are explicitly treated as failed and unapproved; repair starts from `input.png` when available.
-- Local submission accepts only declared frame names, valid PNG, exact `frame_size`, and at most 20 MiB.
+- Local submission accepts only declared frame or animation names and valid PNG of at most 20 MiB; frames must match `frame_size`, and a row is written as frames only when exactly the declared number of poses is found.
 - Replacing an existing frame is explicit and surfaced as destructive by MCP annotations.
 - Deterministic QA cannot approve packing; visual QA remains separate.
