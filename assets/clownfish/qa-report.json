@@ -1,0 +1,8050 @@
+{
+  "asset": "clownfish",
+  "asset_type": "character",
+  "timestamp": "2026-10-03T02:24:49.782595+00:00",
+  "overall": "fail",
+  "score": 50,
+  "animations": {
+    "swim": {
+      "score": 85,
+      "issues": [
+        {
+          "check": "duplicate_frame",
+          "frames": [
+            "swim_100"
+          ],
+          "detail": "swim_100 duplicates swim_00"
+        }
+      ],
+      "hints": [
+        "Redraw swim_100 as the step leading back into swim_00, not a copy of it; when the animation loops, the copy shows the same pose twice."
+      ]
+    },
+    "die": {
+      "score": 50,
+      "issues": [
+        {
+          "check": "alpha_coverage",
+          "frames": [
+            "die_20",
+            "die_40",
+            "die_41",
+            "die_42",
+            "die_43",
+            "die_44",
+            "die_45",
+            "die_46",
+            "die_47",
+            "die_48",
+            "die_49"
+          ],
+          "detail": "Coverage 2.8% outside 5-95% range; Coverage 1.0% outside 5-95% range; Coverage 0.9% outside 5-95% range; and 3 more"
+        },
+        {
+          "check": "inter_frame_drift",
+          "frames": [
+            "die_40"
+          ],
+          "detail": "Centroid drift 13.4px (6.1% of frame)"
+        }
+      ],
+      "hints": [
+        "die_20, die_40, die_41, die_42, die_43, die_44, die_45, die_46, die_47, die_48, die_49: Reframe the character so its non-chroma area covers 5-95% of the canvas.",
+        "die_40: Realign the character scale, baseline, and body centre to the previous frame."
+      ]
+    }
+  },
+  "frames": {
+    "swim_00": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.207,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.006,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.974,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_01": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.206,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_00",
+          "diff": 0.0129,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.003,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.976,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_02": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.206,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_01",
+          "diff": 0.0122,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.002,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.971,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_03": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.205,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_02",
+          "diff": 0.013,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_04": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.204,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0022,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_03",
+          "diff": 0.0135,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_05": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.203,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_04",
+          "diff": 0.0128,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_06": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.202,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_05",
+          "diff": 0.0129,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_07": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_06",
+          "diff": 0.0134,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_08": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_07",
+          "diff": 0.0127,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_09": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.199,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_08",
+          "diff": 0.0134,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.986,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_10": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.198,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_09",
+          "diff": 0.0128,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_11": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.196,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0023,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_10",
+          "diff": 0.0134,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_12": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.195,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_11",
+          "diff": 0.0129,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.968,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_13": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.194,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_12",
+          "diff": 0.0134,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_14": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.193,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0022,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_13",
+          "diff": 0.0128,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_15": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.192,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_14",
+          "diff": 0.0133,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_16": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.19,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_15",
+          "diff": 0.0124,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.985,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_17": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.189,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_16",
+          "diff": 0.0103,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_18": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.189,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0012,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_17",
+          "diff": 0.0089,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_19": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.188,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_18",
+          "diff": 0.0089,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_20": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.187,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_19",
+          "diff": 0.0089,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.968,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_21": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_20",
+          "diff": 0.0093,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.973,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_22": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_21",
+          "diff": 0.0093,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_23": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_22",
+          "diff": 0.0085,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_24": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.184,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_23",
+          "diff": 0.0089,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.969,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_25": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.183,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_24",
+          "diff": 0.0093,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.997,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.992,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_26": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.183,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_25",
+          "diff": 0.0086,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.998,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.971,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_27": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.184,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0008,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_26",
+          "diff": 0.0094,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_28": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.001,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_27",
+          "diff": 0.0087,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_29": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_28",
+          "diff": 0.0084,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_30": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0007,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_29",
+          "diff": 0.0087,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_31": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0007,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_30",
+          "diff": 0.0085,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_32": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.0,
+          "drift_ratio": 0.0002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_31",
+          "diff": 0.0076,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_33": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0008,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_32",
+          "diff": 0.0107,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_34": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.187,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.001,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_33",
+          "diff": 0.0078,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_35": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.188,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_34",
+          "diff": 0.0088,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_36": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.189,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.001,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_35",
+          "diff": 0.0075,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_37": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.19,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_36",
+          "diff": 0.0083,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.985,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_38": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.191,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_37",
+          "diff": 0.0082,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_39": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.192,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_38",
+          "diff": 0.0085,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_40": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.193,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_39",
+          "diff": 0.0079,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.988,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_41": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.194,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_40",
+          "diff": 0.0083,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_42": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.195,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_41",
+          "diff": 0.0079,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_43": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.196,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_42",
+          "diff": 0.0082,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_44": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.196,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_43",
+          "diff": 0.0075,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_45": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.197,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_44",
+          "diff": 0.0081,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_46": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.198,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_45",
+          "diff": 0.0079,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_47": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.199,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_46",
+          "diff": 0.0079,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_48": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_47",
+          "diff": 0.0075,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_49": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_48",
+          "diff": 0.0077,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.002,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_50": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_49",
+          "diff": 0.0069,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.003,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_51": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0012,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_49",
+          "diff": 0.0087,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.003,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_52": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_51",
+          "diff": 0.0111,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.974,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_53": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.199,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_52",
+          "diff": 0.0114,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_54": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.199,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_53",
+          "diff": 0.0115,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_55": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.198,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_54",
+          "diff": 0.0112,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.973,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_56": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.197,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_55",
+          "diff": 0.012,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_57": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.196,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0012,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_56",
+          "diff": 0.0122,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.978,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_58": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.195,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_57",
+          "diff": 0.011,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.976,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_59": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.194,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_58",
+          "diff": 0.0122,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.989,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_60": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.193,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_59",
+          "diff": 0.0112,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_61": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.192,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_60",
+          "diff": 0.0121,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_62": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.191,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_61",
+          "diff": 0.0126,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_63": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.19,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_62",
+          "diff": 0.0125,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.985,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_64": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.189,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_63",
+          "diff": 0.0128,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.989,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_65": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.188,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_64",
+          "diff": 0.0126,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.974,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_66": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.187,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_65",
+          "diff": 0.0122,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_67": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_66",
+          "diff": 0.0099,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.99,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_68": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.1,
+          "drift_ratio": 0.0004,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_67",
+          "diff": 0.0104,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.99,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.99,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_69": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0007,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_68",
+          "diff": 0.0108,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_70": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.1,
+          "drift_ratio": 0.0006,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_69",
+          "diff": 0.0109,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.962,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_71": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.184,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_70",
+          "diff": 0.0113,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_72": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.184,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.1,
+          "drift_ratio": 0.0004,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_71",
+          "diff": 0.011,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_73": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.183,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_72",
+          "diff": 0.0111,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_74": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.182,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_73",
+          "diff": 0.0113,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.998,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_75": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.181,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0011,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_74",
+          "diff": 0.0113,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.996,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.989,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_76": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.182,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_75",
+          "diff": 0.0134,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.999,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.971,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_77": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.183,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_76",
+          "diff": 0.0132,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_78": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.184,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_77",
+          "diff": 0.0128,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_79": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_78",
+          "diff": 0.0129,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_80": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.185,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_79",
+          "diff": 0.0124,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_81": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.186,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0012,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_80",
+          "diff": 0.012,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.986,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_82": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.187,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_81",
+          "diff": 0.012,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_83": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.187,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_82",
+          "diff": 0.0113,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_84": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.188,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_83",
+          "diff": 0.0093,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_85": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.189,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_84",
+          "diff": 0.0097,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_86": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.19,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_85",
+          "diff": 0.0097,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_87": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.191,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_86",
+          "diff": 0.0095,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.973,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_88": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.193,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_87",
+          "diff": 0.0103,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_89": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.194,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_88",
+          "diff": 0.0102,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_90": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.195,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_89",
+          "diff": 0.0095,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_91": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.196,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_90",
+          "diff": 0.0099,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_92": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.197,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_91",
+          "diff": 0.0103,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_93": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.199,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0022,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_92",
+          "diff": 0.0104,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.974,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_94": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_93",
+          "diff": 0.01,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_95": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0022,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_94",
+          "diff": 0.0105,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.984,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_96": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.202,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_95",
+          "diff": 0.0098,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.986,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_97": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.204,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_96",
+          "diff": 0.0093,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_98": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.205,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0021,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_97",
+          "diff": 0.0102,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.003,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.977,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_99": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.206,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0023,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "swim_01",
+          "diff": 0.0085,
+          "limit": 0.0055,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.006,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.965,
+          "detail": "OK"
+        }
+      }
+    },
+    "swim_100": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.207,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0019,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": false,
+          "nearest": "swim_00",
+          "diff": 0.0028,
+          "limit": 0.0055,
+          "detail": "Near-identical to swim_00 (difference 0.0028 < 0.0055)"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.009,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.983,
+          "detail": "OK"
+        }
+      },
+      "repair_hint": "Redraw swim_100 as the step leading back into swim_00, not a copy of it; when the animation loops, the copy shows the same pose twice."
+    },
+    "die_00": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.209,
+          "pass": true,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.006,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.95,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_01": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.208,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 3.4,
+          "drift_ratio": 0.0155,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_00",
+          "diff": 0.1055,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.004,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.968,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_02": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.207,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 6.2,
+          "drift_ratio": 0.0284,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_01",
+          "diff": 0.1705,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.002,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_03": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.206,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.4,
+          "drift_ratio": 0.0338,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_02",
+          "diff": 0.1962,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.988,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_04": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.205,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.7,
+          "drift_ratio": 0.0349,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_03",
+          "diff": 0.2007,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.99,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.98,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_05": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.204,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.2,
+          "drift_ratio": 0.0329,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_04",
+          "diff": 0.1942,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.981,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.974,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_06": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.203,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 5.9,
+          "drift_ratio": 0.0267,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_05",
+          "diff": 0.1719,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_07": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.202,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 2.2,
+          "drift_ratio": 0.0099,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_06",
+          "diff": 0.0815,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.028,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.981,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_08": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 2.4,
+          "drift_ratio": 0.0109,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_07",
+          "diff": 0.0866,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.047,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_09": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 5.2,
+          "drift_ratio": 0.0239,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_08",
+          "diff": 0.1544,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.047,
+          "area_ratio": 0.998,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.976,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_10": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.2,
+          "drift_ratio": 0.0325,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_04",
+          "diff": 0.1619,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.975,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_11": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.7,
+          "drift_ratio": 0.035,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_03",
+          "diff": 0.1513,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.981,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_12": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.2,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.3,
+          "drift_ratio": 0.0331,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_02",
+          "diff": 0.1268,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.988,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_13": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.201,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 5.5,
+          "drift_ratio": 0.025,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_01",
+          "diff": 0.0982,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_14": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.197,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 4.0,
+          "drift_ratio": 0.0183,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_00",
+          "diff": 0.1016,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.01,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_15": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.188,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 5.8,
+          "drift_ratio": 0.0262,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_14",
+          "diff": 0.1797,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.973,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_16": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.176,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 5.0,
+          "drift_ratio": 0.0226,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_15",
+          "diff": 0.1669,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.969,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_17": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.166,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_16",
+          "diff": 0.0562,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.966,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_18": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.158,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 7.7,
+          "drift_ratio": 0.0349,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_15",
+          "diff": 0.1751,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.975,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.854,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_19": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.155,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 9.0,
+          "drift_ratio": 0.0411,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_18",
+          "diff": 0.2142,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 0.965,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.611,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_20": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.028,
+          "pass": false,
+          "detail": "Coverage 2.8% outside 5-95% range"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 3.8,
+          "drift_ratio": 0.0174,
+          "detail": "OK"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_21": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.163,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 3.3,
+          "drift_ratio": 0.0149,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_19",
+          "diff": 0.1209,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.976,
+          "area_ratio": 0.989,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.556,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_22": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.17,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 3.0,
+          "drift_ratio": 0.0136,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_21",
+          "diff": 0.1054,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.002,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.876,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_23": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.174,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 2.3,
+          "drift_ratio": 0.0103,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_22",
+          "diff": 0.104,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.012,
+          "area_ratio": 1.014,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.694,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_24": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.174,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.5,
+          "drift_ratio": 0.0022,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_23",
+          "diff": 0.0514,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.012,
+          "area_ratio": 1.014,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.737,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_25": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.169,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 1.0,
+          "drift_ratio": 0.0047,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_24",
+          "diff": 0.0795,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.95,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_26": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.12,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.9,
+          "drift_ratio": 0.0042,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_25",
+          "diff": 0.1604,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 0.861,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.717,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_27": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.066,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 1.5,
+          "drift_ratio": 0.0066,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_26",
+          "diff": 0.1885,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 0.64,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.728,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_28": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.161,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 1.1,
+          "drift_ratio": 0.005,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_25",
+          "diff": 0.0583,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.998,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.728,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_29": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.161,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_28",
+          "diff": 0.064,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.864,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_30": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.161,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0007,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_29",
+          "diff": 0.0499,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.905,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_31": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.162,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0013,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_30",
+          "diff": 0.021,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.918,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_32": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.162,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.2,
+          "drift_ratio": 0.0009,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_31",
+          "diff": 0.0202,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.943,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_33": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.162,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_32",
+          "diff": 0.0213,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.971,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_34": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.162,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0014,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_33",
+          "diff": 0.0205,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.952,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_35": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.161,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_34",
+          "diff": 0.0221,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.937,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_36": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.161,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0016,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_35",
+          "diff": 0.0234,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.956,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_37": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.16,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0017,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_36",
+          "diff": 0.0225,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 1.0,
+          "area_ratio": 0.997,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.708,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_38": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.159,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0012,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_37",
+          "diff": 0.0235,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 0.994,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.709,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_39": {
+      "status": "pass",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.106,
+          "pass": true,
+          "detail": "OK"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.9,
+          "drift_ratio": 0.004,
+          "detail": "OK"
+        },
+        "edge_contact": {
+          "pass": true,
+          "sides": [],
+          "detail": "OK"
+        },
+        "duplicate_frame": {
+          "pass": true,
+          "nearest": "die_26",
+          "diff": 0.1216,
+          "limit": 0.015,
+          "detail": "OK"
+        },
+        "scale_drift": {
+          "pass": true,
+          "height_ratio": 0.988,
+          "area_ratio": 0.813,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.695,
+          "detail": "OK"
+        }
+      }
+    },
+    "die_40": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.01,
+          "pass": false,
+          "detail": "Coverage 1.0% outside 5-95% range"
+        },
+        "inter_frame_drift": {
+          "pass": false,
+          "drift_px": 13.4,
+          "drift_ratio": 0.0608,
+          "detail": "Centroid drift 13.4px (6.1% of frame)"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_41": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.009,
+          "pass": false,
+          "detail": "Coverage 0.9% outside 5-95% range"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.0018,
+          "detail": "OK"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_42": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.008,
+          "pass": false,
+          "detail": "Coverage 0.8% outside 5-95% range"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.3,
+          "drift_ratio": 0.0015,
+          "detail": "OK"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_43": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.002,
+          "pass": false,
+          "detail": "Coverage 0.2% outside 5-95% range"
+        },
+        "inter_frame_drift": {
+          "pass": true,
+          "drift_px": 0.4,
+          "drift_ratio": 0.002,
+          "detail": "OK"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_44": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_45": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_46": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_47": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_48": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    },
+    "die_49": {
+      "status": "fail",
+      "checks": {
+        "exists": {
+          "exists": true,
+          "valid_png": true,
+          "pass": true
+        },
+        "dimensions": {
+          "w": 220,
+          "h": 220,
+          "pass": true
+        },
+        "chroma_key": {
+          "pass": true,
+          "key": null,
+          "detail": "Already transparent"
+        },
+        "alpha_coverage": {
+          "ratio": 0.0,
+          "pass": false,
+          "detail": "Coverage 0.0% outside 5-95% range"
+        }
+      },
+      "repair_hint": "Reframe the character so its non-chroma area covers 5-95% of the canvas."
+    }
+  }
+}

@@ -16,6 +16,7 @@ import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
 import { configureAgentHandoff } from './agent-handoff.js';
 import { createPosePanels } from './pose-panels.js';
+import { createPromptSource, demoFramePrompt, frameName } from './prompts.js';
 import { ANCHOR_DRAG_THROTTLE_MS, DEFAULT_ANCHOR, DEFAULT_SOURCE_SIZE, parseAnchorValue } from './constants.js';
 
 // --- Utilities ---
@@ -149,69 +150,20 @@ function configureStaticUi() {
 }
 
 // --- Prompt loading ---
-/**
- * A generation task from the local server, built by the MCP server's workspace module,
- * so the panels show exactly what an agent receives. `{ error }` when the server has none.
- * @param {'frame-task'|'animation-task'|'reference-task'} kind
- * @param {Record<string, string>} params
- * @returns {Promise<{ prompt?: string, references?: string[], error?: string } | null>} null in static mode.
- */
-async function fetchTask(kind, params) {
-  if (staticMode) return null;
-  try {
-    const response = await fetch(`/api/${kind}?${new URLSearchParams(params)}`);
-    const payload = await response.json();
-    return response.ok ? payload : { error: payload.error || `HTTP ${response.status}` };
-  } catch {
-    return { error: 'local server unavailable' };
-  }
-}
+const prompts = createPromptSource({ staticMode });
 
-/** Prompt text plus its reference files, as the panels and clipboard show it. */
-function taskText(task) {
-  if (task.error) return `(no generation task: ${task.error})`;
-  const references = task.references?.length ? `\n\nReferences:\n${task.references.map((reference) => `  ${reference}`).join('\n')}` : '';
-  return `${task.prompt}${references}`;
-}
-
-const frameName = (animName, frameIdx) => `${animName}_${String(frameIdx).padStart(2, '0')}`;
-
-/** Fetch a saved prompt via the dev-server API (always 200 → no console 404). */
-async function fetchSavedPrompt(charName, name) {
-  if (staticMode) return null; // no /api on a static host
-  try {
-    const r = await fetch(`/api/prompt?char=${encodeURIComponent(charName)}&name=${encodeURIComponent(name)}`);
-    if (r.ok) {
-      const j = await r.json();
-      if (j.exists) return j.text.trim();
-    }
-  } catch { /* plain static host without the API — fall through to synthesis */ }
-  return null;
-}
-
-async function animPrompt(charName, animName) {
-  const saved = await fetchSavedPrompt(charName, animName);
-  if (saved) return saved;
-  const task = await fetchTask('animation-task', { char: charName, animation: animName });
-  return task ? taskText(task) : demoAnimPrompt(animName);
-}
-
-async function framePrompt(charName, animName, frameIdx, total) {
-  const saved = await fetchSavedPrompt(charName, frameName(animName, frameIdx));
-  if (saved) return saved;
-  const task = await fetchTask('frame-task', { char: charName, frame: frameName(animName, frameIdx) });
-  return task ? taskText(task) : demoFramePrompt(animName, frameIdx, total);
-}
+/** Untrimmed size of the playing frames, for demo prompts. */
+const frameSize = () => resolvePlayback(atlas, currentUnit)?.sourceSize ?? DEFAULT_SOURCE_SIZE;
 
 async function loadAnimPrompt(charName, animName) {
   if (!els.animPromptText) return;
-  els.animPromptText.textContent = await animPrompt(charName, animName);
+  els.animPromptText.textContent = await prompts.animPrompt(charName, animName);
 }
 
 async function loadFramePrompt(charName, animName, frameIdx) {
   if (!els.framePromptDetails) return;
   els.framePromptIdx.textContent = frameIdx;
-  els.framePromptText.textContent = await framePrompt(charName, animName, frameIdx, curFrameTotal);
+  els.framePromptText.textContent = await prompts.framePrompt(charName, animName, frameIdx, curFrameTotal, frameSize());
   els.framePromptDetails.style.display = '';
 }
 
@@ -314,11 +266,11 @@ async function activeFrameTask() {
     return {
       asset: currentChar,
       frame,
-      prompt: demoFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
+      prompt: demoFramePrompt(pb.animation, curFrameIdx, curFrameTotal, frameSize()),
       note: 'This hosted task is illustrative. Use the local MCP server for validated submission.',
     };
   }
-  const task = await fetchTask('frame-task', { char: currentChar, frame });
+  const task = await prompts.fetchTask('frame-task', { char: currentChar, frame });
   if (task.error) return task.error;
   return {
     schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
@@ -787,23 +739,6 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === ',') { const p = preview.togglePlayPause(); updatePlayPauseBtn(p); }
 });
 
-// --- Demo prompts (static mode has no request.yml or MCP server) ---
-function demoAnimPrompt(animName) {
-  return `Preview-only demo: create a coherent ${animName} animation for the same subject. Keep identity, scale, palette, framing, and baseline stable across every frame. Use a flat chroma background, even lighting, no shadows, no scenery, and no detached effects. The hosted Playground cannot accept files; use the local MCP server for a real asset task.`;
-}
-
-function demoFramePrompt(animName, frameIdx, total) {
-  const size = resolvePlayback(atlas, currentUnit)?.sourceSize ?? DEFAULT_SOURCE_SIZE;
-  return `Preview-only demo: generate ${frameName(animName, frameIdx)}.png, frame ${frameIdx + 1} of ${total}. ${poseForDemo(animName, frameIdx, total)} Output exactly ${size.w}x${size.h} PNG on a flat chroma background with even lighting, no shadows, no scenery, and no detached effects. Keep identity, scale, palette, framing, and baseline stable. The hosted Playground cannot accept files; use the local MCP server for a validated task.`;
-}
-
-function poseForDemo(animName, frameIdx, total) {
-  if (animName === 'idle') return 'Show a subtle breathing or bobbing phase that loops cleanly.';
-  if (animName === 'run') return 'Show a distinct running stride phase with continuous forward motion.';
-  if (animName === 'hit') return 'Show a readable impact reaction without changing the subject identity.';
-  return `Show the intended ${animName} motion at phase ${frameIdx + 1} of ${total}.`;
-}
-
 // --- After a character loads: mtime seed, polling ---
 async function afterCharLoaded(charName) {
   await seedMtime(charName);
@@ -885,7 +820,7 @@ els.frameRegen?.addEventListener('click', async () => {
   if (!pb) return;
   preview.pauseAnimation?.();
   updatePlayPauseBtn(false);
-  const prompt = await framePrompt(currentChar, pb.animation, curFrameIdx, curFrameTotal);
+  const prompt = await prompts.framePrompt(currentChar, pb.animation, curFrameIdx, curFrameTotal, frameSize());
   if (els.framePromptDetails) { els.framePromptDetails.style.display = ''; els.framePromptDetails.open = true; }
   if (els.framePromptText) els.framePromptText.textContent = prompt;
   if (els.framePromptIdx) els.framePromptIdx.textContent = curFrameIdx;

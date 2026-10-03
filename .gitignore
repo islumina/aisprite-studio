@@ -1,7 +1,6 @@
 # AI agent workspace dirs
 .claude/
 .gemini/
-.sprite-pipeline-cache/
 
 # Python Virtual Environments
 .venv/

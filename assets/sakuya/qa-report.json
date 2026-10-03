@@ -1,502 +1,625 @@
 {
   "asset": "sakuya",
-  "timestamp": "2026-06-02T07:43:17.597367+00:00",
+  "asset_type": "character",
+  "timestamp": "2026-10-03T02:25:03.204266+00:00",
   "overall": "fail",
-  "visual_qa": {
-    "status": "fail",
-    "detail": "User-confirmed visual generation failure; deterministic file checks do not constitute visual approval."
+  "score": 25,
+  "animations": {
+    "idle_front": {
+      "score": 40,
+      "issues": [
+        {
+          "check": "exists",
+          "frames": [
+            "idle_front_00",
+            "idle_front_01",
+            "idle_front_02",
+            "idle_front_03",
+            "idle_front_04",
+            "idle_front_05",
+            "idle_front_06",
+            "idle_front_07"
+          ],
+          "detail": "File is JPEG data, not PNG"
+        }
+      ],
+      "hints": [
+        "idle_front_00, idle_front_01, idle_front_02, idle_front_03, idle_front_04, idle_front_05, idle_front_06, idle_front_07: Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
+      ]
+    },
+    "idle_left": {
+      "score": 25,
+      "issues": [
+        {
+          "check": "exists",
+          "frames": [
+            "idle_left_00",
+            "idle_left_01",
+            "idle_left_02",
+            "idle_left_03",
+            "idle_left_04",
+            "idle_left_05",
+            "idle_left_06",
+            "idle_left_07"
+          ],
+          "detail": "File is JPEG data, not PNG"
+        },
+        {
+          "check": "duplicate_frame",
+          "frames": [
+            "idle_left_06"
+          ],
+          "detail": "idle_left_06 duplicates idle_left_05"
+        }
+      ],
+      "hints": [
+        "idle_left_00, idle_left_01, idle_left_02, idle_left_03, idle_left_04, idle_left_05, idle_left_06, idle_left_07: Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes.",
+        "Redraw idle_left_06 as a distinct idle phase between idle_left_05 and idle_left_07; it duplicates idle_left_05."
+      ]
+    }
   },
-  "repair_hint": "Regenerate the animation rows from the canonical reference, then rerun deterministic and visual QA.",
   "frames": {
     "idle_front_00": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.182,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "scale_drift": {
           "pass": true,
-          "halo_ratio": 0.0496,
+          "height_ratio": 1.0,
+          "area_ratio": 0.985,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.937,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_01": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.186,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.0526,
+          "nearest": "idle_front_00",
+          "diff": 0.0389,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.957,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_02": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.186,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.0834,
+          "nearest": "idle_front_01",
+          "diff": 0.0231,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.979,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_03": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.186,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1439,
+          "nearest": "idle_front_02",
+          "diff": 0.0213,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.992,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_04": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.184,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1946,
+          "nearest": "idle_front_03",
+          "diff": 0.1316,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 0.996,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.985,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_05": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.184,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1806,
+          "nearest": "idle_front_04",
+          "diff": 0.0598,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 0.996,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.973,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_06": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.187,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1256,
+          "nearest": "idle_front_05",
+          "diff": 0.0558,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.958,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_front_07": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.177,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.0856,
+          "nearest": "idle_front_06",
+          "diff": 0.0779,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 0.978,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.964,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_00": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.168,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "scale_drift": {
           "pass": true,
-          "halo_ratio": 0.0464,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "colour_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "overlap": 0.919,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_01": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.167,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.0763,
+          "nearest": "idle_left_00",
+          "diff": 0.0248,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.001,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.965,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_02": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.168,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1193,
+          "nearest": "idle_left_01",
+          "diff": 0.0303,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.006,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.976,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_03": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.167,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1249,
+          "nearest": "idle_left_02",
+          "diff": 0.0764,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.004,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.982,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_04": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.166,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1242,
+          "nearest": "idle_left_02",
+          "diff": 0.133,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.989,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_05": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.163,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.1429,
+          "nearest": "idle_left_04",
+          "diff": 0.0346,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 0.996,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.987,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     },
     "idle_left_06": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.162,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
+          "pass": false,
+          "nearest": "idle_left_05",
+          "diff": 0.0145,
+          "limit": 0.015,
+          "detail": "Near-identical to idle_left_05 (difference 0.0145 < 0.0150)"
+        },
+        "scale_drift": {
           "pass": true,
-          "halo_ratio": 0.172,
+          "height_ratio": 1.002,
+          "area_ratio": 0.995,
+          "tolerance": 0.15,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "colour_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "overlap": 0.975,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes. Redraw idle_left_06 as a distinct idle phase between idle_left_05 and idle_left_07; it duplicates idle_left_05."
     },
     "idle_left_07": {
-      "status": "pass",
+      "status": "fail",
       "checks": {
         "exists": {
           "exists": true,
-          "valid_png": true,
-          "pass": true
+          "valid_png": false,
+          "pass": false,
+          "detail": "File is JPEG data, not PNG"
         },
-        "dimensions": {
-          "w": 1024,
-          "h": 1024,
-          "pass": true
-        },
-        "alpha_coverage": {
-          "ratio": 0.165,
+        "edge_contact": {
           "pass": true,
+          "sides": [],
           "detail": "OK"
         },
-        "edge_halo": {
+        "duplicate_frame": {
           "pass": true,
-          "halo_ratio": 0.0973,
+          "nearest": "idle_left_06",
+          "diff": 0.0245,
+          "limit": 0.015,
           "detail": "OK"
         },
-        "inter_frame_drift": {
+        "scale_drift": {
           "pass": true,
-          "drift_px": 0.0,
-          "drift_ratio": 0.0,
+          "height_ratio": 1.0,
+          "area_ratio": 1.0,
+          "tolerance": 0.15,
+          "detail": "OK"
+        },
+        "colour_drift": {
+          "pass": true,
+          "overlap": 0.956,
           "detail": "OK"
         }
-      }
+      },
+      "repair_hint": "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
     }
   }
 }

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
 import tempfile
 import unittest
@@ -26,12 +25,12 @@ class QaSuiteTests(unittest.TestCase):
             asset = Path(tmp)
             (asset / "frames").mkdir()
 
-            report = asyncio.run(qa.run_suite(
+            report = qa.run_suite(
                 asset,
                 ["idle_front_00"],
                 expected_size=64,
                 skip_vision=True,
-            ))
+            )
 
             failed = report["frames"]["idle_front_00"]
             self.assertEqual(failed["status"], "fail")
@@ -43,7 +42,7 @@ class QaSuiteTests(unittest.TestCase):
             (asset / "frames").mkdir()
             Image.new("RGB", (64, 64), (0, 255, 0)).save(asset / "frames" / "idle_front_00.png", "JPEG")
 
-            report = asyncio.run(qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True))
+            report = qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True)
 
             failed = report["frames"]["idle_front_00"]
             self.assertEqual(failed["checks"]["exists"]["detail"], "File is JPEG data, not PNG")
@@ -55,7 +54,7 @@ class QaSuiteTests(unittest.TestCase):
             (asset / "frames").mkdir()
             Image.new("RGB", (64, 64), (240, 240, 240)).save(asset / "frames" / "idle_front_00.png")
 
-            report = asyncio.run(qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True))
+            report = qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True)
 
             failed = report["frames"]["idle_front_00"]
             self.assertFalse(failed["checks"]["chroma_key"]["pass"])
@@ -68,11 +67,11 @@ class QaSuiteTests(unittest.TestCase):
             frames.mkdir()
             _frame(frames / "idle_front_00.png", (20, 20, 44, 44))
 
-            report = asyncio.run(qa.run_suite(
+            report = qa.run_suite(
                 asset,
                 ["idle_front_00"],
                 expected_size=64,
-            ))
+            )
 
             frame = report["frames"]["idle_front_00"]
             self.assertEqual(report["overall"], "warn")
@@ -87,12 +86,12 @@ class QaSuiteTests(unittest.TestCase):
             _frame(frames / "idle_front_00.png", (4, 20, 20, 44))
             _frame(frames / "walk_front_00.png", (44, 20, 60, 44))
 
-            report = asyncio.run(qa.run_suite(
+            report = qa.run_suite(
                 asset,
                 ["idle_front_00", "walk_front_00"],
                 expected_size=64,
                 skip_vision=True,
-            ))
+            )
 
             self.assertEqual(report["overall"], "pass")
             self.assertNotIn("inter_frame_drift", report["frames"]["walk_front_00"]["checks"])
@@ -105,13 +104,13 @@ class QaSuiteTests(unittest.TestCase):
             _frame(frames / "open_front_00.png", (4, 20, 20, 44))
             _frame(frames / "open_front_01.png", (44, 20, 60, 44))
 
-            report = asyncio.run(qa.run_suite(
+            report = qa.run_suite(
                 asset,
                 ["open_front_00", "open_front_01"],
                 expected_size=64,
                 skip_vision=True,
                 asset_type="object",
-            ))
+            )
 
             failed = report["frames"]["open_front_01"]
             self.assertEqual(report["overall"], "fail")
