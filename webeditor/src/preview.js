@@ -2,6 +2,11 @@
 //
 // Uses PixiJS Spritesheet class for correct trim/anchor handling.
 // Sprites are rendered with proper sourceSize padding and spriteSourceSize offsets.
+// The aispritejs animator (runtime.js) is the playback clock: every ticker frame
+// asks the clock set with setClock() which frame to show. The AnimatedSprite only
+// holds the current clip's textures; it never plays on its own, and the frame
+// inspector steps it with gotoAndStop() while playback is paused (aispritejs has
+// no seek API).
 import * as PIXI from 'pixi.js';
 import { bus, EV } from './bus.js';
 import { keyGreen } from './chroma.js';
@@ -107,6 +112,7 @@ export async function initPreview(container, crosshair) {
   // Setup interactions
   setupViewportInteraction(app.canvas);
   setupPivotDrag();
+  app.ticker.add(advanceClock);
 
   // Follow the host: window resizes, the viewer-mode breakpoint, and layout changes
   // that fire no window resize. Zoom and pan (the viewport transform) are kept.
@@ -191,135 +197,100 @@ export async function loadSheet(imageUrl, atlasData) {
 export function getSheet() { return _sheet; }
 
 /**
- * Play an animation unit.
- * @param {object} pb - { animName, anchor, durationMs, onEnd, sourceSize }
- *   animName: key into sheet.animations
- *   OR textures: pre-resolved Texture[] (fallback for mock mode)
- * @param {object} opts - { onAnimEnd, onFrameChange }
+ * Show an animation unit's clip, starting on its first frame.
+ * @param {{ animName: string, anchor: {x:number,y:number}, sourceSize?: {w:number,h:number} }} pb
+ *   animName: key into the parsed Spritesheet's animations.
+ * @param {{ onFrameChange?: (index: number, total: number) => void }} [opts]
  */
 export function playUnit(pb, opts = {}) {
   if (!sprite || !app) return;
+  const textures = _sheet?.animations[pb.animName];
+  if (!textures) {
+    console.warn('playUnit: no textures resolved for', pb.animName);
+    return;
+  }
   currentPb = pb;
   _paused = false;
   _onFrameChange = opts.onFrameChange || null;
 
-  // Resolve textures: prefer Spritesheet animations, fallback to passed textures
-  let textures;
-  let timed = false; // per-frame durations drive playback, so animationSpeed stays 1
-  if (_sheet && pb.animName && _sheet.animations[pb.animName]) {
-    const rawTextures = _sheet.animations[pb.animName];
-    if (pb.frameDurations && pb.frameDurations.length === rawTextures.length) {
-      textures = rawTextures.map((tex, idx) => ({
-        texture: tex,
-        time: pb.frameDurations[idx]
-      }));
-      timed = true;
-    } else {
-      textures = rawTextures;
-    }
-  } else if (pb.textures) {
-    textures = pb.textures;
-  } else {
-    console.warn('playUnit: no textures resolved for', pb.animName);
-    return;
-  }
-
   sprite.textures = textures;
   sprite.anchor.set(pb.anchor.x, pb.anchor.y);
   layoutSprite(); // centred, feet at 65% of the height, source frame fitted to ~55%
-
-  sprite.animationSpeed = timed ? 1 : 1000 / pb.durationMs / 60;
-  sprite.loop = pb.onEnd === 'loop';
-  sprite.onComplete = () => {
-    if (pb.onEnd !== 'loop' && pb.onEnd !== 'hold') opts.onAnimEnd?.();
-  };
   sprite.onFrameChange = () => {
     _emitFrame();
     updateOnionSkin();
   };
-  sprite.gotoAndPlay(0);
+  sprite.gotoAndStop(0);
   _emitFrame();
   updateOnionSkin();
   positionCrosshair(pb.anchor);
 }
 
-// --- Frame-by-frame inspection API ---
+// --- Playback clock + frame-by-frame inspection ---
 
 let _paused = false;
 let _onFrameChange = null;
+let _clock = null;
+
+/**
+ * Set the playback clock: called every ticker frame with the elapsed ms while
+ * playback runs, it returns the frame index to show (or null for no change).
+ * @param {((deltaMs: number) => number|null|undefined) | null} clock
+ */
+export function setClock(clock) { _clock = clock; }
+
+function advanceClock(ticker) {
+  if (_paused || !_clock || !sprite) return;
+  let index;
+  try {
+    index = _clock(ticker.deltaMS);
+  } catch (error) {
+    // A throw would escape the ticker's requestAnimationFrame callback and stop rendering for good.
+    console.error('Preview clock failed:', error);
+    return;
+  }
+  if (Number.isInteger(index) && index >= 0 && index < sprite.totalFrames && index !== sprite.currentFrame) {
+    sprite.gotoAndStop(index);
+  }
+}
 
 function _emitFrame() {
   if (!sprite || !_onFrameChange) return;
   _onFrameChange(sprite.currentFrame, sprite.totalFrames);
 }
 
-/** Pause animation on current frame. */
+/** Pause playback on the current frame. */
 export function pauseAnimation() {
   if (!sprite) return;
   _paused = true;
-  sprite.stop();
   _emitFrame();
 }
 
-/** Resume animation playback. */
+/** Resume playback; the clock continues from where it was paused. */
 export function resumeAnimation() {
   if (!sprite) return;
   _paused = false;
-  sprite.play();
 }
 
 /** Step to the next frame (wraps). */
 export function nextFrame() {
   if (!sprite) return;
   pauseAnimation();
-  const next = (sprite.currentFrame + 1) % sprite.totalFrames;
-  sprite.gotoAndStop(next);
-  _emitFrame();
+  sprite.gotoAndStop((sprite.currentFrame + 1) % sprite.totalFrames);
 }
 
 /** Step to the previous frame (wraps). */
 export function prevFrame() {
   if (!sprite) return;
   pauseAnimation();
-  const prev = (sprite.currentFrame - 1 + sprite.totalFrames) % sprite.totalFrames;
-  sprite.gotoAndStop(prev);
-  _emitFrame();
+  sprite.gotoAndStop((sprite.currentFrame - 1 + sprite.totalFrames) % sprite.totalFrames);
 }
 
 /** Jump to a specific frame directly. */
 export function gotoFrame(idx) {
   if (!sprite) return;
   pauseAnimation();
-  if (idx >= 0 && idx < sprite.totalFrames) {
-    sprite.gotoAndStop(idx);
-    _emitFrame();
-  }
-}
-
-/** Update the durations for all frames in the current active animation dynamicially. */
-export function updateFrameDurations(frameDurations) {
-  if (!sprite || !currentPb) return;
-  currentPb.frameDurations = frameDurations;
-  if (_sheet && currentPb.animName && _sheet.animations[currentPb.animName]) {
-    const rawTextures = _sheet.animations[currentPb.animName];
-    if (frameDurations.length === rawTextures.length) {
-      const curFrame = sprite.currentFrame;
-      const isPlaying = !sprite.paused && !_paused; // use sprite.playing or custom _paused
-
-      sprite.textures = rawTextures.map((tex, idx) => ({
-        texture: tex,
-        time: frameDurations[idx]
-      }));
-      sprite.animationSpeed = 1;
-
-      sprite.gotoAndStop(curFrame);
-      if (isPlaying) {
-        sprite.play();
-      } else {
-        _emitFrame();
-      }
-    }
-  }
+  if (idx >= 0 && idx < sprite.totalFrames) sprite.gotoAndStop(idx);
 }
 
 /** Toggle play/pause. Returns true if now playing. */

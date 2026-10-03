@@ -2,12 +2,12 @@
 //
 // Wires the panels together. Responsibilities: load an atlas (served reimu, a
 // dropped file, or the procedural mock), drive the PixiJS preview through the
-// aispritejs/aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
+// aispritejs runtime, expose loop/hold/return + duration tuning that reflects
 // instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
 // and reload the spritesheet after an image agent regenerates it.
 import { bus, EV } from './bus.js';
-import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
-import { startRuntime, validateRuntime } from './runtime.js';
+import { normaliseAtlas, getUnits, initialUnit, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
+import { createPreviewRuntime, validateAtlas } from './runtime.js';
 import { generateMockSheet } from './mock.js';
 import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
 import * as preview from './preview.js';
@@ -53,6 +53,9 @@ const els = {
   framePromptText: $('frame-prompt-text'),
   btnCopyFramePrompt: $('btn-copy-frame-prompt'),
   wasdCard: $('wasd-card'),
+  wasdKeys: $('wasd-keys'),
+  spaceKeyRow: $('space-key-row'),
+  wasdHint: $('wasd-hint'),
   anchorX: $('anchor-x'),
   anchorY: $('anchor-y'),
   // Frame inspector
@@ -85,7 +88,8 @@ function announce(message) {
 // --- State ---
 let atlas = null;
 let baseImageUrl = null; // sheet url without cache-bust, for reload
-let fsm = null; // aispritejs runtime, legacy aifsmjs driver, or null
+let runtime = null; // runtime.js preview runtime (the playback clock), or null when nothing plays
+let pinnedUnit = null; // the state the preview lock keeps looping: the one picked, or the start state
 let currentUnit = null;
 let currentChar = null; // current character folder name
 let currentSpec = null; // parsed spec.json for the current character (drives prompt synthesis)
@@ -128,7 +132,7 @@ function configureHostBridge() {
 let pollTimer = null;
 let curFrameIdx = 0;
 let curFrameTotal = 1;
-let previewLock = true; // When true, selected animation loops regardless of onEnd — prevents FSM returning to idle
+let previewLock = true; // loop the pinned state for inspection; a trigger still plays once and returns
 const studioMode = resolveStudioMode(window.location);
 const staticMode = studioMode === 'static';
 
@@ -139,9 +143,6 @@ function configureStaticUi() {
     els.autoReload.checked = false;
     els.autoReload.closest('label')?.remove();
   }
-  // Start unlocked so FSM transitions finish (Space → hit → idle) instead of looping hit forever.
-  previewLock = false;
-  if (els.previewLock) els.previewLock.checked = false;
   if (els.jsonHint) els.jsonHint.textContent = 'Edits reflect live in this read-only demo. Use Export JSON to keep them.';
 }
 
@@ -179,6 +180,11 @@ async function start() {
   configureHostBridge();
   if (staticMode) configureStaticUi(); // before the renderer, so a boot failure still shows the right controls
   await preview.initPreview(els.canvas, els.crosshair);
+  preview.setClock((deltaMs) => {
+    if (!runtime) return null;
+    runtime.tick(deltaMs);
+    return runtime.frameIndex;
+  });
 
   if (staticMode) {
     configureAgentHandoff();
@@ -380,7 +386,9 @@ async function updateTpose(charName) {
 
 /** Load an atlas object + its sheet image, then render every panel. */
 async function loadAtlas(atlasObj, imageUrl, badge) {
-  atlas = normaliseAtlas(atlasObj);
+  const next = normaliseAtlas(atlasObj);
+  validateAtlas(next); // before touching the preview, so a bad atlas leaves the current one playing
+  atlas = next;
   baseImageUrl = imageUrl;
   // Use PixiJS Spritesheet for correct trim/anchor handling
   await preview.loadSheet(imageUrl, atlasObj);
@@ -393,12 +401,32 @@ async function loadAtlas(atlasObj, imageUrl, badge) {
   writeJson();
   renderUnitSelect();
 
-  fsm?.dispose();
-  const units = getUnits(atlas);
-  fsm = startRuntime(atlas, onFsmState);
-  if (!fsm && units[0]) playState(units[0].name);
-  kbHandler?.updateFsm(fsm);
-  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
+  pinnedUnit = initialUnit(atlas);
+  restartRuntime(pinnedUnit);
+}
+
+/** (Re)start the preview runtime in `startState`; the pinned unit loops while the lock is on. */
+function restartRuntime(startState) {
+  runtime?.dispose();
+  runtime = null;
+  runtime = createPreviewRuntime(atlas, {
+    onState: playState,
+    initialState: startState ?? undefined,
+    loopState: previewLock ? pinnedUnit : null,
+  });
+  kbHandler?.updateFsm(runtime);
+  reflectControls(runtime?.controls);
+}
+
+/** Show the keyboard card only for the inputs this graph declares. */
+function reflectControls({ move = null, trigger = null } = {}) {
+  if (!els.wasdCard) return;
+  els.wasdCard.style.display = move || trigger ? '' : 'none';
+  if (els.wasdKeys) els.wasdKeys.style.display = move ? 'grid' : 'none'; // inline display:grid beats [hidden]
+  if (els.spaceKeyRow) els.spaceKeyRow.style.display = trigger ? '' : 'none';
+  if (els.wasdHint) {
+    els.wasdHint.textContent = [move && `WASD = ${move}`, trigger && `Space = ${trigger}`].filter(Boolean).join(' · ');
+  }
 }
 
 // --- Playback ---
@@ -408,16 +436,15 @@ function playState(name) {
   if (!pb) return;
   currentUnit = name;
   currentPb = pb;
-  // When previewLock is on, force-loop the animation so FSM transitions don't fire
-  const effectiveOnEnd = previewLock ? 'loop' : pb.onEnd;
 
   // Render timeline scrubber
   renderTimeline(pb);
 
-  // Pass animation name — preview.js resolves textures from the parsed Spritesheet
+  // Pass animation name — preview.js resolves textures from the parsed Spritesheet;
+  // the runtime decides which frame shows and when the clip ends.
   preview.playUnit(
-    { animName: pb.animation, anchor: pb.anchor, durationMs: pb.durationMs, onEnd: effectiveOnEnd, sourceSize: pb.sourceSize, frameDurations: pb.frameDurations },
-    { onAnimEnd: () => fsm?.complete(), onFrameChange: (idx, total) => {
+    { animName: pb.animation, anchor: pb.anchor, sourceSize: pb.sourceSize },
+    { onFrameChange: (idx, total) => {
       curFrameIdx = idx; curFrameTotal = total;
       updateFrameLabel(idx, total);
       if (preview.isPaused()) announce(`Frame ${idx + 1} of ${total}`);
@@ -463,20 +490,10 @@ function updatePlayPauseBtn(playing) {
   els.framePlayPause.classList.toggle('active', playing);
 }
 
-/** FSM entered a state → play it. */
-function onFsmState(stateName) {
-  playState(stateName);
-}
-
-/** Character: jump straight to a state for inspection by reseating the FSM there. */
+/** Jump straight to a unit for inspection: it becomes the pinned state and the runtime restarts there. */
 function seekUnit(name) {
-  if (fsm) {
-    fsm.dispose();
-    fsm = startRuntime(atlas, onFsmState, name);
-    kbHandler?.updateFsm(fsm);
-  } else {
-    playState(name);
-  }
+  pinnedUnit = name;
+  restartRuntime(name);
 }
 
 // --- UI rendering ---
@@ -500,9 +517,6 @@ for (const select of unitSelects) {
   select.addEventListener('change', () => {
     const name = select.value;
     if (!name) return;
-    // When user manually picks an animation, enable preview-lock so it stays on that state
-    previewLock = true;
-    if (els.previewLock) els.previewLock.checked = true;
     seekUnit(name);
   });
 }
@@ -569,14 +583,16 @@ els.endReturn.onclick = () => {
 };
 els.endTarget.onchange = () => currentUnit && setOnEnd(atlas, currentUnit, els.endTarget.value);
 
-// Preview lock: when checked, selected animation force-loops; when unchecked, onEnd from atlas applies
+// Preview lock: when checked, the pinned state loops; when unchecked, its end behaviour applies.
 els.previewLock?.addEventListener('change', () => {
   previewLock = els.previewLock.checked;
-  if (currentUnit) playState(currentUnit);
+  if (!atlas) return;
+  if (previewLock && currentUnit) pinnedUnit = currentUnit;
+  restartRuntime(currentUnit);
 });
 
 // Writes every frame's duration through the model; the ATLAS_CHANGED handler
-// pushes the new per-frame times into the preview (animationSpeed stays 1).
+// restarts the runtime with the new per-frame times.
 els.speed.oninput = (e) => {
   const ms = parseInt(e.target.value, 10);
   if (currentUnit && ms > 0) setDuration(atlas, currentUnit, ms);
@@ -607,7 +623,7 @@ async function applyJsonText(rewrite) {
   try {
     parsed = JSON.parse(els.json.value);
     parsed = normaliseAtlas(parsed);
-    validateRuntime(parsed);
+    validateAtlas(parsed);
     if (errEl) {
       errEl.style.display = 'none';
       errEl.textContent = '';
@@ -628,11 +644,7 @@ async function applyJsonText(rewrite) {
   atlas = parsed;
   renderUnitSelect();
   els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
-  fsm?.dispose();
-  fsm = startRuntime(atlas, onFsmState);
-  kbHandler?.updateFsm(fsm);
-  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
-  if (!fsm && currentUnit) playState(currentUnit);
+  restartRuntime(currentUnit);
   if (rewrite) {
     writeJson();
     if (errEl) {
@@ -691,6 +703,18 @@ els.reload.onclick = async () => {
 };
 
 // --- Bus: model changes reflect everywhere ---
+// The animator compiles frame times when it is built, so timing edits restart it.
+// Debounced: a slider drag would otherwise restart the clip on every input event.
+const restartAfterTimingEdit = debounce(() => {
+  if (!currentUnit) return;
+  const pausedAt = preview.isPaused() ? curFrameIdx : null;
+  restartRuntime(currentUnit);
+  if (pausedAt !== null) { // stay paused on the frame being inspected
+    preview.gotoFrame(pausedAt);
+    updatePlayPauseBtn(false);
+  }
+}, 150);
+
 bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   jsonDirty = true; // tuning diverges from disk; auto-reload keeps it
 
@@ -705,15 +729,12 @@ bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   if (timing) {
     const pb = currentUnit && resolvePlayback(atlas, currentUnit);
     if (pb) {
-      preview.updateFrameDurations(pb.frameDurations);
       reflectDuration(pb);
       if (reason.startsWith('duration:')) renderTimeline(pb); // slider rewrote every frame
+      restartAfterTimingEdit();
     }
   } else if (reason.startsWith('onEnd') && currentUnit) {
-    fsm?.dispose();
-    fsm = startRuntime(atlas, onFsmState, currentUnit);
-    kbHandler?.updateFsm(fsm);
-    if (!fsm) playState(currentUnit);
+    restartRuntime(currentUnit);
   } else if (reason === 'anchor:all' && currentUnit) {
     playState(currentUnit); // apply loop/hold live
   }
@@ -773,7 +794,7 @@ els.tposeImg?.addEventListener('click', () => {
   if (els.tposeImg.src) window.open(els.tposeImg.src, '_blank');
 });
 
-// --- Keyboard (character movement → FSM events) ---
+// --- Keyboard (graph inputs: WASD → movement number input, Space → trigger) ---
 function highlightKey(k, on) {
   const map = { w: 'key-w', a: 'key-a', s: 'key-s', d: 'key-d', ' ': 'key-space' };
   const el = $(map[k]);

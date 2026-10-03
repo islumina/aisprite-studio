@@ -22,7 +22,7 @@ const TOOLS_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TOOLS_DIRECTORY, "..");
 const SOURCE_ROOT = path.resolve(PROJECT_ROOT, "..");
 const VENDOR_DIRECTORY = path.join(PROJECT_ROOT, "webeditor", "vendor");
-const PACKAGES = ["aibridgejs", "aieventjs", "aifsmjs", "aispritejs"];
+const PACKAGES = ["aibridgejs", "aieventjs", "aispritejs"];
 const REQUIRED_FILES = [
   "aibridgejs/index.js",
   "aibridgejs/iframe/index.js",

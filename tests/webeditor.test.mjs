@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  initialUnit,
   normaliseAtlas,
   resolvePlayback,
   setDuration,
@@ -11,9 +12,11 @@ import {
 } from "../webeditor/src/atlas-model.js";
 import { bus, EV } from "../webeditor/src/bus.js";
 import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
+import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
+import { createPreviewRuntime, previewControls, toSpriteGraph, validateAtlas } from "../webeditor/src/runtime.js";
 
-// Same timing shape as webeditor/src/mock.js: fps implies 167 ms, but every frame stores 150 ms.
+// An aispritejs graph whose animationConfig fps implies 167 ms while every frame stores 150 ms.
 function demoAtlas() {
   const cell = () => ({ frame: { x: 0, y: 0, w: 128, h: 128 }, duration: 150 });
   return normaliseAtlas({
@@ -21,14 +24,26 @@ function demoAtlas() {
     frames: { idle_00: cell(), idle_01: cell(), hit_00: cell() },
     animations: { idle: ["idle_00", "idle_01"], hit: ["hit_00"] },
     animationConfig: { idle: { onEnd: "loop", fps: 6 }, hit: { onEnd: "idle", fps: 8 } },
+    inputs: { hit: { type: "trigger" } },
+    initial: "idle",
     states: {
-      initial: "idle",
-      definitions: {
-        idle: { animation: "idle", loop: true, onEnd: "loop", transitions: { DAMAGE: { target: "hit" } } },
-        hit: { animation: "hit", loop: false, onEnd: "idle", transitions: {} },
-      },
+      idle: { animation: "idle", loop: true },
+      hit: { animation: "hit", loop: false, onEnd: "idle" },
     },
+    transitions: [{ from: "*", to: "hit", when: [{ input: "hit", op: "Trigger" }] }],
   });
+}
+
+/** Start a runtime and record every state it enters. */
+function recordRuntime(atlas, options) {
+  const states = [];
+  const runtime = createPreviewRuntime(atlas, { ...options, onState: (state) => states.push(state) });
+  return { runtime, states };
+}
+
+/** Advance a runtime in 16 ms steps, like the preview ticker. */
+function play(runtime, ms) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 16) runtime.tick(16);
 }
 
 function captureReasons(run) {
@@ -149,4 +164,98 @@ test("trusts only a same-origin parent as the bridge target", () => {
   }), null);
   assert.equal(allowedParentOrigin("null", () => "null"), null);
   assert.equal(allowedParentOrigin("", () => ""), null);
+});
+
+test("Space fires the graph's declared trigger, whatever its name", async () => {
+  assert.deepEqual(previewControls(toSpriteGraph(mockAtlas())), { move: "speed", trigger: "hit" });
+  assert.deepEqual(previewControls({ inputs: { boom: { type: "trigger" }, health: { type: "number" } } }), { move: null, trigger: "boom" });
+  // reimu declares only a speed input: WASD moves it, Space has nothing to fire (the card hides it).
+  const reimu = JSON.parse(await readFile(new URL("../assets/reimu/output/atlas.json", import.meta.url), "utf8"));
+  assert.deepEqual(previewControls(toSpriteGraph(normaliseAtlas(reimu))), { move: "speed", trigger: null });
+  const { runtime } = recordRuntime(normaliseAtlas(reimu));
+  assert.equal(runtime.can("ATTACK"), false);
+  runtime.send("MOVE");
+  assert.equal(runtime.state, "walk");
+  runtime.send("STOP");
+  assert.equal(runtime.state, "idle");
+  runtime.dispose();
+});
+
+test("a trigger plays once and returns, even with the preview lock on", () => {
+  const atlas = normaliseAtlas(mockAtlas());
+  // Lock on, idle pinned: Space plays hit once, then idle stays.
+  const locked = recordRuntime(atlas, { initialState: "idle", loopState: "idle" });
+  locked.runtime.send("ATTACK");
+  play(locked.runtime, 2000);
+  assert.deepEqual(locked.states, ["idle", "hit", "idle"]);
+  locked.runtime.dispose();
+
+  // Lock on, hit picked: it loops for inspection until Space releases the pin.
+  const pinned = recordRuntime(atlas, { initialState: "hit", loopState: "hit" });
+  play(pinned.runtime, 2000);
+  assert.deepEqual(pinned.states, ["hit"]);
+  pinned.runtime.send("ATTACK");
+  play(pinned.runtime, 2000);
+  assert.deepEqual(pinned.states, ["hit", "idle"]);
+  pinned.runtime.dispose();
+
+  // Lock off: the picked one-shot follows its onEnd.
+  const unlocked = recordRuntime(atlas, { initialState: "hit" });
+  play(unlocked.runtime, 2000);
+  assert.deepEqual(unlocked.states, ["hit", "idle"]);
+  unlocked.runtime.dispose();
+});
+
+test("the animator's frame index drives playback, including state speed", () => {
+  const atlas = normaliseAtlas({
+    frames: { run_00: { duration: 100 }, run_01: { duration: 100 } },
+    animations: { run: ["run_00", "run_01"] },
+    inputs: {},
+    states: { run: { animation: "run", loop: true, speed: 2 } },
+    transitions: [],
+  });
+  const { runtime } = recordRuntime(atlas);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(49);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(2); // 51 ms × speed 2 = 102 ms into the clip
+  assert.equal(runtime.frameIndex, 1);
+  runtime.dispose();
+});
+
+test("an atlas without a graph plays its animations with loop / hold / return", () => {
+  const atlas = normaliseAtlas({
+    assetType: "object",
+    frames: { open_00: { duration: 100 }, open_01: { duration: 100 }, shine_00: { duration: 100 } },
+    animations: { open: ["open_00", "open_01"], shine: ["shine_00"] },
+    animationConfig: { open: { onEnd: "shine" }, shine: { onEnd: "loop" } },
+  });
+  assert.equal(initialUnit(atlas), "open");
+  const { runtime, states } = recordRuntime(atlas);
+  assert.deepEqual(runtime.controls, { move: null, trigger: null });
+  play(runtime, 1000);
+  assert.deepEqual(states, ["open", "shine"]);
+  runtime.dispose();
+  assert.equal(createPreviewRuntime(normaliseAtlas({ frames: {}, animations: {} })), null, "nothing to play");
+});
+
+test("the demo atlas is a valid aispritejs graph that fits the atlas schema", async () => {
+  const atlas = mockAtlas();
+  validateAtlas(normaliseAtlas(mockAtlas()));
+  const schema = JSON.parse(await readFile(new URL("../schemas/atlas.schema.json", import.meta.url), "utf8"));
+  for (const key of schema.required) assert.ok(key in atlas, `required ${key}`);
+  assert.deepEqual(Object.keys(atlas).filter((key) => !(key in schema.properties)), [], "top-level keys the schema rejects");
+  for (const [name, frame] of Object.entries(atlas.frames)) {
+    for (const key of schema.properties.frames.additionalProperties.required) assert.ok(key in frame, `${name}.${key}`);
+  }
+  assert.equal(initialUnit(normaliseAtlas(atlas)), "idle");
+});
+
+test("the removed states.definitions shape fails with aispritejs's message", () => {
+  const legacy = normaliseAtlas({
+    frames: { idle_00: { duration: 100 } },
+    animations: { idle: ["idle_00"] },
+    states: { initial: "idle", definitions: { idle: { animation: "idle" } } },
+  });
+  assert.throws(() => validateAtlas(legacy), /event-driven/);
 });

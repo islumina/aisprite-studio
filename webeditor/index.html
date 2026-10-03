@@ -18,7 +18,6 @@
       "aibridgejs/iframe": "./vendor/aibridgejs/iframe/index.js",
       "aispritejs": "./vendor/aispritejs/index.js",
       "aispritejs/atlas": "./vendor/aispritejs/atlas/index.js",
-      "aifsmjs": "./vendor/aifsmjs/index.js",
       "aieventjs": "./vendor/aieventjs/index.js"
     }
   }
@@ -50,7 +49,7 @@
     <div class="meta">
       <span class="badge type" id="assettype-badge">Character</span>
       <span class="badge" id="source-badge">Loading…</span>
-      <span class="badge active libs">aispritejs · aifsmjs · aieventjs · aibridgejs</span>
+      <span class="badge active libs">aispritejs · aieventjs · aibridgejs</span>
     </div>
   </header>
 
@@ -118,13 +117,13 @@
       </div>
 
       <div class="card" id="wasd-card" style="display: none;">
-        <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Keyboard (FSM events)</label>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px; margin: 0 auto;">
+        <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Keyboard (graph inputs)</label>
+        <div id="wasd-keys" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px; margin: 0 auto;">
           <div></div><kbd id="key-w">W</kbd><div></div>
           <kbd id="key-a">A</kbd><kbd id="key-s">S</kbd><kbd id="key-d">D</kbd>
         </div>
-        <div style="text-align: center; margin-top: 6px;"><kbd id="key-space" style="padding: 6px 24px;">SPACE</kbd></div>
-        <p style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">WASD = Move · Space = Attack</p>
+        <div id="space-key-row" style="text-align: center; margin-top: 6px;"><kbd id="key-space" style="padding: 6px 24px;">SPACE</kbd></div>
+        <p id="wasd-hint" style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">WASD = Move · Space = Trigger</p>
       </div>
 
       <div class="sidebar-title">AI Agent Handoff</div>
@@ -159,10 +158,10 @@
       <div class="card">
         <div class="control-group">
           <label for="preview-lock" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lock"/></svg> Preview lock — force loop selected animation
+            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lock"/></svg> Preview lock — loop the selected state
           </label>
           <div style="font-size:0.7rem; color:var(--text-dim); margin-top:0.2rem;">
-            When off, animation follows End behaviour (loop / hold / return).
+            When off, it follows End behaviour (loop / hold / return). A trigger (Space) always plays once and returns.
           </div>
         </div>
         <div class="control-group">
