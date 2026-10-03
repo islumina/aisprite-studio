@@ -37,6 +37,30 @@ class QaSuiteTests(unittest.TestCase):
             self.assertEqual(failed["status"], "fail")
             self.assertIn("missing or invalid PNG", failed["repair_hint"])
 
+    def test_renamed_jpeg_fails_with_its_real_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            asset = Path(tmp)
+            (asset / "frames").mkdir()
+            Image.new("RGB", (64, 64), (0, 255, 0)).save(asset / "frames" / "idle_front_00.png", "JPEG")
+
+            report = asyncio.run(qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True))
+
+            failed = report["frames"]["idle_front_00"]
+            self.assertEqual(failed["checks"]["exists"]["detail"], "File is JPEG data, not PNG")
+            self.assertIn("real PNG", failed["repair_hint"])
+
+    def test_unkeyable_background_fails_with_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            asset = Path(tmp)
+            (asset / "frames").mkdir()
+            Image.new("RGB", (64, 64), (240, 240, 240)).save(asset / "frames" / "idle_front_00.png")
+
+            report = asyncio.run(qa.run_suite(asset, ["idle_front_00"], expected_size=64, skip_vision=True))
+
+            failed = report["frames"]["idle_front_00"]
+            self.assertFalse(failed["checks"]["chroma_key"]["pass"])
+            self.assertIn("solid chroma-key colour", failed["repair_hint"])
+
     def test_visual_qa_never_passes_when_review_is_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             asset = Path(tmp)

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .spec import frame_name
+
 # ---------------------------------------------------------------------------
 # Prompt helpers
 # ---------------------------------------------------------------------------
@@ -106,10 +108,10 @@ def build_generation_plan(asset_dir: Path) -> str:
     missing_count = 0
     for anim in request.get("animations", []):
         action = anim["action"]
-        direction = anim["direction"]
+        direction = anim.get("direction") or ""
         total = anim.get("frames", 4)
         for i in range(total):
-            name = f"{action}_{direction}_{i:02d}"
+            name = frame_name(action, direction, i)
             if name in existing_frames:
                 continue
                 
@@ -117,13 +119,13 @@ def build_generation_plan(asset_dir: Path) -> str:
             if i == 0:
                 continuity = "This is the FIRST FRAME. Establish the size, framing, and palette based on the reference image."
             else:
-                continuity = f"This is NOT the first frame. You MUST heavily reference the previous frame ({action}_{direction}_{i-1:02d}) to generate the next coherent motion in the sequence."
+                continuity = f"This is NOT the first frame. You MUST heavily reference the previous frame ({frame_name(action, direction, i - 1)}) to generate the next coherent motion in the sequence."
 
             prompt_text = _FRAME_PROMPT.format(
                 index=i + 1,
                 total=total,
                 action=action,
-                direction=direction,
+                direction=direction or "as in the reference",
                 asset_name=asset_name,
                 asset_type=asset_type,
                 style=style,
