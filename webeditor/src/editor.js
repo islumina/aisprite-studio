@@ -9,7 +9,6 @@ import { bus, EV } from './bus.js';
 import { normaliseAtlas, getUnits, initialUnit, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
 import { createPreviewRuntime, validateAtlas } from './runtime.js';
 import { generateMockSheet } from './mock.js';
-import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
 import * as preview from './preview.js';
 import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
@@ -97,7 +96,6 @@ let currentUnit = null;
 let currentChar = null; // current character folder name
 let currentPb = null; // current active playback config
 let reloadCount = 0;
-let promptTemplate = ''; // prompts/generation-agent.md, fetched once
 let jsonDirty = false; // in-memory atlas diverges from disk (tuning/edits) → auto-reload keeps it
 let lastSheetMtime = 0; // for auto-reload polling
 let hostBridge = null;
@@ -151,6 +149,33 @@ function configureStaticUi() {
 }
 
 // --- Prompt loading ---
+/**
+ * A generation task from the local server, built by the MCP server's workspace module,
+ * so the panels show exactly what an agent receives. `{ error }` when the server has none.
+ * @param {'frame-task'|'animation-task'|'reference-task'} kind
+ * @param {Record<string, string>} params
+ * @returns {Promise<{ prompt?: string, references?: string[], error?: string } | null>} null in static mode.
+ */
+async function fetchTask(kind, params) {
+  if (staticMode) return null;
+  try {
+    const response = await fetch(`/api/${kind}?${new URLSearchParams(params)}`);
+    const payload = await response.json();
+    return response.ok ? payload : { error: payload.error || `HTTP ${response.status}` };
+  } catch {
+    return { error: 'local server unavailable' };
+  }
+}
+
+/** Prompt text plus its reference files, as the panels and clipboard show it. */
+function taskText(task) {
+  if (task.error) return `(no generation task: ${task.error})`;
+  const references = task.references?.length ? `\n\nReferences:\n${task.references.map((reference) => `  ${reference}`).join('\n')}` : '';
+  return `${task.prompt}${references}`;
+}
+
+const frameName = (animName, frameIdx) => `${animName}_${String(frameIdx).padStart(2, '0')}`;
+
 /** Fetch a saved prompt via the dev-server API (always 200 → no console 404). */
 async function fetchSavedPrompt(charName, name) {
   if (staticMode) return null; // no /api on a static host
@@ -164,18 +189,29 @@ async function fetchSavedPrompt(charName, name) {
   return null;
 }
 
+async function animPrompt(charName, animName) {
+  const saved = await fetchSavedPrompt(charName, animName);
+  if (saved) return saved;
+  const task = await fetchTask('animation-task', { char: charName, animation: animName });
+  return task ? taskText(task) : demoAnimPrompt(animName);
+}
+
+async function framePrompt(charName, animName, frameIdx, total) {
+  const saved = await fetchSavedPrompt(charName, frameName(animName, frameIdx));
+  if (saved) return saved;
+  const task = await fetchTask('frame-task', { char: charName, frame: frameName(animName, frameIdx) });
+  return task ? taskText(task) : demoFramePrompt(animName, frameIdx, total);
+}
+
 async function loadAnimPrompt(charName, animName) {
   if (!els.animPromptText) return;
-  const saved = await fetchSavedPrompt(charName, animName);
-  els.animPromptText.textContent = saved ?? synthAnimPrompt(animName);
+  els.animPromptText.textContent = await animPrompt(charName, animName);
 }
 
 async function loadFramePrompt(charName, animName, frameIdx) {
   if (!els.framePromptDetails) return;
   els.framePromptIdx.textContent = frameIdx;
-  const frameName = `${animName}_${String(frameIdx).padStart(2, '0')}`;
-  const saved = await fetchSavedPrompt(charName, frameName);
-  els.framePromptText.textContent = saved ?? synthFramePrompt(animName, frameIdx, curFrameTotal);
+  els.framePromptText.textContent = await framePrompt(charName, animName, frameIdx, curFrameTotal);
   els.framePromptDetails.style.display = '';
 }
 
@@ -195,14 +231,10 @@ async function start() {
     const m = generateMockSheet();
     els.characterSelect.innerHTML = '<option value="demo">Procedural demo</option>';
     els.characterSelect.disabled = true;
-    await loadAtlas(m.atlas, m.imageUrl, 'Hosted read-only demo');
-    currentChar = 'demo';
+    await loadAtlas(m.atlas, m.imageUrl, 'Hosted read-only demo', 'demo');
     await hostBridge?.ready(studioContext());
     return;
   }
-
-  // Fetch the generation prompt template once (SPOT for synthesised prompts).
-  try { const tr = await fetch('prompts/generation-agent.md'); if (tr.ok) promptTemplate = await tr.text(); } catch { /* synth shows a notice */ }
 
   // Populate character dropdown from /api/assets
   try {
@@ -216,6 +248,7 @@ async function start() {
         opt.textContent = a.name + (a.hasAtlas ? '' : ' (no atlas)');
         opt.disabled = !a.hasAtlas;
         opt.dataset.prefix = a.atlasPrefix || '';
+        opt.dataset.input = a.hasInput ? '1' : '';
         els.characterSelect.appendChild(opt);
       }
       // Select first available
@@ -265,28 +298,32 @@ async function fetchAssetAtlas(charName) {
 /** Load a served asset and refresh every panel that depends on it. */
 async function loadAsset(charName) {
   const { atlasData, imageUrl } = await fetchAssetAtlas(charName);
-  await loadAtlas(atlasData, imageUrl, `assets/${charName} Loaded`);
-  currentChar = charName;
-  posePanels?.showReferencePose(charName);
+  await loadAtlas(atlasData, imageUrl, `assets/${charName} Loaded`, charName);
+  posePanels?.showReferencePose(charName, els.characterSelect.selectedOptions[0]?.dataset.input === '1');
   posePanels?.showTpose(charName);
   await afterCharLoaded(charName);
 }
 
 /** The active frame's generation task for the Agent Handoff card, or why there is none. */
-function activeFrameTask() {
+async function activeFrameTask() {
   if (!atlas || !currentUnit) return 'no active frame';
   const pb = resolvePlayback(atlas, currentUnit);
   if (!pb) return 'invalid state';
-  const refs = frameRefs(pb.animation, curFrameIdx);
+  const frame = frameName(pb.animation, curFrameIdx);
+  if (staticMode) {
+    return {
+      asset: currentChar,
+      frame,
+      prompt: demoFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
+      note: 'This hosted task is illustrative. Use the local MCP server for validated submission.',
+    };
+  }
+  const task = await fetchTask('frame-task', { char: currentChar, frame });
+  if (task.error) return task.error;
   return {
     schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
-    asset: currentChar,
-    frame: `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`,
-    prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
-    references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
-    note: staticMode
-      ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
-      : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
+    ...task,
+    note: 'Same task as aisprite_studio_get_generation_task, which also returns the PNG references.',
   };
 }
 
@@ -309,10 +346,11 @@ function reflectChromaKey(detection) {
 }
 
 /** Load an atlas object + its sheet image, then render every panel. */
-async function loadAtlas(atlasObj, imageUrl, badge) {
+async function loadAtlas(atlasObj, imageUrl, badge, charName = currentChar) {
   const next = normaliseAtlas(atlasObj);
   validateAtlas(next); // before touching the preview, so a bad atlas leaves the current one playing
   atlas = next;
+  currentChar = charName; // before the first playState, which loads this asset's prompts
   baseImageUrl = imageUrl;
   // Use PixiJS Spritesheet for correct trim/anchor handling
   await loadSheetImage(imageUrl, atlasObj);
@@ -749,44 +787,14 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === ',') { const p = preview.togglePlayPause(); updatePlayPauseBtn(p); }
 });
 
-// --- Prompt synthesis (fallback when no saved prompt file) ---
-/** A spec for the prompt builder, derived from the atlas (the pipeline's request.yml is not served). */
-function effectiveSpec() {
-  let frameSize = [DEFAULT_SOURCE_SIZE.w, DEFAULT_SOURCE_SIZE.h];
-  const u0 = getUnits(atlas)[0];
-  const pb0 = u0 && resolvePlayback(atlas, u0.name);
-  if (pb0?.sourceSize) frameSize = [pb0.sourceSize.w, pb0.sourceSize.h];
-  const movesets = Object.keys(atlas.animations || {}).map((n) => ({
-    name: n, frames: atlas.animations[n].length,
-    onEnd: atlas.animationConfig?.[n]?.onEnd, fps: atlas.animationConfig?.[n]?.fps,
-  }));
-  return { character_id: currentChar || 'character', frame_size: frameSize, movesets, states: atlas.states };
+// --- Demo prompts (static mode has no request.yml or MCP server) ---
+function demoAnimPrompt(animName) {
+  return `Preview-only demo: create a coherent ${animName} animation for the same subject. Keep identity, scale, palette, framing, and baseline stable across every frame. Use a flat chroma background, even lighting, no shadows, no scenery, and no detached effects. The hosted Playground cannot accept files; use the local MCP server for a real asset task.`;
 }
 
-function frameRefs(animName, frameIdx) {
-  const c = currentChar || 'character';
-  const pad = (i) => String(i).padStart(2, '0');
-  return {
-    tpose: `assets/${c}/tpose.png`,
-    input: `assets/${c}/input.png`,
-    first: `assets/${c}/frames/${animName}_00.png`,
-    prev: frameIdx > 0 ? `assets/${c}/frames/${animName}_${pad(frameIdx - 1)}.png` : undefined,
-    frameSize: effectiveSpec().frame_size,
-  };
-}
-
-function synthAnimPrompt(animName) {
-  if (!promptTemplate) {
-    return `Preview-only demo: create a coherent ${animName} animation for the same subject. Keep identity, scale, palette, framing, and baseline stable across every frame. Use a flat chroma background, even lighting, no shadows, no scenery, and no detached effects. The hosted Playground cannot accept files; use the local MCP server for a real asset task.`;
-  }
-  return buildAnimPrompt(promptTemplate, effectiveSpec(), animName, frameRefs(animName, 0)) + '\n\n— synthesised by AI Sprite Studio —';
-}
-function synthFramePrompt(animName, frameIdx, total) {
-  if (!promptTemplate) {
-    const size = effectiveSpec().frame_size;
-    return `Preview-only demo: generate ${animName}_${String(frameIdx).padStart(2, '0')}.png, frame ${frameIdx + 1} of ${total}. ${poseForDemo(animName, frameIdx, total)} Output exactly ${size[0]}x${size[1]} PNG on a flat chroma background with even lighting, no shadows, no scenery, and no detached effects. Keep identity, scale, palette, framing, and baseline stable. The hosted Playground cannot accept files; use the local MCP server for a validated task.`;
-  }
-  return buildFramePrompt(promptTemplate, effectiveSpec(), animName, frameIdx, total, frameRefs(animName, frameIdx)) + '\n\n— synthesised by AI Sprite Studio —';
+function demoFramePrompt(animName, frameIdx, total) {
+  const size = resolvePlayback(atlas, currentUnit)?.sourceSize ?? DEFAULT_SOURCE_SIZE;
+  return `Preview-only demo: generate ${frameName(animName, frameIdx)}.png, frame ${frameIdx + 1} of ${total}. ${poseForDemo(animName, frameIdx, total)} Output exactly ${size.w}x${size.h} PNG on a flat chroma background with even lighting, no shadows, no scenery, and no detached effects. Keep identity, scale, palette, framing, and baseline stable. The hosted Playground cannot accept files; use the local MCP server for a validated task.`;
 }
 
 function poseForDemo(animName, frameIdx, total) {
@@ -871,13 +879,13 @@ function flashLabel(btn, label, ok = true) {
   flashes.set(btn, { original, timer });
 }
 
-els.frameRegen?.addEventListener('click', () => {
+els.frameRegen?.addEventListener('click', async () => {
   if (!currentUnit) return;
   const pb = resolvePlayback(atlas, currentUnit);
   if (!pb) return;
   preview.pauseAnimation?.();
   updatePlayPauseBtn(false);
-  const prompt = synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal);
+  const prompt = await framePrompt(currentChar, pb.animation, curFrameIdx, curFrameTotal);
   if (els.framePromptDetails) { els.framePromptDetails.style.display = ''; els.framePromptDetails.open = true; }
   if (els.framePromptText) els.framePromptText.textContent = prompt;
   if (els.framePromptIdx) els.framePromptIdx.textContent = curFrameIdx;
@@ -890,10 +898,10 @@ els.frameCopyPath?.addEventListener('click', () => {
   const pb = resolvePlayback(atlas, currentUnit);
   if (!pb) return;
   const paddedIdx = String(curFrameIdx).padStart(2, '0');
-  const frameName = `${pb.animation}_${paddedIdx}.png`;
-  const filePath = `assets/${currentChar}/frames/${frameName}`;
+  const file = `${pb.animation}_${paddedIdx}.png`;
+  const filePath = `assets/${currentChar}/frames/${file}`;
   navigator.clipboard?.writeText(filePath);
-  flashLabel(els.frameCopyPath, `✓ ${frameName}`);
+  flashLabel(els.frameCopyPath, `✓ ${file}`);
 });
 
 async function savePrompt(name, text, btn) {

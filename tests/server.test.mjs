@@ -71,6 +71,7 @@ test("serves the editor and reports declared assets", async () => {
     hasSheet: true,
     atlasPrefix: "output",
     hasReference: true,
+    hasInput: false,
   }]);
 });
 
@@ -254,6 +255,9 @@ test("serves the MCP generation task for a declared frame", async () => {
   const undeclared = await request("/api/frame-task?char=hero&frame=walk_left_09");
   assert.equal(undeclared.status, 404);
   assert.match(JSON.parse(undeclared.body).error, /not declared/);
+
+  const reference = JSON.parse((await request("/api/reference-task?char=hero")).body);
+  assert.match(reference.prompt, /Generate a replacement tpose\.png for 'hero'/);
 
   const outline = JSON.parse((await request("/api/animation-task?char=hero&animation=walk_left")).body);
   assert.deepEqual(outline.frames.map((frame) => frame.name), ["walk_left_00", "walk_left_01"]);
