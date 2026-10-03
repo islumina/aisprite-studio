@@ -18,7 +18,8 @@ import {
   DEFAULT_SOURCE_SIZE,
   parseAnchorValue,
 } from "../webeditor/src/constants.js";
-import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
+import { createMockAdapter } from "aibridgejs/mock";
+import { allowedParentOrigin, createStudioHostBridge } from "../webeditor/src/host-bridge.js";
 import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
 import { createPreviewRuntime, previewControls, toSpriteGraph, validateAtlas } from "../webeditor/src/runtime.js";
@@ -362,4 +363,51 @@ test("wheel zoom keeps the world point under the cursor and stays within limits"
   }
   assert.equal(nextZoomScale(ZOOM.max, -1), ZOOM.max);
   assert.equal(nextZoomScale(ZOOM.min, 1), ZOOM.min);
+});
+
+test("the host bridge announces studio state and accepts only valid commands (aibridgejs/mock)", async () => {
+  const adapter = createMockAdapter();
+  const outbound = [];
+  adapter.subscribe((envelope) => {
+    if (envelope.kind === "event" && envelope.event !== "studio/command") outbound.push([envelope.event, envelope.payload]);
+  });
+  const commands = [];
+  const host = createStudioHostBridge({ adapter, onCommand: (command) => commands.push(command) });
+
+  await host.ready({ mode: "static", asset: "demo" });
+  await host.context({ mode: "static", unit: "idle" });
+  await host.error({ mode: "static", message: "boom" });
+  assert.deepEqual(outbound, [
+    ["studio/ready", { mode: "static", asset: "demo" }],
+    ["studio/context", { mode: "static", unit: "idle" }],
+    ["studio/error", { mode: "static", message: "boom" }],
+  ]);
+
+  const command = (payload) => adapter.receive({ kind: "event", event: "studio/command", payload, timestamp: Date.now() });
+  command({ type: "select-asset", asset: "reimu" });
+  command({ type: "select-asset", asset: "../server.mjs" });
+  command({ type: "reload-assets", extra: true });
+  command({ type: "delete-everything" });
+  command(["select-asset"]);
+  command({ type: "request-context" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(commands, [{ type: "select-asset", asset: "reimu" }, { type: "reload-assets" }, { type: "request-context" }]);
+
+  host.dispose();
+  const warnings = [];
+  const original = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    await host.context({ mode: "static" }); // a failed emit is logged, never thrown into the editor
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0][0]), /studio\/context/);
+  command({ type: "reload-assets" });
+  assert.equal(commands.length, 3, "no commands after dispose");
+});
+
+test("there is no host bridge without an embedding page", () => {
+  assert.equal(createStudioHostBridge({ onCommand() {} }), null);
 });

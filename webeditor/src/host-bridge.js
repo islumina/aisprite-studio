@@ -3,6 +3,8 @@ import { createIframeAdapter } from 'aibridgejs/iframe';
 
 const ASSET_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const COMMAND_TYPES = new Set(['reload-assets', 'request-context', 'select-asset']);
+// aibridgejs 0.6.0 leaves emit() unbounded unless each call passes timeoutMs.
+const EMIT_TIMEOUT_MS = 5000;
 
 export function normaliseStudioCommand(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -38,18 +40,27 @@ function parentOrigin() {
   return allowedParentOrigin(window.location.origin, () => window.parent.location.origin);
 }
 
-export function createStudioHostBridge({ onCommand } = {}) {
+/** The iframe adapter to a same-origin parent, or null when the editor is not embedded by one. */
+function parentAdapter() {
   const targetOrigin = parentOrigin();
   if (!targetOrigin) return null;
-
-  const bridge = createBridge({
-    adapter: createIframeAdapter(window, {
-      targetOrigin,
-      postTarget: window.parent,
-      expectedSource: window.parent,
-    }),
-    timeoutMs: 5000,
+  return createIframeAdapter(window, {
+    targetOrigin,
+    postTarget: window.parent,
+    expectedSource: window.parent,
   });
+}
+
+/**
+ * Talk to the embedding page: announce ready / context / error, and accept validated commands.
+ * @param {{ onCommand?: (command: { type: string, asset?: string }) => void, adapter?: import('aibridgejs').BridgeAdapter | null }} [options]
+ *   `adapter` defaults to the iframe adapter for a same-origin parent; tests pass aibridgejs/mock.
+ * @returns {{ ready: Function, context: Function, error: Function, dispose: () => void } | null}  null when there is no host.
+ */
+export function createStudioHostBridge({ onCommand, adapter = parentAdapter() } = {}) {
+  if (!adapter) return null;
+
+  const bridge = createBridge({ adapter, timeoutMs: EMIT_TIMEOUT_MS });
   const unsubscribe = bridge.on('studio/command', (payload) => {
     const command = normaliseStudioCommand(payload);
     if (command) onCommand?.(command);
@@ -57,7 +68,7 @@ export function createStudioHostBridge({ onCommand } = {}) {
 
   async function emit(event, payload) {
     try {
-      await bridge.emit(event, payload, { timeoutMs: 5000 });
+      await bridge.emit(event, payload, { timeoutMs: EMIT_TIMEOUT_MS });
     } catch (error) {
       console.warn(`Host bridge ${event} failed:`, error);
     }
