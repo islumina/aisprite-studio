@@ -4,6 +4,48 @@
 // blocked by CORS, so we draw a throwaway robot spritesheet on a canvas and ship
 // a matching atlas. This is ONLY for instant out-of-the-box play in the editor —
 // it is not part of the sprite pipeline and never touches real assets.
+import { DEFAULT_ANCHOR } from './constants.js';
+
+/**
+ * The demo atlas: an aispritejs input-driven graph (the same shape the pipeline
+ * writes and schemas/atlas.schema.json accepts). `speed` drives idle ⇄ run, and
+ * the `hit` trigger plays its clip once, then returns to idle.
+ * Pure data, so tests can validate it without a canvas.
+ */
+export function mockAtlas() {
+  const cell = (x, y) => ({
+    frame: { x, y, w: 128, h: 128 }, rotated: false, trimmed: false,
+    spriteSourceSize: { x: 0, y: 0, w: 128, h: 128 }, sourceSize: { w: 128, h: 128 },
+    anchor: { ...DEFAULT_ANCHOR }, duration: 150,
+  });
+
+  return {
+    meta: { image: 'mock-sheet.png', size: { w: 512, h: 512 }, scale: '1' },
+    assetType: 'character',
+    frames: {
+      idle_00: cell(0, 0), idle_01: cell(128, 0),
+      run_00: cell(0, 128), run_01: cell(128, 128),
+      hit_00: cell(0, 256),
+    },
+    animations: { idle: ['idle_00', 'idle_01'], run: ['run_00', 'run_01'], hit: ['hit_00'] },
+    inputs: {
+      speed: { type: 'number', default: 0 },
+      hit: { type: 'trigger' },
+    },
+    initial: 'idle',
+    states: {
+      idle: { animation: 'idle', loop: true },
+      run: { animation: 'run', loop: true },
+      hit: { animation: 'hit', loop: false, onEnd: 'idle' },
+    },
+    transitions: [
+      { from: '*', to: 'hit', priority: 1, when: [{ input: 'hit', op: 'Trigger' }] },
+      { from: 'idle', to: 'run', when: [{ input: 'speed', op: 'GreaterThan', value: 0 }] },
+      { from: 'run', to: 'idle', when: [{ input: 'speed', op: 'Equals', value: 0 }] },
+    ],
+  };
+}
+
 export function generateMockSheet() {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
@@ -54,34 +96,5 @@ export function generateMockSheet() {
   draw(192, 192, 1, 'run');
   draw(64, 320, 0, 'hit');
 
-  const cell = (x, y) => ({
-    frame: { x, y, w: 128, h: 128 }, rotated: false, trimmed: false,
-    spriteSourceSize: { x: 0, y: 0, w: 128, h: 128 }, sourceSize: { w: 128, h: 128 },
-    anchor: { x: 0.5, y: 0.85 }, duration: 150,
-  });
-
-  const atlas = {
-    meta: { image: 'mock-sheet.png', size: { w: 512, h: 512 }, scale: '1' },
-    assetType: 'character',
-    poses: {},
-    frames: {
-      idle_00: cell(0, 0), idle_01: cell(128, 0),
-      run_00: cell(0, 128), run_01: cell(128, 128),
-      hit_00: cell(0, 256),
-    },
-    animations: { idle: ['idle_00', 'idle_01'], run: ['run_00', 'run_01'], hit: ['hit_00'] },
-    animationConfig: {
-      idle: { onEnd: 'loop', fps: 6 }, run: { onEnd: 'loop', fps: 10 }, hit: { onEnd: 'idle', fps: 8 },
-    },
-    states: {
-      initial: 'idle',
-      definitions: {
-        idle: { animation: 'idle', loop: true, onEnd: 'loop', transitions: { MOVE: { target: 'run' }, DAMAGE: { target: 'hit' } } },
-        run: { animation: 'run', loop: true, onEnd: 'loop', transitions: { STOP: { target: 'idle' }, DAMAGE: { target: 'hit' } } },
-        hit: { animation: 'hit', loop: false, onEnd: 'idle', transitions: {} },
-      },
-    },
-  };
-
-  return { imageUrl: canvas.toDataURL('image/png'), atlas };
+  return { imageUrl: canvas.toDataURL('image/png'), atlas: mockAtlas() };
 }

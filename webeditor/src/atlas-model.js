@@ -5,6 +5,7 @@
 // announce changes on the bus. No PixiJS, no DOM — this is the single source of
 // truth for "what should play, how, and for how long".
 import { bus, EV } from './bus.js';
+import { DEFAULT_ANCHOR, DEFAULT_FRAME_DURATION_MS, DEFAULT_SOURCE_SIZE } from './constants.js';
 
 // --- Name-convention loop defaults -----------------------------------------
 // "依名稱讓工具調整": an animation's name implies its end behaviour. A flame loops,
@@ -25,8 +26,18 @@ export function inferOnEnd(name) {
 
 // --- Normalisation ----------------------------------------------------------
 /**
+ * Whether the atlas declares an aispritejs control block (`inputs` / `states` /
+ * `transitions`). Such an atlas is parsed strictly by aispritejs; one without
+ * any of the three plays its animations directly.
+ * @param {any} atlas
+ * @returns {boolean}
+ */
+export function hasControlBlock(atlas) {
+  return atlas?.inputs !== undefined || atlas?.states !== undefined || atlas?.transitions !== undefined;
+}
+
+/**
  * Backfill optional fields so the rest of the editor can assume they exist.
- * Backward compatible: legacy atlases (only meta/frames/animations/states) load fine.
  * @param {any} atlas
  * @returns {any} the same object, mutated in place and returned for chaining.
  */
@@ -46,19 +57,6 @@ export function normaliseAtlas(atlas) {
     if (cfg.onEnd === undefined) cfg.onEnd = cfg.loop === false ? 'hold' : 'loop';
     atlas.animationConfig[animName] = cfg;
   }
-
-  // Characters: migrate the legacy `loop` boolean + `next` field onto `onEnd`.
-  const defs = atlas.states?.definitions;
-  if (defs) {
-    for (const [stateName, def] of Object.entries(defs)) {
-      if (def.onEnd === undefined) {
-        if (def.next) def.onEnd = def.next;            // legacy attack→idle "next"
-        else if (def.loop === false) def.onEnd = 'hold';
-        else def.onEnd = inferOnEnd(def.animation || stateName);
-      }
-      def.transitions = def.transitions || {};
-    }
-  }
   return atlas;
 }
 
@@ -69,50 +67,50 @@ export function normaliseAtlas(atlas) {
  * @property {string} animation   Key into atlas.animations.
  * @property {string} onEnd       'loop' | 'hold' | a state name to jump to.
  * @property {string|undefined} sourcePose  Originating T-Pose id, if any.
- * @property {Record<string,{target:string}>} transitions  FSM edges (character mode only).
  * @property {'state'|'animation'} kind
  */
 
 /**
- * Enumerate everything the artist can preview. Character atlases expose FSM
- * states; object/icon atlases expose their animations directly.
+ * Enumerate everything the artist can preview: the states of an aispritejs
+ * graph, or the animations of an atlas without one (objects, effects).
  * @param {any} atlas
  * @returns {Unit[]}
  */
 export function getUnits(atlas) {
-  const defs = atlas.states?.definitions;
-  if (atlas.assetType === 'character' && defs) {
-    return Object.entries(defs).map(([name, d]) => ({
-      name,
-      animation: d.animation,
-      onEnd: d.onEnd,
-      sourcePose: d.sourcePose,
-      transitions: d.transitions || {},
-      kind: 'state',
-    }));
+  if (hasControlBlock(atlas)) {
+    return Object.entries(atlas.states ?? {})
+      .filter(([, def]) => def !== null && typeof def === 'object' && !Array.isArray(def))
+      .map(([name, def]) => ({
+        name,
+        animation: def.animation,
+        // aispritejs defaults `loop` to false when it is omitted.
+        onEnd: def.loop === true ? 'loop' : (def.onEnd ?? 'hold'),
+        sourcePose: undefined,
+        kind: 'state',
+      }));
   }
-  if (atlas.states && !defs) {
-    return Object.entries(atlas.states).map(([name, def]) => ({
-      name,
-      animation: def.animation,
-      // aispritejs defaults `loop` to false when it is omitted.
-      onEnd: def.loop === true ? 'loop' : (def.onEnd ?? 'hold'),
-      sourcePose: undefined,
-      transitions: {},
-      kind: 'state',
-    }));
-  }
-  return Object.keys(atlas.animations).map((name) => {
-    const cfg = atlas.animationConfig[name] || {};
+  return Object.keys(atlas.animations ?? {}).map((name) => {
+    const cfg = atlas.animationConfig?.[name] || {};
     return {
       name,
       animation: name,
       onEnd: cfg.onEnd ?? 'loop',
       sourcePose: cfg.sourcePose,
-      transitions: {},
       kind: 'animation',
     };
   });
+}
+
+/**
+ * The unit playback starts in: the graph's `initial` state, else the first unit
+ * (aispritejs also defaults to the first declared state).
+ * @param {any} atlas
+ * @returns {string|null}
+ */
+export function initialUnit(atlas) {
+  const units = getUnits(atlas);
+  const initial = hasControlBlock(atlas) ? atlas.initial : undefined;
+  return units.find((unit) => unit.name === initial)?.name ?? units[0]?.name ?? null;
 }
 
 /**
@@ -129,12 +127,11 @@ export function resolvePlayback(atlas, unitName) {
 
   const first = atlas.frames[frameKeys[0]] || {};
   const cfg = atlas.animationConfig[unit.animation] || {};
-  const stateDur = atlas.states?.definitions?.[unitName]?.duration;
-  const spriteState = !atlas.states?.definitions ? atlas.states?.[unitName] : undefined;
-  const speed = spriteState?.speed ?? 1;
-  const rawDurationMs = stateDur
-    ? stateDur
-    : (cfg.fps ? Math.round(1000 / (cfg.fps || 8)) : (first.duration || atlas.defaultFrameDuration || 125));
+  // aispritejs applies state.speed at playback; these values are for the UI,
+  // which shows the time a frame is on screen.
+  const speed = (unit.kind === 'state' && atlas.states[unitName]?.speed) || 1;
+  const frameFallback = atlas.defaultFrameDuration || DEFAULT_FRAME_DURATION_MS; // as runtime.js gives the animator
+  const rawDurationMs = cfg.fps ? Math.round(1000 / cfg.fps) : (first.duration || frameFallback);
   const durationMs = Math.max(1, Math.round(rawDurationMs / speed));
 
   return {
@@ -144,10 +141,10 @@ export function resolvePlayback(atlas, unitName) {
     loop: (unit.onEnd ?? 'loop') === 'loop',
     durationMs,
     frameDurations: frameKeys.map((fk) => Math.max(1, Math.round(
-      (atlas.frames[fk]?.duration || rawDurationMs) / speed,
+      (atlas.frames[fk]?.duration || frameFallback) / speed,
     ))),
-    anchor: first.anchor || { x: 0.5, y: 0.5 },
-    sourceSize: first.sourceSize || { w: 256, h: 256 },
+    anchor: first.anchor || { ...DEFAULT_ANCHOR },
+    sourceSize: first.sourceSize || { ...DEFAULT_SOURCE_SIZE },
   };
 }
 
@@ -155,11 +152,7 @@ export function resolvePlayback(atlas, unitName) {
 
 /** Set a unit's end behaviour ('loop' | 'hold' | '<stateName>') and republish. */
 export function setOnEnd(atlas, unitName, onEnd) {
-  const def = atlas.states?.definitions?.[unitName];
-  if (def) {
-    def.onEnd = onEnd;
-    def.loop = onEnd === 'loop'; // keep the legacy boolean coherent for PixiJS consumers
-  } else if (atlas.states?.[unitName]) {
+  if (hasControlBlock(atlas) && atlas.states?.[unitName]) {
     const state = atlas.states[unitName];
     state.loop = onEnd === 'loop';
     if (onEnd === 'loop' || onEnd === 'hold') delete state.onEnd;
@@ -176,13 +169,11 @@ export function setOnEnd(atlas, unitName, onEnd) {
 export function setDuration(atlas, unitName, durationMs) {
   const unit = getUnits(atlas).find((u) => u.name === unitName);
   if (!unit) return;
-  const spriteState = !atlas.states?.definitions ? atlas.states?.[unitName] : undefined;
-  const storedDuration = Math.max(1, Math.round(durationMs * (spriteState?.speed ?? 1)));
+  const speed = (unit.kind === 'state' && atlas.states[unitName]?.speed) || 1;
+  const storedDuration = Math.max(1, Math.round(durationMs * speed));
   for (const fk of atlas.animations[unit.animation] || []) {
     if (atlas.frames[fk]) atlas.frames[fk].duration = storedDuration;
   }
-  const def = atlas.states?.definitions?.[unitName];
-  if (def) def.duration = durationMs;
   bus.emit(EV.ATLAS_CHANGED, { reason: `duration:${unitName}` });
 }
 

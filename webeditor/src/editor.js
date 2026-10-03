@@ -2,20 +2,22 @@
 //
 // Wires the panels together. Responsibilities: load an atlas (served reimu, a
 // dropped file, or the procedural mock), drive the PixiJS preview through the
-// aispritejs/aifsmjs runtime, expose loop/hold/return + duration tuning that reflects
+// aispritejs runtime, expose loop/hold/return + duration tuning that reflects
 // instantly, render the T-Pose panel, keep the JSON editor in sync both ways,
 // and reload the spritesheet after an image agent regenerates it.
 import { bus, EV } from './bus.js';
-import { normaliseAtlas, getUnits, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
-import { startRuntime, validateRuntime } from './runtime.js';
+import { normaliseAtlas, getUnits, initialUnit, resolvePlayback, setOnEnd, setDuration, setAnchor, setAnchorAll, summariseFrameDurations } from './atlas-model.js';
+import { createPreviewRuntime, validateAtlas } from './runtime.js';
 import { generateMockSheet } from './mock.js';
 import { buildAnimPrompt, buildFramePrompt } from './prompt-builder.js';
 import * as preview from './preview.js';
 import { setupTimeline } from './timeline.js';
 import { initKeyboard } from './keyboard.js';
-import { keyGreen } from './chroma.js';
 import { createStudioHostBridge } from './host-bridge.js';
 import { resolveStudioMode } from './mode.js';
+import { configureAgentHandoff } from './agent-handoff.js';
+import { createPosePanels } from './pose-panels.js';
+import { ANCHOR_DRAG_THROTTLE_MS, DEFAULT_ANCHOR, DEFAULT_SOURCE_SIZE, parseAnchorValue } from './constants.js';
 
 // --- Utilities ---
 function debounce(fn, ms) {
@@ -53,6 +55,9 @@ const els = {
   framePromptText: $('frame-prompt-text'),
   btnCopyFramePrompt: $('btn-copy-frame-prompt'),
   wasdCard: $('wasd-card'),
+  wasdKeys: $('wasd-keys'),
+  spaceKeyRow: $('space-key-row'),
+  wasdHint: $('wasd-hint'),
   anchorX: $('anchor-x'),
   anchorY: $('anchor-y'),
   // Frame inspector
@@ -69,6 +74,7 @@ const els = {
   chromaToggle: $('chroma-toggle'),
   chromaSim: $('chroma-sim'),
   chromaSimVal: $('chroma-sim-val'),
+  chromaKeyInfo: $('chroma-key-info'),
   btnExportSheet: $('btn-export-sheet'),
   previewLock: $('preview-lock'),
   btnSaveDisk: $('btn-save-disk'),
@@ -85,10 +91,10 @@ function announce(message) {
 // --- State ---
 let atlas = null;
 let baseImageUrl = null; // sheet url without cache-bust, for reload
-let fsm = null; // aispritejs runtime, legacy aifsmjs driver, or null
+let runtime = null; // runtime.js preview runtime (the playback clock), or null when nothing plays
+let pinnedUnit = null; // the state the preview lock keeps looping: the one picked, or the start state
 let currentUnit = null;
 let currentChar = null; // current character folder name
-let currentSpec = null; // parsed spec.json for the current character (drives prompt synthesis)
 let currentPb = null; // current active playback config
 let reloadCount = 0;
 let promptTemplate = ''; // prompts/generation-agent.md, fetched once
@@ -128,9 +134,11 @@ function configureHostBridge() {
 let pollTimer = null;
 let curFrameIdx = 0;
 let curFrameTotal = 1;
-let previewLock = true; // When true, selected animation loops regardless of onEnd — prevents FSM returning to idle
+let previewLock = true; // loop the pinned state for inspection; a trigger still plays once and returns
 const studioMode = resolveStudioMode(window.location);
 const staticMode = studioMode === 'static';
+// The pose panels are hidden on a static host, where assets/ does not exist.
+const posePanels = staticMode ? null : createPosePanels(els);
 
 function configureStaticUi() {
   // Controls that need server.mjs or assets/ on disk are marked in index.html.
@@ -139,9 +147,6 @@ function configureStaticUi() {
     els.autoReload.checked = false;
     els.autoReload.closest('label')?.remove();
   }
-  // Start unlocked so FSM transitions finish (Space → hit → idle) instead of looping hit forever.
-  previewLock = false;
-  if (els.previewLock) els.previewLock.checked = false;
   if (els.jsonHint) els.jsonHint.textContent = 'Edits reflect live in this read-only demo. Use Export JSON to keep them.';
 }
 
@@ -179,9 +184,14 @@ async function start() {
   configureHostBridge();
   if (staticMode) configureStaticUi(); // before the renderer, so a boot failure still shows the right controls
   await preview.initPreview(els.canvas, els.crosshair);
+  preview.setClock((deltaMs) => {
+    if (!runtime) return null;
+    runtime.tick(deltaMs);
+    return runtime.frameIndex;
+  });
 
   if (staticMode) {
-    configureAgentHandoff();
+    setupAgentHandoff();
     const m = generateMockSheet();
     els.characterSelect.innerHTML = '<option value="demo">Procedural demo</option>';
     els.characterSelect.disabled = true;
@@ -218,172 +228,94 @@ async function start() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const requestedChar = urlParams.get('char');
-  if (requestedChar && els.characterSelect.querySelector(`option[value="${requestedChar}"]`)) {
+  // Compare option values directly: the query value never becomes part of a CSS selector.
+  if (requestedChar && Array.from(els.characterSelect.options).some((option) => option.value === requestedChar && !option.disabled)) {
     els.characterSelect.value = requestedChar;
   }
 
   const charName = els.characterSelect?.value || 'reimu';
-  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
   try {
-    const res = await fetch(`${atlasBase}/atlas.json`);
-    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-
-    const atlasData = await res.json();
-    const imageName = atlasData.meta?.image || `${charName}.png`;
-
-    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
-    currentChar = charName;
-    updateReferencePose(charName);
-    updateTpose(charName);
-    await afterCharLoaded(charName);
+    await loadAsset(charName);
   } catch (e) {
-    console.info('Falling back to procedural mock:', e.message);
+    console.warn('Falling back to procedural mock:', e);
     const m = generateMockSheet();
     await loadAtlas(m.atlas, m.imageUrl, 'Mock Mode');
   }
-  configureAgentHandoff();
+  setupAgentHandoff();
   await hostBridge?.ready(studioContext());
 }
 
-async function configureAgentHandoff() {
-  const status = $('agent-status');
-  const configButton = $('btn-copy-agent-config');
-  const taskButton = $('btn-copy-agent-task');
-  const clientSelect = $('agent-client');
-  if (staticMode) {
-    status.textContent = 'Hosted demo is read-only. Clone aisprite-studio and connect its local MCP server to generate or submit frames.';
-    configButton.textContent = 'Copy local setup template';
-  } else {
-    try {
-      const response = await fetch('/api/agent-config');
-      const payload = await response.json();
-      configButton.dataset.config = JSON.stringify(payload.config ?? {}, null, 2);
-      configButton.dataset.codex = payload.codexToml || '';
-      // server.mjs answers 403 off localhost (e.g. ?mode=local on a LAN address).
-      status.textContent = payload.ok ? 'Local MCP bridge is built and ready.'
-        : response.ok ? `MCP needs build: ${payload.buildCommand}`
-          : `MCP config unavailable: ${payload.error ?? `HTTP ${response.status}`}`;
-    } catch {
-      status.textContent = 'MCP config unavailable. Start the editor with npm run serve.';
-    }
-  }
-  configButton.onclick = async () => {
-    const fallback = {
-      mcpServers: {
-        'aisprite-studio': {
-          command: 'node',
-          args: ['/absolute/path/to/aisprite-studio/mcp-server/dist/index.js'],
-          env: { AISPRITE_STUDIO_ROOT: '/absolute/path/to/aisprite-studio' },
-        },
-      },
-    };
-    const manual = 'Use “Copy active frame task”, give its prompt and references to the image-capable AI, then submit the resulting PNG through a local MCP-capable agent.';
-    const selected = clientSelect?.value || 'json';
-    const value = selected === 'codex'
-      ? (configButton.dataset.codex || '[mcp_servers.aisprite-studio]\ncommand = "node"\nargs = ["/absolute/path/to/aisprite-studio/mcp-server/dist/index.js"]')
-      : selected === 'manual'
-        ? manual
-        : (configButton.dataset.config || JSON.stringify(fallback, null, 2));
-    await navigator.clipboard.writeText(value);
-    flashLabel(configButton, selected === 'manual' ? '✓ handoff copied' : '✓ MCP config copied');
-  };
-  taskButton.onclick = async () => {
-    if (!atlas || !currentUnit) return flashLabel(taskButton, '✗ no active frame', false);
-    const pb = resolvePlayback(atlas, currentUnit);
-    if (!pb) return flashLabel(taskButton, '✗ invalid state', false);
-    const frameName = `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`;
-    const refs = frameRefs(pb.animation, curFrameIdx);
-    const task = {
-      schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
-      asset: currentChar,
-      frame: frameName,
-      prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
-      references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
-      note: staticMode
-        ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
-        : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
-    };
-    await navigator.clipboard.writeText(JSON.stringify(task, null, 2));
-    flashLabel(taskButton, '✓ task copied');
+// --- Asset loading (served assets/<name>) ---
+/** Directory holding an asset's atlas.json: assets/<name>, or the prefix /api/assets reported (e.g. output). */
+function assetBase(charName) {
+  const option = Array.from(els.characterSelect?.options ?? []).find((candidate) => candidate.value === charName);
+  const prefix = option?.dataset.prefix || '';
+  return prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
+}
+
+/** Fetch an asset's atlas.json and resolve the sheet image next to it. */
+async function fetchAssetAtlas(charName) {
+  const base = assetBase(charName);
+  const response = await fetch(`${base}/atlas.json`);
+  if (!response.ok) throw new Error(`${charName} atlas not reachable (HTTP ${response.status})`);
+  const atlasData = await response.json();
+  return { atlasData, imageUrl: `${base}/${atlasData.meta?.image || `${charName}.png`}` };
+}
+
+/** Load a served asset and refresh every panel that depends on it. */
+async function loadAsset(charName) {
+  const { atlasData, imageUrl } = await fetchAssetAtlas(charName);
+  await loadAtlas(atlasData, imageUrl, `assets/${charName} Loaded`);
+  currentChar = charName;
+  posePanels?.showReferencePose(charName);
+  posePanels?.showTpose(charName);
+  await afterCharLoaded(charName);
+}
+
+/** The active frame's generation task for the Agent Handoff card, or why there is none. */
+function activeFrameTask() {
+  if (!atlas || !currentUnit) return 'no active frame';
+  const pb = resolvePlayback(atlas, currentUnit);
+  if (!pb) return 'invalid state';
+  const refs = frameRefs(pb.animation, curFrameIdx);
+  return {
+    schema: 'https://github.com/islumina/aisprite-studio/tree/main/mcp-server',
+    asset: currentChar,
+    frame: `${pb.animation}_${String(curFrameIdx).padStart(2, '0')}`,
+    prompt: synthFramePrompt(pb.animation, curFrameIdx, curFrameTotal),
+    references: Object.fromEntries(Object.entries(refs).filter(([, value]) => typeof value === 'string')),
+    note: staticMode
+      ? 'This hosted task is illustrative. Use the local MCP server for validated submission.'
+      : 'Prefer aisprite_studio_get_generation_task through MCP; it returns the actual PNG references.',
   };
 }
 
-/** Show the user's original input.png as Reference Pose. */
-async function updateReferencePose(charName) {
-  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
-  const src = `assets/${charName}/input.png`;
-  try {
-    const res = await fetch(src, { method: 'HEAD' });
-    if (res.ok) {
-      els.refPoseImg.src = src;
-      els.refPoseImg.style.display = 'block';
-      els.refPoseInfo.style.display = 'block';
-      els.refPosePlaceholder.style.display = 'none';
-      els.refPoseFilename.textContent = 'input.png';
-      return;
-    }
-  } catch { /* ignore */ }
-  els.refPoseImg.style.display = 'none';
-  els.refPoseInfo.style.display = 'none';
-  els.refPosePlaceholder.style.display = 'block';
+function setupAgentHandoff() {
+  configureAgentHandoff({ staticMode, flashLabel, activeFrameTask });
 }
 
-/** Show generated tpose.png in the T-Pose Grid section + load prompt. */
-async function updateTpose(charName) {
-  if (staticMode) return; // section is hidden and assets/ does not exist on a static host
-  const src = `assets/${charName}/tpose.png`;
-  try {
-    const res = await fetch(src, { method: 'HEAD' });
-    if (res.ok) {
-      const bustUrl = src + `?_t=${Date.now()}`;
-      els.tposeGenerated.style.display = 'block';
-      els.tposePlaceholder.style.display = 'none';
-      els.btnCopyTposeUrl.dataset.url = new URL(src, location.href).href;
+/** Load a sheet image into the preview and show which chroma key it got. */
+async function loadSheetImage(imageUrl, atlasData) {
+  reflectChromaKey(await preview.loadSheet(imageUrl, atlasData));
+}
 
-      if (els.chromaToggle && els.chromaToggle.checked) {
-        try {
-          const blob = await (await fetch(bustUrl)).blob();
-          const bmp = await createImageBitmap(blob);
-          const keyed = keyGreen(bmp, {
-            similarity: parseFloat(els.chromaSim.value),
-            smoothness: 0.10,
-            key: [0, 255, 0]
-          });
-          els.tposeImg.src = keyed.toDataURL();
-        } catch (e) {
-          console.warn('Failed to chroma key tpose.png:', e);
-          els.tposeImg.src = bustUrl;
-        }
-      } else {
-        els.tposeImg.src = bustUrl;
-      }
-
-      // Load generation prompt if available
-      try {
-        const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
-        if (promptRes.ok) {
-          const promptTxt = await promptRes.text();
-          els.tposePromptText.textContent = promptTxt.trim();
-        } else {
-          els.tposePromptText.textContent = '(no tpose-prompt.txt found)';
-        }
-      } catch {
-        els.tposePromptText.textContent = '(failed to load prompt)';
-      }
-      return;
-    }
-  } catch { /* ignore */ }
-  els.tposeGenerated.style.display = 'none';
-  els.tposePlaceholder.style.display = 'block';
+function reflectChromaKey(detection) {
+  if (!els.chromaKeyInfo) return;
+  els.chromaKeyInfo.textContent = detection?.key
+    ? `Sheet key: rgb(${detection.key.join(', ')}), from its border`
+    : detection?.reason === 'alpha'
+      ? 'Sheet already has transparency, so it is not keyed.'
+      : 'No flat background colour found, so the sheet is not keyed.';
 }
 
 /** Load an atlas object + its sheet image, then render every panel. */
 async function loadAtlas(atlasObj, imageUrl, badge) {
-  atlas = normaliseAtlas(atlasObj);
+  const next = normaliseAtlas(atlasObj);
+  validateAtlas(next); // before touching the preview, so a bad atlas leaves the current one playing
+  atlas = next;
   baseImageUrl = imageUrl;
   // Use PixiJS Spritesheet for correct trim/anchor handling
-  await preview.loadSheet(imageUrl, atlasObj);
+  await loadSheetImage(imageUrl, atlasObj);
 
   els.sourceBadge.textContent = badge;
   els.sourceBadge.classList.add('active');
@@ -393,12 +325,32 @@ async function loadAtlas(atlasObj, imageUrl, badge) {
   writeJson();
   renderUnitSelect();
 
-  fsm?.dispose();
-  const units = getUnits(atlas);
-  fsm = startRuntime(atlas, onFsmState);
-  if (!fsm && units[0]) playState(units[0].name);
-  kbHandler?.updateFsm(fsm);
-  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
+  pinnedUnit = initialUnit(atlas);
+  restartRuntime(pinnedUnit);
+}
+
+/** (Re)start the preview runtime in `startState`; the pinned unit loops while the lock is on. */
+function restartRuntime(startState) {
+  runtime?.dispose();
+  runtime = null;
+  runtime = createPreviewRuntime(atlas, {
+    onState: playState,
+    initialState: startState ?? undefined,
+    loopState: previewLock ? pinnedUnit : null,
+  });
+  kbHandler?.updateFsm(runtime);
+  reflectControls(runtime?.controls);
+}
+
+/** Show the keyboard card only for the inputs this graph declares. */
+function reflectControls({ move = null, trigger = null } = {}) {
+  if (!els.wasdCard) return;
+  els.wasdCard.style.display = move || trigger ? '' : 'none';
+  if (els.wasdKeys) els.wasdKeys.style.display = move ? 'grid' : 'none'; // inline display:grid beats [hidden]
+  if (els.spaceKeyRow) els.spaceKeyRow.style.display = trigger ? '' : 'none';
+  if (els.wasdHint) {
+    els.wasdHint.textContent = [move && `WASD = ${move}`, trigger && `Space = ${trigger}`].filter(Boolean).join(' · ');
+  }
 }
 
 // --- Playback ---
@@ -408,16 +360,15 @@ function playState(name) {
   if (!pb) return;
   currentUnit = name;
   currentPb = pb;
-  // When previewLock is on, force-loop the animation so FSM transitions don't fire
-  const effectiveOnEnd = previewLock ? 'loop' : pb.onEnd;
 
   // Render timeline scrubber
   renderTimeline(pb);
 
-  // Pass animation name — preview.js resolves textures from the parsed Spritesheet
+  // Pass animation name — preview.js resolves textures from the parsed Spritesheet;
+  // the runtime decides which frame shows and when the clip ends.
   preview.playUnit(
-    { animName: pb.animation, anchor: pb.anchor, durationMs: pb.durationMs, onEnd: effectiveOnEnd, sourceSize: pb.sourceSize, frameDurations: pb.frameDurations },
-    { onAnimEnd: () => fsm?.complete(), onFrameChange: (idx, total) => {
+    { animName: pb.animation, anchor: pb.anchor, sourceSize: pb.sourceSize },
+    { onFrameChange: (idx, total) => {
       curFrameIdx = idx; curFrameTotal = total;
       updateFrameLabel(idx, total);
       if (preview.isPaused()) announce(`Frame ${idx + 1} of ${total}`);
@@ -463,20 +414,10 @@ function updatePlayPauseBtn(playing) {
   els.framePlayPause.classList.toggle('active', playing);
 }
 
-/** FSM entered a state → play it. */
-function onFsmState(stateName) {
-  playState(stateName);
-}
-
-/** Character: jump straight to a state for inspection by reseating the FSM there. */
+/** Jump straight to a unit for inspection: it becomes the pinned state and the runtime restarts there. */
 function seekUnit(name) {
-  if (fsm) {
-    fsm.dispose();
-    fsm = startRuntime(atlas, onFsmState, name);
-    kbHandler?.updateFsm(fsm);
-  } else {
-    playState(name);
-  }
+  pinnedUnit = name;
+  restartRuntime(name);
 }
 
 // --- UI rendering ---
@@ -500,9 +441,6 @@ for (const select of unitSelects) {
   select.addEventListener('change', () => {
     const name = select.value;
     if (!name) return;
-    // When user manually picks an animation, enable preview-lock so it stays on that state
-    previewLock = true;
-    if (els.previewLock) els.previewLock.checked = true;
     seekUnit(name);
   });
 }
@@ -523,8 +461,8 @@ function reflectUnitUI(name, pb) {
   els.endTarget.style.display = !isLoop && !isHold ? '' : 'none';
   reflectDuration(pb);
   // Anchor
-  if (els.anchorX) els.anchorX.value = pb.anchor?.x?.toFixed(2) ?? '0.50';
-  if (els.anchorY) els.anchorY.value = pb.anchor?.y?.toFixed(2) ?? '0.86';
+  if (els.anchorX) els.anchorX.value = (pb.anchor?.x ?? DEFAULT_ANCHOR.x).toFixed(2);
+  if (els.anchorY) els.anchorY.value = (pb.anchor?.y ?? DEFAULT_ANCHOR.y).toFixed(2);
 }
 
 /** Show the per-frame duration that actually plays (the mean when frames differ). */
@@ -569,14 +507,16 @@ els.endReturn.onclick = () => {
 };
 els.endTarget.onchange = () => currentUnit && setOnEnd(atlas, currentUnit, els.endTarget.value);
 
-// Preview lock: when checked, selected animation force-loops; when unchecked, onEnd from atlas applies
+// Preview lock: when checked, the pinned state loops; when unchecked, its end behaviour applies.
 els.previewLock?.addEventListener('change', () => {
   previewLock = els.previewLock.checked;
-  if (currentUnit) playState(currentUnit);
+  if (!atlas) return;
+  if (previewLock && currentUnit) pinnedUnit = currentUnit;
+  restartRuntime(currentUnit);
 });
 
 // Writes every frame's duration through the model; the ATLAS_CHANGED handler
-// pushes the new per-frame times into the preview (animationSpeed stays 1).
+// restarts the runtime with the new per-frame times.
 els.speed.oninput = (e) => {
   const ms = parseInt(e.target.value, 10);
   if (currentUnit && ms > 0) setDuration(atlas, currentUnit, ms);
@@ -584,13 +524,13 @@ els.speed.oninput = (e) => {
 
 els.pivot.onchange = () => {
   const pb = currentUnit && resolvePlayback(atlas, currentUnit);
-  preview.positionCrosshair(pb ? pb.anchor : { x: 0.5, y: 0.72 }, els.pivot.checked);
+  preview.positionCrosshair(pb ? pb.anchor : DEFAULT_ANCHOR, els.pivot.checked);
 };
 
 // Anchor inputs
 function onAnchorInput() {
-  const x = parseFloat(els.anchorX.value) || 0.5;
-  const y = parseFloat(els.anchorY.value) || 0.5;
+  const x = parseAnchorValue(els.anchorX.value, DEFAULT_ANCHOR.x);
+  const y = parseAnchorValue(els.anchorY.value, DEFAULT_ANCHOR.y);
   preview.setAnchor(x, y);
   if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
 }
@@ -607,7 +547,7 @@ async function applyJsonText(rewrite) {
   try {
     parsed = JSON.parse(els.json.value);
     parsed = normaliseAtlas(parsed);
-    validateRuntime(parsed);
+    validateAtlas(parsed);
     if (errEl) {
       errEl.style.display = 'none';
       errEl.textContent = '';
@@ -628,11 +568,7 @@ async function applyJsonText(rewrite) {
   atlas = parsed;
   renderUnitSelect();
   els.typeBadge.textContent = atlas.assetType === 'object' ? 'Object / Icon' : 'Character';
-  fsm?.dispose();
-  fsm = startRuntime(atlas, onFsmState);
-  kbHandler?.updateFsm(fsm);
-  if (els.wasdCard) els.wasdCard.style.display = fsm ? '' : 'none';
-  if (!fsm && currentUnit) playState(currentUnit);
+  restartRuntime(currentUnit);
   if (rewrite) {
     writeJson();
     if (errEl) {
@@ -652,22 +588,24 @@ els.exportBtn.onclick = () => {
   a.remove();
 };
 
-// --- Green-screen chroma key ---
-async function reloadSheetForChroma() {
-  preview.setChroma({ enabled: els.chromaToggle.checked, similarity: parseFloat(els.chromaSim.value) });
-  if (baseImageUrl) {
-    await preview.loadSheet(baseImageUrl, atlas);
-    if (currentUnit) playState(currentUnit);
-  }
-  if (currentChar) updateTpose(currentChar);
-}
-els.chromaToggle?.addEventListener('change', reloadSheetForChroma);
-els.chromaSim?.addEventListener('input', () => { els.chromaSimVal.textContent = parseFloat(els.chromaSim.value).toFixed(2); });
-els.chromaSim?.addEventListener('change', reloadSheetForChroma);
+// --- Chroma key (GPU filter: settings only update uniforms, nothing reloads) ---
+els.chromaToggle?.addEventListener('change', () => {
+  preview.setChroma({ enabled: els.chromaToggle.checked });
+  if (currentChar) posePanels?.showTpose(currentChar);
+});
+els.chromaSim?.addEventListener('input', () => {
+  const similarity = parseFloat(els.chromaSim.value);
+  els.chromaSimVal.textContent = similarity.toFixed(2);
+  preview.setChroma({ similarity });
+});
+els.chromaSim?.addEventListener('change', () => { if (currentChar) posePanels?.showTpose(currentChar); });
 
 els.btnExportSheet?.addEventListener('click', () => {
-  const cv = preview.getKeyedCanvas();
-  if (!cv) { alert('Enable the green-screen key first, then export.'); return; }
+  const cv = preview.getKeyedSheetCanvas();
+  if (!cv) {
+    flashLabel(els.btnExportSheet, '✗ nothing to key', false);
+    return;
+  }
   cv.toBlob((blob) => {
     if (!blob) return;
     const a = document.createElement('a');
@@ -684,13 +622,25 @@ els.btnExportSheet?.addEventListener('click', () => {
 els.reload.onclick = async () => {
   if (!baseImageUrl) return;
   els.reload.classList.add('busy');
-  await preview.loadSheet(baseImageUrl, atlas);
+  await loadSheetImage(baseImageUrl, atlas);
   if (currentUnit) playState(currentUnit);
   els.reload.classList.remove('busy');
   els.sourceBadge.textContent = `Reloaded ×${++reloadCount}`;
 };
 
 // --- Bus: model changes reflect everywhere ---
+// The animator compiles frame times when it is built, so timing edits restart it.
+// Debounced: a slider drag would otherwise restart the clip on every input event.
+const restartAfterTimingEdit = debounce(() => {
+  if (!currentUnit) return;
+  const pausedAt = preview.isPaused() ? curFrameIdx : null;
+  restartRuntime(currentUnit);
+  if (pausedAt !== null) { // stay paused on the frame being inspected
+    preview.gotoFrame(pausedAt);
+    updatePlayPauseBtn(false);
+  }
+}, 150);
+
 bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   jsonDirty = true; // tuning diverges from disk; auto-reload keeps it
 
@@ -705,43 +655,38 @@ bus.on(EV.ATLAS_CHANGED, ({ reason }) => {
   if (timing) {
     const pb = currentUnit && resolvePlayback(atlas, currentUnit);
     if (pb) {
-      preview.updateFrameDurations(pb.frameDurations);
       reflectDuration(pb);
       if (reason.startsWith('duration:')) renderTimeline(pb); // slider rewrote every frame
+      restartAfterTimingEdit();
     }
   } else if (reason.startsWith('onEnd') && currentUnit) {
-    fsm?.dispose();
-    fsm = startRuntime(atlas, onFsmState, currentUnit);
-    kbHandler?.updateFsm(fsm);
-    if (!fsm) playState(currentUnit);
+    restartRuntime(currentUnit);
   } else if (reason === 'anchor:all' && currentUnit) {
     playState(currentUnit); // apply loop/hold live
   }
 });
-bus.on(EV.ANCHOR_DRAGGED, ({ x, y }) => {
+// Pivot drag: mirror the crosshair into the inputs on every move (cheap). Writing
+// the anchor rewrites every frame of the clip, so live writes are throttled, and
+// the drop commits the final position, which the throttle may have skipped.
+function commitAnchor({ x, y }) {
+  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+}
+bus.on(EV.ANCHOR_DRAG, ({ x, y }) => {
   if (els.anchorX) els.anchorX.value = x.toFixed(2);
   if (els.anchorY) els.anchorY.value = y.toFixed(2);
-  if (currentUnit) setAnchor(atlas, currentUnit, { x, y });
+});
+bus.on(EV.ANCHOR_DRAG, commitAnchor, { throttleMs: ANCHOR_DRAG_THROTTLE_MS });
+bus.on(EV.ANCHOR_DROP, (anchor) => {
+  commitAnchor(anchor);
+  preview.setAnchor(anchor.x, anchor.y); // the chosen point becomes the pivot, like typing it
 });
 
 // --- Character switch ---
 els.characterSelect?.addEventListener('change', async () => {
   const charName = els.characterSelect.value;
   if (!charName) return;
-  const prefix = els.characterSelect.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${charName}/${prefix}` : `assets/${charName}`;
   try {
-    const res = await fetch(`${atlasBase}/atlas.json`);
-    if (!res.ok) throw new Error(`${charName} atlas not reachable`);
-
-    const atlasData = await res.json();
-    const imageName = atlasData.meta?.image || `${charName}.png`;
-
-    await loadAtlas(atlasData, `${atlasBase}/${imageName}`, `assets/${charName} Loaded`);
-    currentChar = charName;
-    updateReferencePose(charName);
-    updateTpose(charName);
-    await afterCharLoaded(charName);
+    await loadAsset(charName);
     publishStudioContext();
   } catch (e) {
     console.warn('Failed to load character:', charName, e);
@@ -773,7 +718,7 @@ els.tposeImg?.addEventListener('click', () => {
   if (els.tposeImg.src) window.open(els.tposeImg.src, '_blank');
 });
 
-// --- Keyboard (character movement → FSM events) ---
+// --- Keyboard (graph inputs: WASD → movement number input, Space → trigger) ---
 function highlightKey(k, on) {
   const map = { w: 'key-w', a: 'key-a', s: 'key-s', d: 'key-d', ' ': 'key-space' };
   const el = $(map[k]);
@@ -805,10 +750,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Prompt synthesis (fallback when no saved prompt file) ---
-/** A spec for the prompt builder: the real spec.json, or one derived from the atlas. */
+/** A spec for the prompt builder, derived from the atlas (the pipeline's request.yml is not served). */
 function effectiveSpec() {
-  if (currentSpec) return currentSpec;
-  let frameSize = [256, 256];
+  let frameSize = [DEFAULT_SOURCE_SIZE.w, DEFAULT_SOURCE_SIZE.h];
   const u0 = getUnits(atlas)[0];
   const pb0 = u0 && resolvePlayback(atlas, u0.name);
   if (pb0?.sourceSize) frameSize = [pb0.sourceSize.w, pb0.sourceSize.h];
@@ -852,11 +796,8 @@ function poseForDemo(animName, frameIdx, total) {
   return `Show the intended ${animName} motion at phase ${frameIdx + 1} of ${total}.`;
 }
 
-// --- After a character loads: spec, mtime seed, polling ---
+// --- After a character loads: mtime seed, polling ---
 async function afterCharLoaded(charName) {
-  currentSpec = null;
-  try { const r = await fetch(`assets/${charName}/spec.json`); if (r.ok) currentSpec = await r.json(); }
-  catch { /* mock / no spec — effectiveSpec() derives from atlas */ }
   await seedMtime(charName);
   startPolling();
 }
@@ -895,22 +836,17 @@ async function checkForUpdates() {
 }
 
 async function autoReloadAssets() {
-  const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const atlasBase = prefix ? `assets/${currentChar}/${prefix}` : `assets/${currentChar}`;
-  if (jsonDirty) {
-    const imageName = atlas.meta?.image || `${currentChar}.png`;
-    await preview.loadSheet(`${atlasBase}/${imageName}`, atlas);
-    if (currentUnit) playState(currentUnit);
-    els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
-  } else {
-    try {
-      const res = await fetch(`${atlasBase}/atlas.json`);
-      if (res.ok) {
-        const atlasData = await res.json();
-        const imageName = atlasData.meta?.image || `${currentChar}.png`;
-        await loadAtlas(atlasData, `${atlasBase}/${imageName}`, '↻ auto-reloaded');
-      }
-    } catch { /* ignore */ }
+  try {
+    if (jsonDirty) { // keep the edited atlas, swap only the sheet image
+      await loadSheetImage(`${assetBase(currentChar)}/${atlas.meta?.image || `${currentChar}.png`}`, atlas);
+      if (currentUnit) playState(currentUnit);
+      els.sourceBadge.textContent = '↻ sheet updated (JSON kept)';
+    } else {
+      const { atlasData, imageUrl } = await fetchAssetAtlas(currentChar);
+      await loadAtlas(atlasData, imageUrl, '↻ auto-reloaded');
+    }
+  } catch (error) {
+    console.warn('Auto-reload failed:', error);
   }
 }
 
@@ -996,19 +932,10 @@ els.btnSaveDisk?.addEventListener('click', async () => {
   els.btnSaveDisk.classList.add('busy');
 
   const prefix = els.characterSelect?.selectedOptions[0]?.dataset.prefix || '';
-  const payload = {
-    char: currentChar,
-    prefix: prefix,
-    atlas: atlas,
-    keyedImage: null
-  };
-
-  if (els.chromaToggle && els.chromaToggle.checked) {
-    const cv = preview.getKeyedCanvas();
-    if (cv) {
-      payload.keyedImage = cv.toDataURL('image/png');
-    }
-  }
+  const payload = { char: currentChar, prefix, atlas };
+  // Only when a key applies; server.mjs rejects a keyedImage that is not a PNG data URL (null included).
+  const keyed = preview.getKeyedSheetCanvas();
+  if (keyed) payload.keyedImage = keyed.toDataURL('image/png');
 
   try {
     const r = await fetch('/api/save', {
@@ -1035,8 +962,8 @@ els.onionSkin?.addEventListener('change', () => {
 
 // Apply anchor to all animations
 els.applyAllAnchors?.addEventListener('click', () => {
-  const x = parseFloat(els.anchorX.value) || 0.5;
-  const y = parseFloat(els.anchorY.value) || 0.5;
+  const x = parseAnchorValue(els.anchorX.value, DEFAULT_ANCHOR.x);
+  const y = parseAnchorValue(els.anchorY.value, DEFAULT_ANCHOR.y);
   setAnchorAll(atlas, { x, y });
   flashLabel(els.applyAllAnchors, '✓ Applied to all');
 });

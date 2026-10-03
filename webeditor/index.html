@@ -18,8 +18,6 @@
       "aibridgejs/iframe": "./vendor/aibridgejs/iframe/index.js",
       "aispritejs": "./vendor/aispritejs/index.js",
       "aispritejs/atlas": "./vendor/aispritejs/atlas/index.js",
-      "aifsmjs": "./vendor/aifsmjs/index.js",
-      "aipooljs": "./vendor/aipooljs/index.js",
       "aieventjs": "./vendor/aieventjs/index.js"
     }
   }
@@ -51,7 +49,7 @@
     <div class="meta">
       <span class="badge type" id="assettype-badge">Character</span>
       <span class="badge" id="source-badge">Loading…</span>
-      <span class="badge active libs">aispritejs · aifsmjs · aipooljs · aieventjs · aibridgejs</span>
+      <span class="badge active libs">aispritejs · aieventjs · aibridgejs</span>
     </div>
   </header>
 
@@ -119,13 +117,13 @@
       </div>
 
       <div class="card" id="wasd-card" style="display: none;">
-        <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Keyboard (FSM events)</label>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px; margin: 0 auto;">
+        <label style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Keyboard (graph inputs)</label>
+        <div id="wasd-keys" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px; margin: 0 auto;">
           <div></div><kbd id="key-w">W</kbd><div></div>
           <kbd id="key-a">A</kbd><kbd id="key-s">S</kbd><kbd id="key-d">D</kbd>
         </div>
-        <div style="text-align: center; margin-top: 6px;"><kbd id="key-space" style="padding: 6px 24px;">SPACE</kbd></div>
-        <p style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">WASD = Move · Space = Attack</p>
+        <div id="space-key-row" style="text-align: center; margin-top: 6px;"><kbd id="key-space" style="padding: 6px 24px;">SPACE</kbd></div>
+        <p id="wasd-hint" style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">WASD = Move · Space = Trigger</p>
       </div>
 
       <div class="sidebar-title">AI Agent Handoff</div>
@@ -147,8 +145,9 @@
       <div class="card">
         <div class="control-group">
           <label for="chroma-toggle" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Green-screen key (#00FF00 → transparent)
+            <input type="checkbox" id="chroma-toggle" checked style="accent-color: var(--primary);"> Chroma key (background colour → transparent)
           </label>
+          <p class="muted-note" id="chroma-key-info" style="margin: 0.3rem 0 0;">The key colour is detected from each image's border.</p>
         </div>
         <div class="control-group">
           <div style="display:flex; justify-content:space-between;"><label for="chroma-sim">Key similarity</label><span style="font-size:0.8rem;" id="chroma-sim-val">0.30</span></div>
@@ -160,10 +159,10 @@
       <div class="card">
         <div class="control-group">
           <label for="preview-lock" style="display:flex; align-items:center; gap:0.4rem; cursor:pointer; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lock"/></svg> Preview lock — force loop selected animation
+            <input type="checkbox" id="preview-lock" checked style="accent-color: var(--primary);"> <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lock"/></svg> Preview lock — loop the selected state
           </label>
           <div style="font-size:0.7rem; color:var(--text-dim); margin-top:0.2rem;">
-            When off, animation follows End behaviour (loop / hold / return).
+            When off, it follows End behaviour (loop / hold / return). A trigger (Space) always plays once and returns.
           </div>
         </div>
         <div class="control-group">
@@ -201,7 +200,7 @@
             </div>
             <div style="flex:1; display:flex; flex-direction:column; gap:0.2rem;">
               <span style="font-size:0.68rem; color:var(--text-muted);">Y</span>
-              <input type="number" class="anchor-input" id="anchor-y" aria-label="Anchor Y" min="0" max="1" step="0.01" value="0.86">
+              <input type="number" class="anchor-input" id="anchor-y" aria-label="Anchor Y" min="0" max="1" step="0.01" value="0.50">
             </div>
           </div>
           <button class="btn btn-sm" id="btn-apply-all-anchors" style="margin-top: 0.5rem; font-size: 0.72rem; padding: 4px 8px;" title="Apply this anchor to all frames in all animations">Apply to All Animations</button>
@@ -255,7 +254,7 @@
       </div>
       <div class="toolbar" style="margin-top: 0.4rem;">
         <button class="btn" id="btn-export">Export JSON</button>
-        <button class="btn" id="btn-export-sheet" title="Download the green-keyed transparent spritesheet">Export keyed PNG</button>
+        <button class="btn" id="btn-export-sheet" title="Download the chroma-keyed transparent spritesheet">Export keyed PNG</button>
       </div>
       <label for="auto-reload" style="display:flex; align-items:center; gap:0.4rem; font-size:0.74rem; color:var(--text-muted); cursor:pointer;">
         <input type="checkbox" id="auto-reload" checked style="accent-color: var(--primary);">

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
+  initialUnit,
   normaliseAtlas,
   resolvePlayback,
   setDuration,
@@ -10,10 +13,22 @@ import {
   summariseFrameDurations,
 } from "../webeditor/src/atlas-model.js";
 import { bus, EV } from "../webeditor/src/bus.js";
-import { allowedParentOrigin } from "../webeditor/src/host-bridge.js";
+import { detectKeyColor, spillMask } from "../webeditor/src/chroma.js";
+import {
+  DEFAULT_ANCHOR,
+  DEFAULT_FRAME_DURATION_MS,
+  DEFAULT_SOURCE_SIZE,
+  parseAnchorValue,
+} from "../webeditor/src/constants.js";
+import { createMockAdapter } from "aibridgejs/mock";
+import { allowedParentOrigin, createStudioHostBridge } from "../webeditor/src/host-bridge.js";
+import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
+import { createPreviewRuntime, previewControls, toSpriteGraph, validateAtlas } from "../webeditor/src/runtime.js";
+import { nextZoomScale, zoomAround, ZOOM } from "../webeditor/src/viewport.js";
+import { checkVendor, updateVendor } from "../tools/vendor-update.mjs";
 
-// Same timing shape as webeditor/src/mock.js: fps implies 167 ms, but every frame stores 150 ms.
+// An aispritejs graph whose animationConfig fps implies 167 ms while every frame stores 150 ms.
 function demoAtlas() {
   const cell = () => ({ frame: { x: 0, y: 0, w: 128, h: 128 }, duration: 150 });
   return normaliseAtlas({
@@ -21,14 +36,26 @@ function demoAtlas() {
     frames: { idle_00: cell(), idle_01: cell(), hit_00: cell() },
     animations: { idle: ["idle_00", "idle_01"], hit: ["hit_00"] },
     animationConfig: { idle: { onEnd: "loop", fps: 6 }, hit: { onEnd: "idle", fps: 8 } },
+    inputs: { hit: { type: "trigger" } },
+    initial: "idle",
     states: {
-      initial: "idle",
-      definitions: {
-        idle: { animation: "idle", loop: true, onEnd: "loop", transitions: { DAMAGE: { target: "hit" } } },
-        hit: { animation: "hit", loop: false, onEnd: "idle", transitions: {} },
-      },
+      idle: { animation: "idle", loop: true },
+      hit: { animation: "hit", loop: false, onEnd: "idle" },
     },
+    transitions: [{ from: "*", to: "hit", when: [{ input: "hit", op: "Trigger" }] }],
   });
+}
+
+/** Start a runtime and record every state it enters. */
+function recordRuntime(atlas, options) {
+  const states = [];
+  const runtime = createPreviewRuntime(atlas, { ...options, onState: (state) => states.push(state) });
+  return { runtime, states };
+}
+
+/** Advance a runtime in 16 ms steps, like the preview ticker. */
+function play(runtime, ms) {
+  for (let elapsed = 0; elapsed < ms; elapsed += 16) runtime.tick(16);
 }
 
 function captureReasons(run) {
@@ -70,16 +97,50 @@ test("?mode=local opts into local mode on any host, e.g. a LAN address", () => {
   assert.equal(resolveStudioMode({ hostname: "islumina.org", search: "?mode=static&mode=local" }), "static");
 });
 
-test("the editor page loads nothing from a third-party origin", async () => {
-  const withoutComments = (await readWebeditor("index.html")).replace(/<!--[\s\S]*?-->/g, "")
-    + (await readWebeditor("style.css")).replace(/\/\*[\s\S]*?\*\//g, "");
-  const refs = [...withoutComments.matchAll(/(?:\b(?:src|href)\s*=\s*["']|url\(\s*["']?|@import\s+["'])([^"')\s]+)/g)]
-    .map((match) => match[1]);
-  assert.ok(refs.some((ref) => ref.endsWith(".woff2")), "fonts are referenced");
-  assert.deepEqual(refs.filter((ref) => /^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(ref)), [], "absolute or protocol-relative URLs");
-  for (const ref of refs.filter((candidate) => !candidate.startsWith("#") && !candidate.startsWith("data:"))) {
-    await access(new URL(ref, WEBEDITOR)); // every local reference resolves to a vendored file
+/** Every file under webeditor/ except vendor/, as posix paths relative to it. */
+async function listWebeditor(prefix = "") {
+  const files = [];
+  for (const entry of await readdir(new URL(prefix || ".", WEBEDITOR), { withFileTypes: true })) {
+    const relative = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      if (relative !== "vendor") files.push(...await listWebeditor(`${relative}/`));
+    } else {
+      files.push(relative);
+    }
   }
+  return files;
+}
+
+// Absolute URLs that appear in editor code as data, never fetched or loaded.
+const NON_FETCHED_URLS = new Set([
+  "https://github.com/islumina/aisprite-studio/tree/main/mcp-server", // `schema` id in the copied frame task
+]);
+
+test("no HTML, CSS or JS file under webeditor/ loads from a third-party origin", async () => {
+  const files = (await listWebeditor()).filter((file) => /\.(?:html|css|m?js)$/.test(file));
+  assert.ok(["index.html", "style.css", "src/editor.js", "src/preview.js"].every((file) => files.includes(file)), files.join(", "));
+  const absolute = /^(?:[a-z][a-z\d+.-]*:)?\/\//i;
+  let fonts = 0;
+  for (const file of files) {
+    const text = await readWebeditor(file);
+    if (file.endsWith("js")) {
+      // Quoted absolute or protocol-relative URLs: fetch(), import(), src assignments, new URL().
+      const urls = [...text.matchAll(/(['"`])((?:[a-z][a-z\d+.-]*:)?\/\/[^'"`\s]*)\1/gi)]
+        .map((match) => match[2])
+        .filter((url) => !NON_FETCHED_URLS.has(url));
+      assert.deepEqual(urls, [], `${file}: absolute URLs`);
+      continue;
+    }
+    const withoutComments = text.replace(/<!--[\s\S]*?-->/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const refs = [...withoutComments.matchAll(/(?:\b(?:src|href)\s*=\s*["']|url\(\s*["']?|@import\s+["'])([^"')\s]+)/g)]
+      .map((match) => match[1]);
+    assert.deepEqual(refs.filter((ref) => absolute.test(ref)), [], `${file}: absolute or protocol-relative URLs`);
+    for (const ref of refs.filter((candidate) => !candidate.startsWith("#") && !candidate.startsWith("data:"))) {
+      await access(new URL(ref, new URL(file, WEBEDITOR))); // every local reference resolves to a vendored file
+      if (ref.endsWith(".woff2")) fonts++;
+    }
+  }
+  assert.ok(fonts > 0, "fonts are referenced");
 });
 
 test("every icon reference has an inline symbol", async () => {
@@ -149,4 +210,279 @@ test("trusts only a same-origin parent as the bridge target", () => {
   }), null);
   assert.equal(allowedParentOrigin("null", () => "null"), null);
   assert.equal(allowedParentOrigin("", () => ""), null);
+});
+
+test("Space fires the graph's declared trigger, whatever its name", async () => {
+  assert.deepEqual(previewControls(toSpriteGraph(mockAtlas())), { move: "speed", trigger: "hit" });
+  assert.deepEqual(previewControls({ inputs: { boom: { type: "trigger" }, health: { type: "number" } } }), { move: null, trigger: "boom" });
+  // reimu declares only a speed input: WASD moves it, Space has nothing to fire (the card hides it).
+  const reimu = JSON.parse(await readFile(new URL("../assets/reimu/output/atlas.json", import.meta.url), "utf8"));
+  assert.deepEqual(previewControls(toSpriteGraph(normaliseAtlas(reimu))), { move: "speed", trigger: null });
+  const { runtime } = recordRuntime(normaliseAtlas(reimu));
+  assert.equal(runtime.can("ATTACK"), false);
+  runtime.send("MOVE");
+  assert.equal(runtime.state, "walk");
+  runtime.send("STOP");
+  assert.equal(runtime.state, "idle");
+  runtime.dispose();
+});
+
+test("a trigger plays once and returns, even with the preview lock on", () => {
+  const atlas = normaliseAtlas(mockAtlas());
+  // Lock on, idle pinned: Space plays hit once, then idle stays.
+  const locked = recordRuntime(atlas, { initialState: "idle", loopState: "idle" });
+  locked.runtime.send("ATTACK");
+  play(locked.runtime, 2000);
+  assert.deepEqual(locked.states, ["idle", "hit", "idle"]);
+  locked.runtime.dispose();
+
+  // Lock on, hit picked: it loops for inspection until Space releases the pin.
+  const pinned = recordRuntime(atlas, { initialState: "hit", loopState: "hit" });
+  play(pinned.runtime, 2000);
+  assert.deepEqual(pinned.states, ["hit"]);
+  pinned.runtime.send("ATTACK");
+  play(pinned.runtime, 2000);
+  assert.deepEqual(pinned.states, ["hit", "idle"]);
+  pinned.runtime.dispose();
+
+  // Lock off: the picked one-shot follows its onEnd.
+  const unlocked = recordRuntime(atlas, { initialState: "hit" });
+  play(unlocked.runtime, 2000);
+  assert.deepEqual(unlocked.states, ["hit", "idle"]);
+  unlocked.runtime.dispose();
+});
+
+test("the animator's frame index drives playback, including state speed", () => {
+  const atlas = normaliseAtlas({
+    frames: { run_00: { duration: 100 }, run_01: { duration: 100 } },
+    animations: { run: ["run_00", "run_01"] },
+    inputs: {},
+    states: { run: { animation: "run", loop: true, speed: 2 } },
+    transitions: [],
+  });
+  const { runtime } = recordRuntime(atlas);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(49);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(2); // 51 ms × speed 2 = 102 ms into the clip
+  assert.equal(runtime.frameIndex, 1);
+  runtime.dispose();
+});
+
+test("an atlas without a graph plays its animations with loop / hold / return", () => {
+  const atlas = normaliseAtlas({
+    assetType: "object",
+    frames: { open_00: { duration: 100 }, open_01: { duration: 100 }, shine_00: { duration: 100 } },
+    animations: { open: ["open_00", "open_01"], shine: ["shine_00"] },
+    animationConfig: { open: { onEnd: "shine" }, shine: { onEnd: "loop" } },
+  });
+  assert.equal(initialUnit(atlas), "open");
+  const { runtime, states } = recordRuntime(atlas);
+  assert.deepEqual(runtime.controls, { move: null, trigger: null });
+  play(runtime, 1000);
+  assert.deepEqual(states, ["open", "shine"]);
+  runtime.dispose();
+  assert.equal(createPreviewRuntime(normaliseAtlas({ frames: {}, animations: {} })), null, "nothing to play");
+});
+
+test("the demo atlas is a valid aispritejs graph that fits the atlas schema", async () => {
+  const atlas = mockAtlas();
+  validateAtlas(normaliseAtlas(mockAtlas()));
+  const schema = JSON.parse(await readFile(new URL("../schemas/atlas.schema.json", import.meta.url), "utf8"));
+  for (const key of schema.required) assert.ok(key in atlas, `required ${key}`);
+  assert.deepEqual(Object.keys(atlas).filter((key) => !(key in schema.properties)), [], "top-level keys the schema rejects");
+  for (const [name, frame] of Object.entries(atlas.frames)) {
+    for (const key of schema.properties.frames.additionalProperties.required) assert.ok(key in frame, `${name}.${key}`);
+  }
+  assert.equal(initialUnit(normaliseAtlas(atlas)), "idle");
+});
+
+test("the removed states.definitions shape fails with aispritejs's message", () => {
+  const legacy = normaliseAtlas({
+    frames: { idle_00: { duration: 100 } },
+    animations: { idle: ["idle_00"] },
+    states: { initial: "idle", definitions: { idle: { animation: "idle" } } },
+  });
+  assert.throws(() => validateAtlas(legacy), /event-driven/);
+});
+
+test("a throwing bus handler is logged and does not stop the others", () => {
+  const seen = [];
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args);
+  const offThrowing = bus.on(EV.ATLAS_CHANGED, () => { throw new Error("boom"); });
+  const offRecording = bus.on(EV.ATLAS_CHANGED, ({ reason }) => seen.push(reason));
+  try {
+    bus.emit(EV.ATLAS_CHANGED, { reason: "test" });
+  } finally {
+    offThrowing();
+    offRecording();
+    console.error = original;
+  }
+  assert.deepEqual(seen, ["test"]);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0][0]), /atlas:changed/);
+});
+
+test("every bus event is named ns:verb and is both emitted and handled", async () => {
+  const files = (await readdir(new URL("src/", WEBEDITOR))).filter((file) => file.endsWith(".js"));
+  const source = (await Promise.all(files.map((file) => readWebeditor(`src/${file}`)))).join("\n");
+  for (const [key, name] of Object.entries(EV)) {
+    assert.match(name, /^[a-z]+:[a-z]+$/, key);
+    assert.match(source, new RegExp(`bus\\.emit\\(EV\\.${key}\\b`), `${key} is emitted`);
+    assert.match(source, new RegExp(`bus\\.on\\(EV\\.${key}\\b`), `${key} is handled`);
+  }
+});
+
+/** RGBA border bytes: `count` pixels per [r, g, b, a] entry. */
+function border(...runs) {
+  return Uint8ClampedArray.from(runs.flatMap(([count, rgba]) => Array.from({ length: count }, () => rgba).flat()));
+}
+
+test("the chroma key colour comes from the image border", () => {
+  assert.deepEqual(detectKeyColor(border([400, [0, 255, 0, 255]], [40, [200, 30, 30, 255]])), { key: [0, 255, 0] });
+  // reimu's tpose: a noisy blue that straddles histogram bins, around rgb(20, 62, 182).
+  const blue = [];
+  for (let i = 0; i < 300; i++) blue.push([1, [18 + (i % 5), 58 + (i % 9), 178 + (i % 8), 255]]);
+  const { key } = detectKeyColor(border(...blue, [60, [240, 240, 240, 255]]));
+  assert.ok(key.every((channel, i) => Math.abs(channel - [20, 62, 182][i]) <= 4), String(key));
+});
+
+test("images that already have alpha, or no flat background, are not keyed", () => {
+  // Packed sheets are pre-keyed: a transparent border.
+  assert.deepEqual(detectKeyColor(border([300, [0, 0, 0, 0]], [100, [0, 255, 0, 255]])), { key: null, reason: "alpha" });
+  assert.deepEqual(detectKeyColor(border([100, [0, 0, 0, 0]])), { key: null, reason: "alpha" });
+  assert.deepEqual(
+    detectKeyColor(border([100, [255, 0, 0, 255]], [100, [0, 255, 0, 255]], [100, [0, 0, 255, 255]])),
+    { key: null, reason: "mixed" },
+  );
+  assert.deepEqual(detectKeyColor(new Uint8ClampedArray(0)), { key: null, reason: "empty" });
+});
+
+test("spill suppression targets the key's dominant channel only", () => {
+  assert.deepEqual(spillMask([0, 255, 0]), [0, 1, 0]);
+  assert.deepEqual(spillMask([20, 62, 182]), [0, 0, 1]);
+  assert.deepEqual(spillMask([128, 128, 128]), [0, 0, 0]);
+  assert.deepEqual(spillMask([200, 180, 60]), [0, 0, 0]);
+});
+
+test("anchor, size and frame-duration fallbacks come from constants.js", () => {
+  const atlas = normaliseAtlas({ frames: { blink_00: {}, blink_01: {} }, animations: { blink: ["blink_00", "blink_01"] } });
+  const pb = resolvePlayback(atlas, "blink");
+  assert.deepEqual(pb.anchor, DEFAULT_ANCHOR);
+  assert.deepEqual(pb.sourceSize, DEFAULT_SOURCE_SIZE);
+  assert.deepEqual(pb.frameDurations, [DEFAULT_FRAME_DURATION_MS, DEFAULT_FRAME_DURATION_MS]);
+  // The animator falls back to the same duration, so what plays matches what the UI shows.
+  assert.equal(toSpriteGraph(atlas).defaultFrameDuration, DEFAULT_FRAME_DURATION_MS);
+  const { runtime } = recordRuntime(atlas);
+  runtime.tick(DEFAULT_FRAME_DURATION_MS - 1);
+  assert.equal(runtime.frameIndex, 0);
+  runtime.tick(1);
+  assert.equal(runtime.frameIndex, 1);
+  runtime.dispose();
+  for (const frame of Object.values(mockAtlas().frames)) assert.deepEqual(frame.anchor, DEFAULT_ANCHOR);
+
+  assert.equal(parseAnchorValue("0", 0.5), 0, "0 is a valid anchor");
+  assert.equal(parseAnchorValue("1.4", 0.5), 1);
+  assert.equal(parseAnchorValue("", 0.5), 0.5);
+  assert.equal(parseAnchorValue("abc", 0.25), 0.25);
+});
+
+test("wheel zoom keeps the world point under the cursor and stays within limits", () => {
+  const view = { x: 40, y: -20, scale: 1.5 };
+  const cursor = { x: 300, y: 210 };
+  const world = (v) => [(cursor.x - v.x) / v.scale, (cursor.y - v.y) / v.scale];
+  for (const deltaY of [-120, 120]) {
+    const next = zoomAround(view, cursor, nextZoomScale(view.scale, deltaY));
+    assert.notEqual(next.scale, view.scale);
+    world(next).forEach((value, axis) => assert.ok(Math.abs(value - world(view)[axis]) < 1e-9));
+  }
+  assert.equal(nextZoomScale(ZOOM.max, -1), ZOOM.max);
+  assert.equal(nextZoomScale(ZOOM.min, 1), ZOOM.min);
+});
+
+test("the host bridge announces studio state and accepts only valid commands (aibridgejs/mock)", async () => {
+  const adapter = createMockAdapter();
+  const outbound = [];
+  adapter.subscribe((envelope) => {
+    if (envelope.kind === "event" && envelope.event !== "studio/command") outbound.push([envelope.event, envelope.payload]);
+  });
+  const commands = [];
+  const host = createStudioHostBridge({ adapter, onCommand: (command) => commands.push(command) });
+
+  await host.ready({ mode: "static", asset: "demo" });
+  await host.context({ mode: "static", unit: "idle" });
+  await host.error({ mode: "static", message: "boom" });
+  assert.deepEqual(outbound, [
+    ["studio/ready", { mode: "static", asset: "demo" }],
+    ["studio/context", { mode: "static", unit: "idle" }],
+    ["studio/error", { mode: "static", message: "boom" }],
+  ]);
+
+  const command = (payload) => adapter.receive({ kind: "event", event: "studio/command", payload, timestamp: Date.now() });
+  command({ type: "select-asset", asset: "reimu" });
+  command({ type: "select-asset", asset: "../server.mjs" });
+  command({ type: "reload-assets", extra: true });
+  command({ type: "delete-everything" });
+  command(["select-asset"]);
+  command({ type: "request-context" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(commands, [{ type: "select-asset", asset: "reimu" }, { type: "reload-assets" }, { type: "request-context" }]);
+
+  host.dispose();
+  const warnings = [];
+  const original = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    await host.context({ mode: "static" }); // a failed emit is logged, never thrown into the editor
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0][0]), /studio\/context/);
+  command({ type: "reload-assets" });
+  assert.equal(commands.length, 3, "no commands after dispose");
+});
+
+test("there is no host bridge without an embedding page", () => {
+  assert.equal(createStudioHostBridge({ onCommand() {} }), null);
+});
+
+test("vendor:check compares the exact vendored file set and bytes, and updates replace packages wholesale", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aisprite-vendor-"));
+  const vendor = path.join(directory, "vendor");
+  const quiet = { vendorDirectory: vendor, log: () => {} };
+  try {
+    const { files } = await updateVendor(quiet);
+    assert.ok(files > 10);
+    await checkVendor(vendor);
+
+    await writeFile(path.join(vendor, "aispritejs", "chunk-STALE.js"), "export {};\n");
+    await assert.rejects(checkVendor(vendor), /stale vendor\/aispritejs\/chunk-STALE\.js/);
+    await updateVendor({ ...quiet, packages: ["aispritejs"] });
+    await checkVendor(vendor);
+
+    await appendFile(path.join(vendor, "pixi.min.mjs"), "\n");
+    await assert.rejects(checkVendor(vendor), /vendor\/pixi\.min\.mjs differs/);
+    await updateVendor({ ...quiet, packages: ["pixi.js"] });
+
+    await mkdir(path.join(vendor, "aifsmjs"));
+    await assert.rejects(checkVendor(vendor), /unexpected vendor\/aifsmjs/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("every import map entry and bare import in the editor resolves to a vendored file", async () => {
+  const html = await readWebeditor("index.html");
+  const imports = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  for (const target of Object.values(imports)) await access(new URL(target, WEBEDITOR));
+  const files = (await readdir(new URL("src/", WEBEDITOR))).filter((file) => file.endsWith(".js"));
+  for (const file of files) {
+    const source = await readWebeditor(`src/${file}`);
+    for (const [, specifier] of source.matchAll(/^import\s[^'"]*['"]([^'"]+)['"]/gm)) {
+      if (!specifier.startsWith(".")) assert.ok(specifier in imports, `${file} imports unmapped ${specifier}`);
+    }
+  }
 });

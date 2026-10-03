@@ -2,27 +2,31 @@
 //
 // Uses PixiJS Spritesheet class for correct trim/anchor handling.
 // Sprites are rendered with proper sourceSize padding and spriteSourceSize offsets.
+// The aispritejs animator (runtime.js) is the playback clock: every ticker frame
+// asks the clock set with setClock() which frame to show. The AnimatedSprite only
+// holds the current clip's textures; it never plays on its own, and the frame
+// inspector steps it with gotoAndStop() while playback is paused (aispritejs has
+// no seek API).
 import * as PIXI from 'pixi.js';
 import { bus, EV } from './bus.js';
-import { keyGreen } from './chroma.js';
-import { createPool } from 'aipooljs';
-
-// Coordinate/Point object pool to recycle temporary objects in high-frequency events (wheel, drag)
-const pointPool = createPool({
-  size: 16,
-  create: () => ({ x: 0, y: 0 }),
-  reset: (pt) => { pt.x = 0; pt.y = 0; }
-});
+import { CHROMA_DEFAULTS, detectKeyColor, readBorderPixels } from './chroma.js';
+import { createChromaFilter, setChromaUniforms } from './chroma-filter.js';
+import { DEFAULT_SOURCE_SIZE } from './constants.js';
+import { setupViewportInteraction } from './viewport.js';
 
 let app = null;
 let sprite = null;
 let crosshairEl = null;
-const canvasSize = 512; // fallback source frame size when an atlas omits sourceSize
 let currentPb = null;
 let _sheet = null; // current parsed Spritesheet instance
-// Green-screen key: generation uses solid #00FF00, keyed to transparency at load.
-let _chroma = { enabled: true, similarity: 0.30, smoothness: 0.10, key: [0, 255, 0] };
-let _keyedCanvas = null; // last keyed sheet canvas (for "Export keyed PNG")
+let _sheetTexture = null; // the whole sheet image, for export
+let _sheetBitmap = null; // ImageBitmap behind _sheetTexture; closed when the sheet is replaced
+// Chroma key: the colour comes from the sheet's border (chroma.js) and is keyed on the GPU.
+let _chroma = { enabled: true, similarity: CHROMA_DEFAULTS.similarity };
+let _sheetKey = { key: null, reason: 'empty' }; // detectKeyColor() result for the loaded sheet
+let keyFilter = null; // main sprite; attached only while a key applies
+let prevFilter = null; // onion skins: always attached, they also carry the onion tint
+let nextFilter = null;
 let prevSprite = null;
 let nextSprite = null;
 let _onionEnabled = false;
@@ -31,15 +35,82 @@ let _onionEnabled = false;
 let viewport = null;
 let pivotGraphics = null;
 let draggingPivot = false;
+let dragAnchor = null; // last anchor reported during the current pivot drag
 let hostObserver = null; // keeps the renderer the size of its host element
+let windowListeners = null; // AbortController for this app's window listeners
+const dragPoint = new PIXI.Point(); // reused out-parameter for toLocal() on every pointermove
 
-export function setChroma(opts) { _chroma = { ..._chroma, ...opts }; }
+/** Update the chroma key settings ({ enabled, similarity }); only uniforms change, nothing reloads. */
+export function setChroma(opts) {
+  _chroma = { ..._chroma, ...opts };
+  applyChroma();
+}
 export function getChroma() { return { ..._chroma }; }
-export function getKeyedCanvas() { return _keyedCanvas; }
+/** The key detected for the loaded sheet: `{ key: [r, g, b] }`, or `{ key: null, reason }`. */
+export function getSheetKey() { return _sheetKey; }
 
-async function loadBitmap(url) {
-  const blob = await (await fetch(url)).blob();
-  return await createImageBitmap(blob);
+function activeKey(detection) {
+  return _chroma.enabled ? detection?.key ?? null : null;
+}
+
+function applyChroma() {
+  const settings = { key: activeKey(_sheetKey), similarity: _chroma.similarity };
+  for (const filter of [keyFilter, prevFilter, nextFilter]) if (filter) setChromaUniforms(filter, settings);
+  if (sprite) sprite.filters = settings.key ? [keyFilter] : null;
+}
+
+/** Fetch and decode an image. The caller owns the bitmap and must close() it. */
+export async function loadBitmap(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return createImageBitmap(await response.blob());
+}
+
+/** Detect the key colour of a decoded image (see chroma.js). */
+export function detectImageKey(bitmap) {
+  try {
+    return detectKeyColor(readBorderPixels(bitmap));
+  } catch (error) {
+    console.warn('Chroma key detection failed; not keying this image:', error);
+    return { key: null, reason: 'empty' };
+  }
+}
+
+/** Wrap a bitmap in a texture the way PixiJS's own loader does. */
+function bitmapTexture(bitmap) {
+  return new PIXI.Texture({
+    source: new PIXI.ImageSource({ resource: bitmap, alphaMode: 'premultiply-alpha-on-upload' }),
+  });
+}
+
+/**
+ * Render an image through the chroma key at its own pixel size, for export.
+ * @param {ImageBitmap | PIXI.Texture} source
+ * @param {{ key: [number, number, number] | null }} detection  Usually detectImageKey(source).
+ * @returns {HTMLCanvasElement | null} null when nothing would be keyed (key off, or the image has alpha).
+ */
+export function keyedCanvas(source, detection) {
+  const key = activeKey(detection);
+  if (!app || !key) return null;
+  const texture = source instanceof PIXI.Texture ? source : bitmapTexture(source);
+  const filter = createChromaFilter({ straightAlpha: true });
+  setChromaUniforms(filter, { key, similarity: _chroma.similarity });
+  const keyedSprite = new PIXI.Sprite(texture);
+  keyedSprite.filters = [filter];
+  const root = new PIXI.Container(); // the filter sits on a child, so it is part of what is rendered
+  root.addChild(keyedSprite);
+  try {
+    return app.renderer.extract.canvas({ target: root, resolution: 1 });
+  } finally {
+    root.destroy({ children: true });
+    filter.destroy();
+    if (texture !== source) texture.destroy(true); // the caller still owns and closes the bitmap
+  }
+}
+
+/** The loaded sheet keyed to transparency (for Export keyed PNG / Save), or null when nothing is keyed. */
+export function getKeyedSheetCanvas() {
+  return _sheetTexture ? keyedCanvas(_sheetTexture, _sheetKey) : null;
 }
 
 /** Draw a premium glowing crosshair for pivot anchor. */
@@ -61,6 +132,8 @@ function drawPivotCrosshair(g) {
 export async function initPreview(container, crosshair) {
   hostObserver?.disconnect();
   hostObserver = null;
+  windowListeners?.abort();
+  windowListeners = new AbortController();
   if (app) {
     app.destroy(
       { removeView: true, releaseGlobalResources: true },
@@ -74,7 +147,18 @@ export async function initPreview(container, crosshair) {
   const vw = container.clientWidth || 512;
   const vh = container.clientHeight || 512;
   try {
-    await app.init({ width: vw, height: vh, backgroundAlpha: 0, antialias: true });
+    await app.init({
+      width: vw,
+      height: vh,
+      backgroundAlpha: 0,
+      antialias: true,
+      // Render at the device pixel ratio. autoDensity keeps the canvas CSS size at
+      // width × height, so stage units, Pixi pointer events and the wheel/pan maths
+      // (client coordinates) all stay in CSS pixels.
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+      preference: 'webgl', // the chroma filter is GLSL only
+    });
   } catch (error) {
     app = null; // keep every other export a no-op instead of touching a half-built app
     throw new Error(`PixiJS renderer failed to initialise: ${error?.message ?? error}`, { cause: error });
@@ -93,10 +177,13 @@ export async function initPreview(container, crosshair) {
 
   prevSprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
   nextSprite = new PIXI.Sprite(PIXI.Texture.EMPTY);
-  prevSprite.alpha = 0.22;
-  nextSprite.alpha = 0.22;
-  prevSprite.tint = 0xff8888;
-  nextSprite.tint = 0x8888ff;
+  // Onion skins: 22% alpha, red-ish behind and blue-ish ahead, applied after keying.
+  keyFilter = createChromaFilter();
+  prevFilter = createChromaFilter({ tint: [1, 0.53, 0.53, 0.22] });
+  nextFilter = createChromaFilter({ tint: [0.53, 0.53, 1, 0.22] });
+  prevSprite.filters = [prevFilter];
+  nextSprite.filters = [nextFilter];
+  applyChroma();
 
   // Initialize interactive pivot crosshair
   pivotGraphics = new PIXI.Graphics();
@@ -112,8 +199,9 @@ export async function initPreview(container, crosshair) {
   viewport.addChild(pivotGraphics);
 
   // Setup interactions
-  setupViewportInteraction(app.canvas);
-  setupPivotDrag();
+  setupViewportInteraction(app.canvas, viewport, windowListeners.signal);
+  setupPivotDrag(windowListeners.signal);
+  app.ticker.add(advanceClock);
 
   // Follow the host: window resizes, the viewer-mode breakpoint, and layout changes
   // that fire no window resize. Zoom and pan (the viewport transform) are kept.
@@ -127,8 +215,9 @@ function resizeToHost(container) {
   const w = container.clientWidth;
   const h = container.clientHeight;
   if (w === 0 || h === 0) return; // hidden or not laid out yet
-  if (w === app.renderer.width && h === app.renderer.height) return;
-  app.renderer.resize(w, h);
+  const resolution = window.devicePixelRatio || 1; // browser zoom changes it along with the CSS size
+  if (w === app.screen.width && h === app.screen.height && resolution === app.renderer.resolution) return;
+  app.renderer.resize(w, h, resolution);
   layoutSprite();
   app.render(); // resizing clears the canvas; draw now rather than show a blank frame
 }
@@ -136,14 +225,14 @@ function resizeToHost(container) {
 /** Centre the sprite and fit its source frame to ~55% of the renderer. */
 function layoutSprite() {
   if (!sprite || !app) return;
-  const rw = app.renderer.width;
-  const rh = app.renderer.height;
+  const rw = app.screen.width; // CSS pixels, whatever the resolution
+  const rh = app.screen.height;
   sprite.x = rw / 2;
   sprite.y = rh * 0.65;
   if (!currentPb) return;
   // sourceSize is the original untrimmed frame size (e.g. 512x512)
-  const sourceH = currentPb.sourceSize?.h || canvasSize;
-  const sourceW = currentPb.sourceSize?.w || canvasSize;
+  const sourceH = currentPb.sourceSize?.h || DEFAULT_SOURCE_SIZE.h;
+  const sourceW = currentPb.sourceSize?.w || DEFAULT_SOURCE_SIZE.w;
   const fitScale = Math.min((rh * 0.55) / sourceH, (rw * 0.55) / sourceW);
   sprite.scale.set(fitScale, fitScale);
   updateOnionSkin();
@@ -151,182 +240,138 @@ function layoutSprite() {
 }
 
 /**
- * Load a spritesheet via PixiJS Assets — handles trim, sourceSize, anchor automatically.
- * @param {string} imageUrl - path to the sheet PNG
+ * Load a spritesheet image and parse it with PixiJS Spritesheet (trim, sourceSize, anchor).
+ * The image is fetched and decoded here rather than through PixiJS Assets, so no
+ * cache-busted URL is left in the Assets cache, and its bitmap is closed on replace.
+ * @param {string} imageUrl - path to the sheet image
  * @param {object} atlasData - parsed atlas.json object
+ * @returns {Promise<{ key: [number, number, number] | null, reason?: string }>} the detected chroma key
  */
 export async function loadSheet(imageUrl, atlasData) {
-  // Stop animation and reset active sprite textures before destroying them
-  if (sprite) {
-    sprite.stop();
-    sprite.textures = [PIXI.Texture.EMPTY];
-  }
-  if (prevSprite) prevSprite.texture = PIXI.Texture.EMPTY;
-  if (nextSprite) nextSprite.texture = PIXI.Texture.EMPTY;
-
-  // Clean up previous sheet from cache to avoid stale textures
-  if (_sheet) {
-    _sheet.destroy(true); // destroyBaseTexture = true
-    _sheet = null;
-  }
-  // Bust cache for hot-reload
   // Query strings corrupt data URLs. Hosted/demo sheets are generated in-memory,
   // while file-backed sheets still need cache busting for regeneration previews.
   const bustUrl = /^(data:|blob:)/.test(imageUrl)
     ? imageUrl
     : imageUrl + (imageUrl.includes('?') ? '&' : '?') + `_t=${Date.now()}`;
+  const bitmap = await loadBitmap(bustUrl); // before releasing anything, so a failed fetch keeps the old sheet
+  const detection = detectImageKey(bitmap);
 
-  let baseTexture;
-  if (_chroma.enabled) {
-    // Key #00FF00 → transparent on a canvas, then build the sheet from that.
-    const bmp = await loadBitmap(bustUrl);
-    _keyedCanvas = keyGreen(bmp, _chroma);
-    baseTexture = PIXI.Texture.from(_keyedCanvas);
-  } else {
-    _keyedCanvas = null;
-    baseTexture = await PIXI.Assets.load({ src: bustUrl, parser: 'texture' });
-  }
+  // Detach the old textures before destroying them.
+  if (sprite) sprite.textures = [PIXI.Texture.EMPTY];
+  if (prevSprite) prevSprite.texture = PIXI.Texture.EMPTY;
+  if (nextSprite) nextSprite.texture = PIXI.Texture.EMPTY;
+  _sheet?.destroy(true); // also destroys the base texture and its source
+  _sheet = null;
+  _sheetTexture = null;
+  _sheetBitmap?.close();
+  _sheetBitmap = bitmap;
 
-  _sheet = new PIXI.Spritesheet({
-    texture: baseTexture,
-    data: atlasData,
-  });
+  _sheetTexture = bitmapTexture(bitmap);
+  _sheet = new PIXI.Spritesheet({ texture: _sheetTexture, data: atlasData });
   await _sheet.parse();
+  _sheetKey = detection;
+  applyChroma();
+  return detection;
 }
 
 /** Get the current parsed Spritesheet (or null). */
 export function getSheet() { return _sheet; }
 
 /**
- * Play an animation unit.
- * @param {object} pb - { animName, anchor, durationMs, onEnd, sourceSize }
- *   animName: key into sheet.animations
- *   OR textures: pre-resolved Texture[] (fallback for mock mode)
- * @param {object} opts - { onAnimEnd, onFrameChange }
+ * Show an animation unit's clip, starting on its first frame.
+ * @param {{ animName: string, anchor: {x:number,y:number}, sourceSize?: {w:number,h:number} }} pb
+ *   animName: key into the parsed Spritesheet's animations.
+ * @param {{ onFrameChange?: (index: number, total: number) => void }} [opts]
  */
 export function playUnit(pb, opts = {}) {
   if (!sprite || !app) return;
+  const textures = _sheet?.animations[pb.animName];
+  if (!textures) {
+    console.warn('playUnit: no textures resolved for', pb.animName);
+    return;
+  }
   currentPb = pb;
   _paused = false;
   _onFrameChange = opts.onFrameChange || null;
 
-  // Resolve textures: prefer Spritesheet animations, fallback to passed textures
-  let textures;
-  let timed = false; // per-frame durations drive playback, so animationSpeed stays 1
-  if (_sheet && pb.animName && _sheet.animations[pb.animName]) {
-    const rawTextures = _sheet.animations[pb.animName];
-    if (pb.frameDurations && pb.frameDurations.length === rawTextures.length) {
-      textures = rawTextures.map((tex, idx) => ({
-        texture: tex,
-        time: pb.frameDurations[idx]
-      }));
-      timed = true;
-    } else {
-      textures = rawTextures;
-    }
-  } else if (pb.textures) {
-    textures = pb.textures;
-  } else {
-    console.warn('playUnit: no textures resolved for', pb.animName);
-    return;
-  }
-
   sprite.textures = textures;
   sprite.anchor.set(pb.anchor.x, pb.anchor.y);
   layoutSprite(); // centred, feet at 65% of the height, source frame fitted to ~55%
-
-  sprite.animationSpeed = timed ? 1 : 1000 / pb.durationMs / 60;
-  sprite.loop = pb.onEnd === 'loop';
-  sprite.onComplete = () => {
-    if (pb.onEnd !== 'loop' && pb.onEnd !== 'hold') opts.onAnimEnd?.();
-  };
   sprite.onFrameChange = () => {
     _emitFrame();
     updateOnionSkin();
   };
-  sprite.gotoAndPlay(0);
+  sprite.gotoAndStop(0);
   _emitFrame();
   updateOnionSkin();
   positionCrosshair(pb.anchor);
 }
 
-// --- Frame-by-frame inspection API ---
+// --- Playback clock + frame-by-frame inspection ---
 
 let _paused = false;
 let _onFrameChange = null;
+let _clock = null;
+
+/**
+ * Set the playback clock: called every ticker frame with the elapsed ms while
+ * playback runs, it returns the frame index to show (or null for no change).
+ * @param {((deltaMs: number) => number|null|undefined) | null} clock
+ */
+export function setClock(clock) { _clock = clock; }
+
+function advanceClock(ticker) {
+  if (_paused || !_clock || !sprite) return;
+  let index;
+  try {
+    index = _clock(ticker.deltaMS);
+  } catch (error) {
+    // A throw would escape the ticker's requestAnimationFrame callback and stop rendering for good.
+    console.error('Preview clock failed:', error);
+    return;
+  }
+  if (Number.isInteger(index) && index >= 0 && index < sprite.totalFrames && index !== sprite.currentFrame) {
+    sprite.gotoAndStop(index);
+  }
+}
 
 function _emitFrame() {
   if (!sprite || !_onFrameChange) return;
   _onFrameChange(sprite.currentFrame, sprite.totalFrames);
 }
 
-/** Pause animation on current frame. */
+/** Pause playback on the current frame. */
 export function pauseAnimation() {
   if (!sprite) return;
   _paused = true;
-  sprite.stop();
   _emitFrame();
 }
 
-/** Resume animation playback. */
+/** Resume playback; the clock continues from where it was paused. */
 export function resumeAnimation() {
   if (!sprite) return;
   _paused = false;
-  sprite.play();
 }
 
 /** Step to the next frame (wraps). */
 export function nextFrame() {
   if (!sprite) return;
   pauseAnimation();
-  const next = (sprite.currentFrame + 1) % sprite.totalFrames;
-  sprite.gotoAndStop(next);
-  _emitFrame();
+  sprite.gotoAndStop((sprite.currentFrame + 1) % sprite.totalFrames);
 }
 
 /** Step to the previous frame (wraps). */
 export function prevFrame() {
   if (!sprite) return;
   pauseAnimation();
-  const prev = (sprite.currentFrame - 1 + sprite.totalFrames) % sprite.totalFrames;
-  sprite.gotoAndStop(prev);
-  _emitFrame();
+  sprite.gotoAndStop((sprite.currentFrame - 1 + sprite.totalFrames) % sprite.totalFrames);
 }
 
 /** Jump to a specific frame directly. */
 export function gotoFrame(idx) {
   if (!sprite) return;
   pauseAnimation();
-  if (idx >= 0 && idx < sprite.totalFrames) {
-    sprite.gotoAndStop(idx);
-    _emitFrame();
-  }
-}
-
-/** Update the durations for all frames in the current active animation dynamicially. */
-export function updateFrameDurations(frameDurations) {
-  if (!sprite || !currentPb) return;
-  currentPb.frameDurations = frameDurations;
-  if (_sheet && currentPb.animName && _sheet.animations[currentPb.animName]) {
-    const rawTextures = _sheet.animations[currentPb.animName];
-    if (frameDurations.length === rawTextures.length) {
-      const curFrame = sprite.currentFrame;
-      const isPlaying = !sprite.paused && !_paused; // use sprite.playing or custom _paused
-
-      sprite.textures = rawTextures.map((tex, idx) => ({
-        texture: tex,
-        time: frameDurations[idx]
-      }));
-      sprite.animationSpeed = 1;
-
-      sprite.gotoAndStop(curFrame);
-      if (isPlaying) {
-        sprite.play();
-      } else {
-        _emitFrame();
-      }
-    }
-  }
+  if (idx >= 0 && idx < sprite.totalFrames) sprite.gotoAndStop(idx);
 }
 
 /** Toggle play/pause. Returns true if now playing. */
@@ -399,85 +444,14 @@ function updateOnionSkin() {
   }
 }
 
-// --- Viewport Zoom & Pan ---
-function setupViewportInteraction(canvas) {
-  let panning = false;
-  let panStart = { x: 0, y: 0 };
-  let viewportStart = { x: 0, y: 0 };
-
-  // 1. Mouse wheel Zoom (centered on cursor)
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    if (!viewport) return;
-
-    const zoomFactor = 1.15;
-    const oldScale = viewport.scale.x;
-    let newScale = oldScale;
-
-    if (e.deltaY < 0) {
-      newScale = Math.min(25, oldScale * zoomFactor);
-    } else {
-      newScale = Math.max(0.4, oldScale / zoomFactor);
-    }
-
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    // Use pointPool to borrow temporary point for world coordinate calculation to avoid GC allocations
-    pointPool.borrow((worldPt) => {
-      worldPt.x = (mouseX - viewport.x) / oldScale;
-      worldPt.y = (mouseY - viewport.y) / oldScale;
-
-      viewport.scale.set(newScale);
-      viewport.x = mouseX - worldPt.x * newScale;
-      viewport.y = mouseY - worldPt.y * newScale;
-    });
-  }, { passive: false });
-
-  // 2. Mouse Drag Pan (Middle, Right click or Alt + Left click)
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 2 || e.button === 1 || e.altKey) {
-      panning = true;
-      panStart.x = e.clientX;
-      panStart.y = e.clientY;
-      viewportStart.x = viewport.x;
-      viewportStart.y = viewport.y;
-      canvas.style.cursor = 'grabbing';
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (panning && viewport) {
-      const dx = e.clientX - panStart.x;
-      const dy = e.clientY - panStart.y;
-      viewport.x = viewportStart.x + dx;
-      viewport.y = viewportStart.y + dy;
-      e.preventDefault();
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    if (panning) {
-      panning = false;
-      canvas.style.cursor = 'default';
-    }
-  });
-
-  canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-  });
-}
-
 // --- PixiJS Pivot Dragging ---
-function setupPivotDrag() {
+function setupPivotDrag(signal) {
   if (!pivotGraphics) return;
 
   pivotGraphics.on('pointerdown', (e) => {
     if (e.button === 0) { // Left click only for dragging anchor
       draggingPivot = true;
+      dragAnchor = null;
       pivotGraphics.cursor = 'grabbing';
       e.stopPropagation(); // prevent panning the viewport
     }
@@ -486,36 +460,34 @@ function setupPivotDrag() {
   pivotGraphics.on('globalpointermove', (e) => {
     if (!draggingPivot || !sprite || !currentPb) return;
 
-    // Use pointPool to borrow temporary point.
-    // Pass it as the third parameter (outPoint) to viewport.toLocal to prevent PixiJS from allocating a new Point instance under high frequency dragging
-    pointPool.borrow((tempPt) => {
-      const localPos = viewport.toLocal(e.global, undefined, tempPt);
+    const localPos = viewport.toLocal(e.global, undefined, dragPoint);
 
-      const sourceW = currentPb.sourceSize?.w || canvasSize;
-      const sourceH = currentPb.sourceSize?.h || canvasSize;
-      const fitScale = sprite.scale.x;
+    const sourceW = currentPb.sourceSize?.w || DEFAULT_SOURCE_SIZE.w;
+    const sourceH = currentPb.sourceSize?.h || DEFAULT_SOURCE_SIZE.h;
+    const fitScale = sprite.scale.x;
 
-      // Formulas:
-      // ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x
-      // ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y
-      const ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x;
-      const ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y;
+    // Formulas:
+    // ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x
+    // ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y
+    const ax = (localPos.x - sprite.x) / (sourceW * fitScale) + sprite.anchor.x;
+    const ay = (localPos.y - sprite.y) / (sourceH * fitScale) + sprite.anchor.y;
 
-      const clampedX = parseFloat(Math.max(0, Math.min(1, ax)).toFixed(4));
-      const clampedY = parseFloat(Math.max(0, Math.min(1, ay)).toFixed(4));
+    const clampedX = parseFloat(Math.max(0, Math.min(1, ax)).toFixed(4));
+    const clampedY = parseFloat(Math.max(0, Math.min(1, ay)).toFixed(4));
 
-      // Live update crosshair position during dragging for a responsive feel
-      pivotGraphics.x = localPos.x;
-      pivotGraphics.y = localPos.y;
+    // Live update crosshair position during dragging for a responsive feel
+    pivotGraphics.x = localPos.x;
+    pivotGraphics.y = localPos.y;
 
-      bus.emit(EV.ANCHOR_DRAGGED, { x: clampedX, y: clampedY });
-    });
+    dragAnchor = { x: clampedX, y: clampedY };
+    bus.emit(EV.ANCHOR_DRAG, dragAnchor);
   });
 
   window.addEventListener('pointerup', () => {
-    if (draggingPivot) {
-      draggingPivot = false;
-      if (pivotGraphics) pivotGraphics.cursor = 'pointer';
-    }
-  });
+    if (!draggingPivot) return;
+    draggingPivot = false;
+    if (pivotGraphics) pivotGraphics.cursor = 'pointer';
+    if (dragAnchor) bus.emit(EV.ANCHOR_DROP, dragAnchor);
+    dragAnchor = null;
+  }, { signal });
 }

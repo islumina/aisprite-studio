@@ -1,35 +1,32 @@
 #!/usr/bin/env node
+// Vendor the editor's runtime packages into webeditor/vendor, from node_modules
+// at the exact versions package.json pins (npm ci installs them).
+//
+//   node tools/vendor-update.mjs [--package <name>]  replace each package's vendored files wholesale
+//   node tools/vendor-update.mjs --check             fail unless webeditor/vendor holds exactly the files,
+//                                                    byte for byte, that an update would write
+//
+// Sources are always node_modules, never a sibling checkout's dist/ (gitignored,
+// possibly stale). To vendor an unreleased build, install it first, e.g.
+// `npm install --no-save ../aispritejs`, so node_modules carries that build.
 
-import { execFile } from "node:child_process";
-import {
-  access,
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import os from "node:os";
+import { copyFile, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
-const execFileAsync = promisify(execFile);
 const TOOLS_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TOOLS_DIRECTORY, "..");
-const SOURCE_ROOT = path.resolve(PROJECT_ROOT, "..");
+const NODE_MODULES = path.join(PROJECT_ROOT, "node_modules");
 const VENDOR_DIRECTORY = path.join(PROJECT_ROOT, "webeditor", "vendor");
-const PACKAGES = ["aibridgejs", "aieventjs", "aipooljs", "aifsmjs", "aispritejs"];
-const REQUIRED_FILES = [
-  "aibridgejs/index.js",
-  "aibridgejs/iframe/index.js",
-  "aispritejs/index.js",
-  "aispritejs/atlas/index.js",
-  "aispritejs/pixi/index.js",
-];
+
+// vendor/<name>/ mirrors the package's dist/*.js and dist/*.d.ts, plus its package.json.
+const DIST_PACKAGES = ["aibridgejs", "aieventjs", "aispritejs"];
+// Single files copied from a package to vendor/<target>.
+const SINGLE_FILES = [{ name: "pixi.js", source: "dist/pixi.min.mjs", target: "pixi.min.mjs" }];
+// Top-level vendor/ entries this script does not manage (vendored by hand).
+const UNMANAGED = new Set(["fonts", "lucide-license.txt"]);
+
+export const PACKAGES = [...DIST_PACKAGES, ...SINGLE_FILES.map((file) => file.name)];
 
 const manifest = JSON.parse(await readFile(path.join(PROJECT_ROOT, "package.json"), "utf8"));
 
@@ -41,124 +38,137 @@ function pinnedVersion(packageName) {
   return version;
 }
 
-async function isFile(filePath) {
+async function exists(filePath) {
   try {
-    return (await stat(filePath)).isFile();
+    await stat(filePath);
+    return true;
   } catch {
     return false;
   }
 }
 
-async function copyDistribution(source, destination) {
-  const entries = await readdir(source, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(source, entry.name);
-    const destinationPath = path.join(destination, entry.name);
-    if (entry.isDirectory()) {
-      await mkdir(destinationPath, { recursive: true });
-      await copyDistribution(sourcePath, destinationPath);
-    } else if (entry.isFile() && (entry.name.endsWith(".js") || entry.name.endsWith(".d.ts"))) {
-      await mkdir(path.dirname(destinationPath), { recursive: true });
-      await cp(sourcePath, destinationPath);
-    }
+/** Every file under `directory`, as posix paths relative to it. */
+async function listFiles(directory, prefix = "") {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) files.push(...await listFiles(path.join(directory, entry.name), relative));
+    else if (entry.isFile()) files.push(relative);
   }
+  return files;
 }
 
-async function resolvePackageRoot(packageName, stageDirectory, allowVersionMismatch) {
-  const expectedVersion = pinnedVersion(packageName);
-  const localRoot = path.join(SOURCE_ROOT, packageName);
-  if (await isFile(path.join(localRoot, "package.json")) && await isFile(path.join(localRoot, "dist", "index.js"))) {
-    const localManifest = JSON.parse(await readFile(path.join(localRoot, "package.json"), "utf8"));
-    if (localManifest.version !== expectedVersion && !allowVersionMismatch) {
-      throw new Error(`${packageName} local version ${localManifest.version} does not match pinned ${expectedVersion}; pass --allow-version-mismatch only for an intentional upgrade`);
-    }
-    process.stdout.write(`  source: ${localRoot}\n`);
-    return localRoot;
-  }
-
-  const packageDirectory = path.join(stageDirectory, `package-${packageName}`);
-  await mkdir(packageDirectory, { recursive: true });
-  const { stdout } = await execFileAsync("npm", ["pack", `${packageName}@${expectedVersion}`, "--json"], {
-    cwd: packageDirectory,
-    timeout: 120_000,
-    maxBuffer: 2 * 1024 * 1024,
-  });
-  let filename;
+/** The installed package root, after checking it is the pinned version. */
+async function packageRoot(packageName, nodeModules) {
+  const root = path.join(nodeModules, packageName);
+  const expected = pinnedVersion(packageName);
+  let installed;
   try {
-    const result = JSON.parse(stdout);
-    filename = result[0]?.filename;
+    installed = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version;
   } catch {
-    throw new Error(`npm pack returned invalid JSON for ${packageName}`);
+    throw new Error(`${packageName} is not installed in node_modules; run npm ci`);
   }
-  if (typeof filename !== "string" || path.basename(filename) !== filename) {
-    throw new Error(`npm pack returned an unsafe filename for ${packageName}`);
+  if (installed !== expected) {
+    throw new Error(`node_modules/${packageName} is ${installed}, package.json pins ${expected}; run npm ci`);
   }
-  await execFileAsync("tar", ["-xzf", filename], {
-    cwd: packageDirectory,
-    timeout: 30_000,
-    maxBuffer: 512 * 1024,
-  });
-  process.stdout.write(`  source: npm ${expectedVersion}\n`);
-  return path.join(packageDirectory, "package");
+  return root;
 }
 
-export async function checkVendor(vendorDirectory = VENDOR_DIRECTORY) {
-  const missing = [];
-  for (const relativePath of REQUIRED_FILES) {
-    if (!await isFile(path.join(vendorDirectory, relativePath))) missing.push(relativePath);
-  }
-  for (const packageName of PACKAGES) {
-    try {
-      const vendoredManifest = JSON.parse(await readFile(path.join(vendorDirectory, packageName, "package.json"), "utf8"));
-      if (vendoredManifest.version !== pinnedVersion(packageName)) {
-        throw new Error(`${packageName} is ${vendoredManifest.version}, expected ${pinnedVersion(packageName)}`);
+/**
+ * What an update writes: vendor-relative posix path → absolute source file.
+ * @param {string[]} packages
+ * @param {string} nodeModules
+ */
+async function expectedFiles(packages, nodeModules) {
+  const files = new Map();
+  for (const packageName of packages) {
+    const root = await packageRoot(packageName, nodeModules);
+    if (DIST_PACKAGES.includes(packageName)) {
+      const dist = path.join(root, "dist");
+      for (const relative of await listFiles(dist)) {
+        if (relative.endsWith(".js") || relative.endsWith(".d.ts")) files.set(`${packageName}/${relative}`, path.join(dist, relative));
       }
-    } catch (error) {
-      throw new Error(`Invalid vendored ${packageName}/package.json: ${error instanceof Error ? error.message : String(error)}`);
+      files.set(`${packageName}/package.json`, path.join(root, "package.json"));
+    } else {
+      const single = SINGLE_FILES.find((file) => file.name === packageName);
+      files.set(single.target, path.join(root, single.source));
     }
   }
-  if (missing.length > 0) throw new Error(`Missing vendored files: ${missing.join(", ")}`);
-  return { packages: PACKAGES.length, requiredFiles: REQUIRED_FILES.length };
+  return files;
+}
+
+/** Managed files currently in the vendor directory. */
+async function vendoredFiles(vendorDirectory) {
+  const files = new Set();
+  for (const packageName of DIST_PACKAGES) {
+    const directory = path.join(vendorDirectory, packageName);
+    if (await exists(directory)) for (const relative of await listFiles(directory)) files.add(`${packageName}/${relative}`);
+  }
+  for (const { target } of SINGLE_FILES) if (await exists(path.join(vendorDirectory, target))) files.add(target);
+  return files;
+}
+
+/** Import-map targets in the editor page next to the vendor directory, if there is one. */
+async function importMapTargets(vendorDirectory) {
+  const page = path.join(vendorDirectory, "..", "index.html");
+  if (!await exists(page)) return [];
+  const html = await readFile(page, "utf8");
+  const json = html.match(/<script type="importmap">([\s\S]*?)<\/script>/)?.[1];
+  if (!json) return [];
+  return Object.values(JSON.parse(json).imports ?? {}).map((target) => path.resolve(path.dirname(page), target));
+}
+
+export async function checkVendor(vendorDirectory = VENDOR_DIRECTORY, nodeModules = NODE_MODULES) {
+  const expected = await expectedFiles(PACKAGES, nodeModules);
+  const actual = await vendoredFiles(vendorDirectory);
+  const problems = [];
+  const managed = new Set([...DIST_PACKAGES, ...SINGLE_FILES.map((file) => file.target)]);
+  for (const entry of await readdir(vendorDirectory)) {
+    if (!managed.has(entry) && !UNMANAGED.has(entry) && entry !== ".DS_Store") problems.push(`unexpected vendor/${entry} (no package manages it)`);
+  }
+  for (const relative of [...actual].sort()) {
+    if (!expected.has(relative)) problems.push(`stale vendor/${relative}`);
+  }
+  for (const [relative, source] of [...expected].sort(([a], [b]) => a.localeCompare(b))) {
+    if (!actual.has(relative)) {
+      problems.push(`missing vendor/${relative}`);
+    } else if (!(await readFile(source)).equals(await readFile(path.join(vendorDirectory, relative)))) {
+      problems.push(`vendor/${relative} differs from ${path.relative(PROJECT_ROOT, source)}`);
+    }
+  }
+  for (const target of await importMapTargets(vendorDirectory)) {
+    if (!await exists(target)) problems.push(`import map target ${path.relative(PROJECT_ROOT, target)} does not exist`);
+  }
+  if (problems.length > 0) {
+    throw new Error(`webeditor/vendor does not match the pinned packages (npm run vendor:update):\n  ${problems.join("\n  ")}`);
+  }
+  return { packages: PACKAGES.length, files: expected.size };
 }
 
 export async function updateVendor({
   vendorDirectory = VENDOR_DIRECTORY,
+  nodeModules = NODE_MODULES,
   packages = PACKAGES,
-  allowVersionMismatch = false,
+  log = (line) => process.stdout.write(`${line}\n`),
 } = {}) {
+  const expected = await expectedFiles(packages, nodeModules); // validates every package before touching vendor/
   await mkdir(vendorDirectory, { recursive: true });
-  const stageDirectory = await mkdtemp(path.join(os.tmpdir(), "aisprite-studio-vendor-"));
-  try {
-    for (const packageName of packages) {
-      process.stdout.write(`Updating ${packageName}...\n`);
-      const packageRoot = await resolvePackageRoot(packageName, stageDirectory, allowVersionMismatch);
-      const outputDirectory = path.join(stageDirectory, `output-${packageName}`);
-      await mkdir(outputDirectory, { recursive: true });
-      await copyDistribution(path.join(packageRoot, "dist"), outputDirectory);
-      await writeFile(
-        path.join(outputDirectory, "package.json"),
-        await readFile(path.join(packageRoot, "package.json")),
-      );
-    }
-
-    // Preserve the previous script's non-destructive overlay behaviour. A later
-    // cleanup can remove stale chunks after release artefacts are inventoried.
-    for (const packageName of packages) {
-      await mkdir(path.join(vendorDirectory, packageName), { recursive: true });
-      await cp(path.join(stageDirectory, `output-${packageName}`), path.join(vendorDirectory, packageName), {
-        recursive: true,
-        force: true,
-      });
-    }
-    return await checkVendor(vendorDirectory);
-  } finally {
-    await rm(stageDirectory, { recursive: true, force: true });
+  for (const packageName of packages) {
+    log(`Updating ${packageName} ${pinnedVersion(packageName)}...`);
+    // Replace wholesale, so files the new version no longer ships do not linger.
+    if (DIST_PACKAGES.includes(packageName)) await rm(path.join(vendorDirectory, packageName), { recursive: true, force: true });
   }
+  for (const [relative, source] of expected) {
+    const destination = path.join(vendorDirectory, relative);
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(source, destination);
+  }
+  return checkVendor(vendorDirectory, nodeModules);
 }
 
 async function main() {
   if (process.argv.includes("--help")) {
-    process.stdout.write("Usage: node tools/vendor-update.mjs [--check] [--package <ai*js>] [--allow-version-mismatch]\n");
+    process.stdout.write(`Usage: node tools/vendor-update.mjs [--check] [--package <${PACKAGES.join("|")}>]\n`);
     return;
   }
   const packageIndex = process.argv.indexOf("--package");
@@ -166,13 +176,11 @@ async function main() {
   if (packageIndex >= 0 && !PACKAGES.includes(selectedPackage)) {
     throw new Error(`--package must be one of: ${PACKAGES.join(", ")}`);
   }
-  const result = process.argv.includes("--check")
+  const check = process.argv.includes("--check");
+  const result = check
     ? await checkVendor()
-    : await updateVendor({
-      packages: selectedPackage ? [selectedPackage] : PACKAGES,
-      allowVersionMismatch: process.argv.includes("--allow-version-mismatch"),
-    });
-  process.stdout.write(`Vendor ${process.argv.includes("--check") ? "check" : "update"} complete (${result.packages} packages).\n`);
+    : await updateVendor({ packages: selectedPackage ? [selectedPackage] : PACKAGES });
+  process.stdout.write(`Vendor ${check ? "check" : "update"} complete (${result.packages} packages, ${result.files} files).\n`);
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
