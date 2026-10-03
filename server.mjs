@@ -16,13 +16,14 @@ import {
   writeFile,
 } from "node:fs/promises";
 import http from "node:http";
+import { isIPv4, isIPv6 } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
-const ASSET_ID = /^[A-Za-z0-9_-]+$/;
+const ASSET_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const SAFE_FILE = /[^A-Za-z0-9_.-]/g;
 const MAX_BODY_BYTES = 30 * 1024 * 1024;
 const MAX_PNG_BYTES = 20 * 1024 * 1024;
@@ -72,6 +73,7 @@ async function isFile(filePath) {
 
 function noCacheHeaders() {
   return {
+    "x-content-type-options": "nosniff",
     "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
     pragma: "no-cache",
     expires: "0",
@@ -271,12 +273,14 @@ async function saveEditorOutput(projectRoot, data) {
   if (data.prefix !== undefined && data.prefix !== "" && !isAssetId(data.prefix)) {
     throw new HttpError(400, "Invalid prefix parameter");
   }
-  if (data.atlas !== undefined && !isObject(data.atlas)) throw new HttpError(400, "atlas must be a JSON object");
+  if (data.atlas !== undefined && !(isObject(data.atlas) && isObject(data.atlas.frames) && isObject(data.atlas.meta))) {
+    throw new HttpError(400, "atlas must be an object with frames and meta objects");
+  }
 
   const directorySegments = ["assets", data.char, ...(data.prefix ? [data.prefix] : [])];
   const targetDirectory = await ensureContainedDirectory(projectRoot, directorySegments);
   let keyedOutput;
-  if (data.keyedImage !== undefined) {
+  if (data.keyedImage != null) {
     const png = decodePngDataUrl(data.keyedImage);
     const configuredName = isObject(data.atlas?.meta) && typeof data.atlas.meta.image === "string"
       ? data.atlas.meta.image
@@ -336,11 +340,53 @@ function isLocalAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
+const HOST_HEADER = /^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::\d{1,5})?$/;
+
+// A browser reaches this server by loopback name or IP literal. Any other name may be
+// an attacker's domain re-pointed at this machine (DNS rebinding), so it is refused.
+export function isAllowedHost(hostHeader) {
+  const match = typeof hostHeader === "string" ? HOST_HEADER.exec(hostHeader) : null;
+  if (!match) return false;
+  const hostname = match[1].toLowerCase();
+  if (hostname.startsWith("[")) return isIPv6(hostname.slice(1, -1));
+  return hostname === "localhost" || hostname.endsWith(".localhost") || isIPv4(hostname);
+}
+
+// A JSON content type forces a CORS preflight that this server never answers, and a
+// browser-sent Origin must match the Host it addressed. Non-browser clients send no Origin.
+function assertSameOriginWrite(request) {
+  const contentType = request.headers["content-type"] ?? "";
+  if (!/^application\/json\s*(?:;|$)/i.test(contentType)) {
+    throw new HttpError(415, "Content-Type must be application/json");
+  }
+  const origin = request.headers.origin;
+  if (origin !== undefined && origin !== `http://${request.headers.host}`) {
+    throw new HttpError(403, "Cross-origin writes are not allowed");
+  }
+}
+
+async function isContainedFile(root, segments) {
+  let current = path.resolve(root);
+  try {
+    for (const [index, segment] of segments.entries()) {
+      current = path.join(current, segment);
+      const info = await lstat(current);
+      const isLast = index === segments.length - 1;
+      if (info.isSymbolicLink() || (isLast ? !info.isFile() : !info.isDirectory())) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
   const resolvedRoot = path.resolve(projectRoot);
   const webeditorRoot = path.join(resolvedRoot, "webeditor");
   return http.createServer({ requestTimeout: 30_000 }, async (request, response) => {
     try {
+      if (!isAllowedHost(request.headers.host)) throw new HttpError(403, "Host not allowed");
+      if (request.method === "POST") assertSameOriginWrite(request);
       const url = new URL(request.url ?? "/", "http://localhost");
       if (request.method === "GET" && url.pathname === "/api/assets") {
         return sendJson(response, await listAssets(resolvedRoot));
@@ -356,12 +402,9 @@ export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
         const safeName = (url.searchParams.get("name") ?? "").replaceAll(SAFE_FILE, "_");
         if (!safeName) return sendJson(response, { exists: false, text: "" });
         const filename = safeName.endsWith(".txt") ? safeName : `${safeName}.txt`;
-        const promptPath = path.join(resolvedRoot, "assets", asset, "prompts", filename);
-        try {
-          return sendJson(response, { exists: true, text: await readFile(promptPath, "utf8") });
-        } catch {
-          return sendJson(response, { exists: false, text: "" });
-        }
+        const segments = ["assets", asset, "prompts", filename];
+        if (!await isContainedFile(resolvedRoot, segments)) return sendJson(response, { exists: false, text: "" });
+        return sendJson(response, { exists: true, text: await readFile(path.join(resolvedRoot, ...segments), "utf8") });
       }
       if (request.method === "GET" && url.pathname === "/api/agent-config") {
         if (!isLocalAddress(request.socket.remoteAddress)) throw new HttpError(403, "Agent config is available only from localhost.");
