@@ -3,8 +3,9 @@
 Checks (in order of cost):
 1. File existence and valid PNG
 2. Dimension match
-3. Alpha channel coverage
-4. Visual review by a connected image-capable agent or human reviewer
+3. Chroma key and subject coverage, measured on the keyed frame
+4. Centroid drift against the previous frame of the same animation
+5. Visual review by a connected image-capable agent or human reviewer
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import image_ops
+import numpy as np
+
+from . import chroma, image_ops
 
 log = logging.getLogger(__name__)
 
@@ -47,12 +50,12 @@ def _overall_status(frames: dict[str, dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def _check_exists(frame_path: Path) -> dict:
-    valid = image_ops.is_valid_png(frame_path)
-    return {
-        "exists": frame_path.exists(),
-        "valid_png": valid,
-        "pass": valid,
-    }
+    found = image_ops.image_format(frame_path)
+    valid = found == "PNG"
+    result = {"exists": frame_path.exists(), "valid_png": valid, "pass": valid}
+    if found and not valid:
+        result["detail"] = f"File is {found} data, not PNG"
+    return result
 
 
 def _check_dimensions(frame_path: Path, expected: int) -> dict:
@@ -66,11 +69,20 @@ def _check_dimensions(frame_path: Path, expected: int) -> dict:
     }
 
 
-def _check_alpha(frame_path: Path) -> dict:
-    coverage = image_ops.alpha_coverage(frame_path)
-    if coverage is None:
-        return {"ratio": None, "pass": False, "detail": "No alpha channel"}
-    # Character should cover 5-95% of the frame area
+def _check_key(analysis: image_ops.FrameAnalysis | None) -> dict:
+    if analysis is None:
+        return {"pass": False, "detail": "Unreadable image"}
+    if analysis.key_error:
+        return {"pass": False, "detail": f"Cannot key background: {analysis.key_error}"}
+    if analysis.key is None:
+        return {"pass": True, "key": None, "detail": "Already transparent"}
+    family = chroma.key_family(np.asarray(analysis.key, dtype=np.float32))
+    return {"pass": True, "key": "#%02x%02x%02x" % analysis.key, "family": family, "detail": "OK"}
+
+
+def _check_alpha(analysis: image_ops.FrameAnalysis) -> dict:
+    coverage = analysis.coverage
+    # The subject should cover 5-95% of the frame area
     ok = 0.05 <= coverage <= 0.95
     return {
         "ratio": round(coverage, 3),
@@ -82,14 +94,16 @@ def _check_alpha(frame_path: Path) -> dict:
 def _repair_hint(checks: dict[str, Any], asset_type: str) -> str | None:
     """Return the first actionable repair, ordered by QA cost."""
     if not checks.get("exists", {}).get("pass", True):
+        if checks["exists"].get("detail"):
+            return "Re-export the frame as a real PNG; a renamed JPEG has no alpha and adds compression fringes."
         return "Regenerate the missing or invalid PNG frame."
     if not checks.get("dimensions", {}).get("pass", True):
         return "Regenerate at the exact square frame_size declared in request.yml."
+    if not checks.get("chroma_key", {}).get("pass", True):
+        return "Regenerate on one flat, solid chroma-key colour with no gradient, shadow, floor or scenery."
     if not checks.get("alpha_coverage", {}).get("pass", True):
         subject = {"character": "character", "object": "object", "effect": "effect"}.get(asset_type, "subject")
         return f"Reframe the {subject} so its non-chroma area covers 5-95% of the canvas."
-    if not checks.get("edge_halo", {}).get("pass", True):
-        return "Remove green/blue colour spill at the silhouette edge while preserving original colours."
     if not checks.get("inter_frame_drift", {}).get("pass", True):
         if asset_type == "object":
             return "Realign the static object body to the previous frame; change only dynamic parts."
@@ -112,9 +126,10 @@ async def check_frame(
     skip_vision: bool = False,
     asset_type: str = "character",
 ) -> dict:
-    """Run all QA checks on a single frame.
+    """Run all single-frame QA checks.
 
-    Returns a frame report dict.
+    Returns a frame report dict; the subject centroid is kept under "_centroid"
+    for the suite's drift check and removed before the report is written.
     """
     checks: dict[str, Any] = {}
 
@@ -128,16 +143,17 @@ async def check_frame(
     # 2. Dimensions
     checks["dimensions"] = _check_dimensions(frame_path, expected_size)
 
-    # 3. Alpha coverage
-    checks["alpha_coverage"] = _check_alpha(frame_path)
+    # 3. Key and coverage, from one keyed read of the frame
+    analysis = image_ops.analyse_frame(frame_path)
+    checks["chroma_key"] = _check_key(analysis)
+    centroid = None
+    if checks["chroma_key"]["pass"]:
+        checks["alpha_coverage"] = _check_alpha(analysis)
+        centroid = analysis.centroid
 
-    # 3.5 Edge halo check (green remnants on sprite edges)
-    halo = image_ops.detect_edge_halo(frame_path)
-    if halo is not None:
-        checks["edge_halo"] = halo
-
-    # Determine if we should run vision QA
-    critical_fail = not checks["dimensions"]["pass"] or not checks["alpha_coverage"]["pass"]
+    critical_fail = not all(checks[name]["pass"] for name in ("dimensions", "chroma_key")) or not checks.get(
+        "alpha_coverage", {}
+    ).get("pass", True)
 
     # 4. Vision QA (skip if early failures or explicitly disabled)
     if not critical_fail and not skip_vision:
@@ -148,7 +164,15 @@ async def check_frame(
             "detail": "Pending visual review by the AI assistant",
         }
 
-    # Derive status
+    result = _frame_report(_frame_status(checks), checks)
+    hint = _repair_hint(checks, asset_type)
+    if hint:
+        result["repair_hint"] = hint
+    result["_centroid"] = centroid
+    return result
+
+
+def _frame_status(checks: dict[str, Any]) -> str:
     has_fail = any(
         not c.get("pass", True)
         for c in checks.values()
@@ -159,13 +183,7 @@ async def check_frame(
         for c in checks.values()
         if isinstance(c, dict)
     )
-    status = "fail" if has_fail else "warn" if has_pending else "pass"
-
-    result = _frame_report(status, checks)
-    hint = _repair_hint(checks, asset_type)
-    if hint:
-        result["repair_hint"] = hint
-    return result
+    return "fail" if has_fail else "warn" if has_pending else "pass"
 
 
 async def run_suite(
@@ -189,7 +207,7 @@ async def run_suite(
     tpose_path = asset_dir / "tpose.png"
     frames_dir = asset_dir / "frames"
     frame_reports: dict[str, dict] = {}
-    prev_frame_path: Path | None = None
+    prev_centroid: tuple[float, float] | None = None
     prev_animation: str | None = None
 
     for name in frame_names:
@@ -213,22 +231,20 @@ async def run_suite(
         )
 
         # Inter-frame centroid drift check (between consecutive frames in same animation)
-        if prev_frame_path is not None and prev_animation == animation and frame_path.exists():
-            drift = image_ops.detect_centroid_drift(
-                prev_frame_path, frame_path, frame_size=expected_size,
-            )
-            if drift is not None:
-                report["checks"]["inter_frame_drift"] = drift
-                if not drift.get("pass", True):
-                    report["status"] = "fail"
-                    report["repair_hint"] = _repair_hint(report["checks"], asset_type)
+        centroid = report.pop("_centroid", None)
+        if centroid is not None and prev_centroid is not None and prev_animation == animation:
+            drift = image_ops.centroid_drift(prev_centroid, centroid, frame_size=expected_size)
+            report["checks"]["inter_frame_drift"] = drift
+            if not drift["pass"]:
+                report["status"] = "fail"
+                report["repair_hint"] = _repair_hint(report["checks"], asset_type)
 
         frame_reports[name] = report
         log.info("QA %s: %s", name, report["status"])
 
-        # Track previous frame for drift detection (reset on animation boundary)
-        if frame_path.exists():
-            prev_frame_path = frame_path
+        # Track the previous centroid for drift detection (reset on animation boundary)
+        if centroid is not None:
+            prev_centroid = centroid
             prev_animation = animation
 
     return {

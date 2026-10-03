@@ -21,7 +21,7 @@ python3 --version
 which python3
 
 # 4. 檢查 Python 影像套件依賴
-python3 -c "import PIL, yaml, jsonschema" 2>/dev/null && echo "✓ Python packages OK" || echo "✗ Missing packages"
+python3 -c "import PIL, numpy, yaml, jsonschema" 2>/dev/null && echo "✓ Python packages OK" || echo "✗ Missing packages"
 ```
 
 * **安裝指引**：若缺少 Python 套件：

@@ -35,9 +35,7 @@ jobs:
         run: npm ci
 
       - name: Install Python dependencies
-        # Only what tests/ imports; specifiers mirror requirements.txt.
-        # jsonschema (also in requirements.txt) is not imported by the tests.
-        run: python -m pip install "Pillow>=10.0.0" "pyyaml>=6.0"
+        run: python -m pip install -r requirements.txt
 
       - name: Test
         run: npm test

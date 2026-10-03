@@ -47,7 +47,8 @@ def _parse_args() -> argparse.Namespace:
     # pack
     pk = sub.add_parser("pack", help="Pack frames into spritesheet + atlas.json")
     pk.add_argument("asset_dir", type=Path, help="Asset directory")
-    pk.add_argument("--size", type=int, default=512, help="Frame size in pixels")
+    pk.add_argument("--size", type=int, default=512, help="Frame size when request.yml has none")
+    pk.add_argument("--fresh", action="store_true", help="Ignore anchors, durations and states saved in atlas.json")
 
     # validate
     val = sub.add_parser("validate", help="Validate an atlas.json against schema")
@@ -68,25 +69,6 @@ def _load_request(asset_dir: Path) -> dict:
         print(f"Error: {req_path} is empty", file=sys.stderr)
         sys.exit(1)
     return data
-
-
-def _build_frame_specs(request: dict) -> list[dict]:
-    """Convert request.yml into a flat list of frame specs."""
-    specs = []
-    for anim in request.get("animations", []):
-        action = anim["action"]
-        direction = anim["direction"]
-        total = anim.get("frames", 4)
-        for i in range(total):
-            name = f"{action}_{direction}_{i:02d}"
-            specs.append({
-                "name": name,
-                "action": action,
-                "direction": direction,
-                "index": i,
-                "total": total,
-            })
-    return specs
 
 
 def _require_pack_approval(asset_dir: Path) -> None:
@@ -168,8 +150,10 @@ def _cmd_sync(args: argparse.Namespace) -> None:
 async def _cmd_qa(args: argparse.Namespace) -> None:
     from . import qa
 
+    from .spec import frame_specs
+
     request = _load_request(args.asset_dir)
-    specs = _build_frame_specs(request)
+    specs = frame_specs(request)
     frame_names = [s["name"] for s in specs]
     # Use frame_size from request.yml if --size was not explicitly set
     expected_size = request.get("frame_size", args.size)
@@ -197,23 +181,14 @@ def _cmd_pack(args: argparse.Namespace) -> None:
     from . import packer
 
     _require_pack_approval(args.asset_dir)
-    frames_dir = args.asset_dir / "frames"
-    out_dir = args.asset_dir / "output"
-
-    # Read asset_type from request.yml if available
     request = _load_request(args.asset_dir)
-    asset_type = request.get("asset_type", "character")
-    frame_size = request.get("frame_size", args.size)
+    request.setdefault("frame_size", args.size)
 
-    print(f"Packing frames from {frames_dir} (size={frame_size})...")
-
-    atlas = packer.pack(
-        frames_dir=frames_dir,
-        out_dir=out_dir,
-        frame_size=frame_size,
-        asset_name=args.asset_dir.name,
-        asset_type=asset_type,
-    )
+    print(f"Packing {args.asset_dir} (size={request['frame_size']})...")
+    try:
+        atlas = packer.pack(args.asset_dir, request, fresh=args.fresh)
+    except (FileNotFoundError, ValueError) as exc:
+        raise SystemExit(f"Packing failed: {exc}") from exc
 
     # Validate the generated atlas
     from .schema_validator import validate_atlas
@@ -225,7 +200,7 @@ def _cmd_pack(args: argparse.Namespace) -> None:
     else:
         print("Atlas validates OK")
 
-    print(f"Output: {out_dir}")
+    print(f"Output: {args.asset_dir / 'output'}")
 
 
 def _cmd_validate(args: argparse.Namespace) -> None:
