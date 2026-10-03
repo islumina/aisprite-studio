@@ -68,11 +68,11 @@ To create your own custom character or object spritesheet using the AI-assisted 
 3. Place a canonical reference image `assets/my_hero/tpose.png` (a clean neutral standing pose / front view / solid green background).
 
 #### Step B: Generate Generation Plan for the Agent
-Run the generate CLI command locally:
+Print every pending frame task (the same prompts and references the MCP server returns):
 ```bash
-python3 -m tools.sprite_pipeline.cli generate assets/my_hero
+npm run plan -- assets/my_hero
 ```
-This script will analyze your request and output a precise **Generation Plan** text. 
+Run `npm ci` first; the plan uses the MCP server and its dependencies.
 
 #### Step C: Hand off to an image-capable agent
 Connect the local MCP server, call `aisprite_studio_get_generation_task`, generate the exact requested frame with every returned PNG reference, then submit it with `aisprite_studio_submit_generated_frame`. Hosts without MCP can use the editor's **Copy active frame task** action and pass the resulting PNG to an MCP-connected agent for validated submission.

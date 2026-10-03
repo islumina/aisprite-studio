@@ -10,13 +10,15 @@ declare const RequestSchema: z.ZodObject<{
     }>>;
     animations: z.ZodArray<z.ZodObject<{
         action: z.ZodString;
-        direction: z.ZodString;
+        direction: z.ZodDefault<z.ZodString>;
         frames: z.ZodDefault<z.ZodNumber>;
+        fps: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>>;
 }, z.core.$loose>;
 export type AssetRequest = z.infer<typeof RequestSchema>;
 export interface FrameSpec {
     name: string;
+    animation: string;
     action: string;
     direction: string;
     index: number;
@@ -38,6 +40,15 @@ export interface GenerationTask {
     prompt: string;
     reference_paths: string[];
 }
+export interface AnimationOutline {
+    asset: string;
+    animation: string;
+    frames: {
+        name: string;
+        pose: string;
+    }[];
+    prompt: string;
+}
 export interface ReferenceTask {
     asset: string;
     request: AssetRequest;
@@ -48,10 +59,15 @@ export interface ReferenceTask {
 }
 export declare function assetDirectory(root: string, asset: string): string;
 export declare function loadRequest(root: string, asset: string): Promise<AssetRequest>;
+export declare function animationName(action: string, direction: string): string;
+export declare function frameName(action: string, direction: string, index: number): string;
 export declare function frameSpecs(request: AssetRequest): FrameSpec[];
 export declare function listAssets(root: string): Promise<AssetSummary[]>;
+export declare function poseFor(frame: FrameSpec): string;
 export declare function getReferenceTask(root: string, asset: string): Promise<ReferenceTask>;
 export declare function getGenerationTask(root: string, asset: string, requestedFrame?: string): Promise<GenerationTask>;
+export declare function getAnimationOutline(root: string, asset: string, animation: string): Promise<AnimationOutline>;
+export declare function getPendingTasks(root: string, asset: string): Promise<GenerationTask[]>;
 export declare function parsePng(buffer: Buffer): {
     width: number;
     height: number;

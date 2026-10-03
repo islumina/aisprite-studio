@@ -1,7 +1,8 @@
 """CLI entrypoint for the sprite image pipeline.
 
+Generation tasks come from the MCP server (or `npm run plan -- assets/<asset>`).
+
 Usage:
-    python -m tools.sprite_pipeline.cli generate assets/reimu
     python -m tools.sprite_pipeline.cli qa assets/reimu [--skip-vision]
     python -m tools.sprite_pipeline.cli pack assets/reimu
     python -m tools.sprite_pipeline.cli validate assets/reimu/output/atlas.json
@@ -29,10 +30,6 @@ def _parse_args() -> argparse.Namespace:
     )
 
     sub = p.add_subparsers(dest="command", required=True)
-
-    # generate
-    gen = sub.add_parser("generate", help="Print exact tasks for an image-capable agent")
-    gen.add_argument("asset_dir", type=Path, help="Asset directory (e.g. assets/reimu)")
 
     # sync
     sync_cmd = sub.add_parser("sync", help="Remove timestamps from generated frame filenames")
@@ -104,19 +101,6 @@ def _require_pack_approval(asset_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
-
-async def _cmd_generate(args: argparse.Namespace) -> None:
-    from . import generation_plan
-    
-    print("==========================================================")
-    print("提示：本地腳本不包含 API Key，因此不會自動執行生圖。")
-    print("請將下列 task 交給具備圖片編輯能力的 agent，並透過本機 MCP 驗證提交。\n")
-    
-    # 讓腳本印出助理生圖時需要的精準資訊，減輕助理的運算負擔
-    print("--- 助理專用生圖計畫 (Generation Plan) ---")
-    plan = generation_plan.build_generation_plan(args.asset_dir)
-    print(plan)
-    print("==========================================================")
 
 def _cmd_sync(args: argparse.Namespace) -> None:
     import re
@@ -226,9 +210,7 @@ def main() -> None:
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=level, format="%(name)s %(levelname)s %(message)s")
 
-    if args.command == "generate":
-        asyncio.run(_cmd_generate(args))
-    elif args.command == "sync":
+    if args.command == "sync":
         _cmd_sync(args)
     elif args.command == "qa":
         asyncio.run(_cmd_qa(args))

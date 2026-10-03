@@ -166,7 +166,7 @@ export function createServer(): McpServer {
 
   server.registerTool("aisprite_studio_run_deterministic_qa", {
     title: "Run Deterministic Sprite QA",
-    description: "Run local file, dimension, coverage, halo, and drift checks for an asset. This updates qa-report.json but does not perform or claim visual approval.",
+    description: "Run local file, dimension, chroma-key, coverage, and drift checks for an asset. This updates qa-report.json but does not perform or claim visual approval.",
     inputSchema: z.object({ asset: AssetId }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ asset }): Promise<CallToolResult> => {

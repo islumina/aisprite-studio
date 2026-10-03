@@ -17,9 +17,11 @@
     "aispritejs": "0.6.0"
   },
   "scripts": {
+    "plan": "node mcp-server/dist/plan.js",
     "serve": "node server.mjs",
-    "test": "npm run test:server && npm run test:webeditor && npm run test:mcp && npm run test:python",
+    "test": "npm run test:server && npm run test:webeditor && npm run test:mcp && npm run test:python && npm run test:parity",
     "test:mcp": "npm --prefix mcp-server run check",
+    "test:parity": "node --test tests/spec-parity.test.mjs",
     "test:python": "python3 -m unittest discover -s tests",
     "test:server": "node --test tests/server.test.mjs",
     "test:webeditor": "node --test tests/webeditor.test.mjs",

@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { lstat, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { parse } from "yaml";
 import * as z from "zod/v4";
@@ -9,8 +10,10 @@ const MAX_PNG_BYTES = 20 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const AnimationSchema = z.object({
     action: z.string().regex(ASSET_ID),
-    direction: z.string().regex(ASSET_ID),
+    // Empty for subjects without a facing (fish, effects): frames are then `swim_00`.
+    direction: z.string().regex(/^[A-Za-z0-9_-]{0,80}$/).default(""),
     frames: z.number().int().min(1).max(240).default(4),
+    fps: z.number().int().min(1).max(60).optional(),
 }).strict();
 const RequestSchema = z.object({
     character: z.string().regex(ASSET_ID).optional(),
@@ -81,9 +84,17 @@ export async function loadRequest(root, asset) {
     }
     return RequestSchema.parse(parse(source));
 }
+// Frame names must match tools/sprite_pipeline/spec.py; tests/spec-parity.test.mjs checks both.
+export function animationName(action, direction) {
+    return direction ? `${action}_${direction}` : action;
+}
+export function frameName(action, direction, index) {
+    return `${animationName(action, direction)}_${String(index).padStart(2, "0")}`;
+}
 export function frameSpecs(request) {
     return request.animations.flatMap((animation) => Array.from({ length: animation.frames }, (_, index) => ({
-        name: `${animation.action}_${animation.direction}_${String(index).padStart(2, "0")}`,
+        name: frameName(animation.action, animation.direction, index),
+        animation: animationName(animation.action, animation.direction),
         action: animation.action,
         direction: animation.direction,
         index,
@@ -132,23 +143,67 @@ export async function listAssets(root) {
     }
     return assets;
 }
-function buildPrompt(asset, request, frame) {
-    const categoryRule = {
-        character: "Preserve the same face, outfit, colours, and proportions. Animate the pose; do not return a T-pose.",
-        object: "Keep the object's main body pixel-aligned with the reference; change only dynamic parts.",
-        effect: "Keep the palette, style, centre, and bounding box consistent while particle details may vary.",
-    }[request.asset_type];
+// Pose outline per action, indexed by frame and wrapping when an animation has more frames.
+const POSES = {
+    idle: [
+        "neutral resting pose, arms relaxed at sides, clothes begin to flutter very slightly",
+        "slight inhale, chest rises slightly, cloth drifts leftward",
+        "breathing in, cloth ripples slightly more",
+        "peak of breath, a touch taller",
+        "beginning to exhale, cloth drifting back toward centre",
+        "mid-exhale, cloth settling",
+        "exhaling further, chest lowering",
+        "returning to neutral, bridging back into frame 0 without duplicating it",
+    ],
+    walk: ["contact: lead foot forward, opposite arm forward", "passing: legs crossing, body low", "opposite contact: other foot forward", "passing: legs crossing", "high point of the stride", "recovery: bridging back into frame 0 without duplicating it"],
+    run: ["contact: lead foot strikes the ground, body leans forward", "drive: push off, back leg extends", "float: both feet briefly off the ground", "contact: opposite foot strikes", "drive: opposite push-off", "recovery: bridging back into frame 0 without duplicating it"],
+    attack: ["wind-up: lean back, weapon raised", "strike: lunge forward, weapon swung (strongest pose)", "follow-through: weapon low, body still forward", "recovery: settle toward the idle pose"],
+    cast: ["hands rising, energy gathering", "arms extended, magic circle visible at its peak", "release: burst of energy outward", "arms lowering, residual glow fading"],
+    jump: ["crouch: knees bent, preparing to spring", "ascend: body rising, arms up", "apex: highest point, brief float", "descend: falling, arms adjusting", "land: impact, knees absorbing"],
+    hurt: ["initial recoil: body jerks back, pain expression", "maximum stagger: leaning away", "recovery: returning toward upright"],
+    die: ["first hit: flinching, eyes closed", "buckling: knees giving way", "falling: body tilting", "on the ground: collapsed, motionless"],
+    open: ["closed: fully shut", "crack: first gap appears, a hint of the contents", "half-open: lid or door at its midpoint", "wide open: contents revealed", "settle: slight bounce back from open", "final rest: fully open and still"],
+    close: ["open: starting fully open", "beginning to close", "half-closed: midpoint", "nearly shut: small gap remaining", "fully closed"],
+    shine: ["sparkles at positions A: scattered glints", "sparkles at positions B: shifted glints, brighter core", "sparkles at positions C: peak brightness", "sparkles at positions D: dimming, bridging back into frame 0 without duplicating it"],
+    activate: ["mechanism at rest", "trigger: initial movement begins", "mid-action: mechanism in motion", "engaged: mechanism reaches its final position"],
+    burn: ["flame tongues leaning left, bright core", "flame tongues leaning right, wider spread", "tall narrow flame, intense core", "broad low flame, embers rising", "medium flame, sparks scattering", "returning toward the frame 0 shape without duplicating it"],
+    explode: ["origin: tiny bright core", "first expansion: ring of debris outward", "peak: maximum radius, bright flash", "dissipating: fading edges, smoke wisps", "remnants: scattered particles, dim glow"],
+    magic: ["rune circle at rest: base pattern visible", "rotated 90 degrees, glow intensifying", "rotated 180 degrees, peak brightness", "rotated 270 degrees, glow fading", "returning to the base orientation without duplicating frame 0"],
+    heal: ["first particles rising from below", "more particles, glow spreading upward", "peak: dense particle cloud, brightest glow", "particles fading, glow dimming, bridging back into frame 0"],
+    hit: ["impact flash: bright star at the centre", "spark burst: lines radiating outward", "dissipating: sparks fading, lines shortening"],
+};
+const FACING = {
+    front: "facing the viewer (front view)",
+    back: "seen from behind (back view)",
+    left: "in side profile facing left",
+    right: "in side profile facing right",
+};
+const FRAME_RULES = {
+    character: "Preserve the same face, outfit, colours, and proportions. Animate the pose; do not return a T-pose.",
+    object: "Keep the object's main body pixel-aligned with the reference; change only dynamic parts.",
+    effect: "Keep the palette, style, centre, and bounding box consistent while particle details may vary.",
+};
+const BACKGROUND_RULE = "Use one flat, solid green screen (#00FF00), or solid blue (#0000FF) only when the subject is mostly green.";
+const LIGHTING_RULE = "Use flat even lighting, absolutely no shadows or ground plane, no scenery, no detached effects, and no green/blue colour spill on the subject. Centre the subject with about 10% padding. Output only the image.";
+export function poseFor(frame) {
+    const cycle = POSES[frame.action.toLowerCase()];
+    const pose = cycle ? cycle[frame.index % cycle.length] : undefined;
+    return pose ?? `phase ${frame.index + 1} of ${frame.total} of the '${frame.action}' motion`;
+}
+function framePrompt(asset, request, frame) {
+    const facing = FACING[frame.direction] ?? (frame.direction ? `facing '${frame.direction}'` : "");
     const continuity = frame.index === 0
         ? "Establish scale, framing, and palette from the canonical reference."
-        : `Continue motion from ${frame.action}_${frame.direction}_${String(frame.index - 1).padStart(2, "0")}.png without changing identity or scale.`;
+        : `Continue motion from ${frameName(frame.action, frame.direction, frame.index - 1)}.png without changing identity or scale.`;
     return [
-        `Generate ${frame.name}.png, frame ${frame.index + 1} of ${frame.total} for the '${frame.action}' animation facing '${frame.direction}'.`,
+        `Generate ${frame.name}.png, frame ${frame.index + 1} of ${frame.total} of the '${frame.action}' animation${facing ? `, ${facing}` : ""}.`,
         `Subject: ${asset}. Asset type: ${request.asset_type}. Style: ${request.style}.`,
-        categoryRule,
-        "Use only visually approved references as identity truth. Existing bundled generated images are known failed artifacts until separately approved; do not preserve visible defects.",
+        FRAME_RULES[request.asset_type],
+        `Pose: ${poseFor(frame)}.`,
+        "Treat references as identity guidance only and do not copy their visible defects.",
         continuity,
-        `Output exactly ${request.frame_size}x${request.frame_size} PNG. Use a solid green screen (#00FF00), or solid blue (#0000FF) only when the subject is mostly green.`,
-        "Use flat even lighting, absolutely no shadows or ground plane, and no green/blue colour spill on the subject. Centre the subject with about 10% padding. Output only the image.",
+        `Output exactly ${request.frame_size}x${request.frame_size} PNG. ${BACKGROUND_RULE}`,
+        LIGHTING_RULE,
     ].join("\n");
 }
 export async function getReferenceTask(root, asset) {
@@ -177,8 +232,8 @@ export async function getReferenceTask(root, asset) {
             `Generate a replacement tpose.png for '${asset}'. Asset type: ${request.asset_type}. Style: ${request.style}.`,
             categoryRule,
             warning,
-            `Output exactly ${request.frame_size}x${request.frame_size} PNG on a solid green screen (#00FF00), or solid blue (#0000FF) only when the subject is mostly green.`,
-            "Use flat even lighting, absolutely no body or ground-plane shadows, no scenery, no detached effects, and no green/blue colour spill. Centre the subject with about 10% padding. Output only the image.",
+            `Output exactly ${request.frame_size}x${request.frame_size} PNG. ${BACKGROUND_RULE}`,
+            LIGHTING_RULE,
         ].join("\n"),
     };
 }
@@ -208,8 +263,8 @@ export async function getGenerationTask(root, asset, requestedFrame) {
     const candidates = [
         path.join(dir, "tpose.png"),
         path.join(dir, "input.png"),
-        frame.index > 0 ? path.join(dir, "frames", `${frame.action}_${frame.direction}_00.png`) : "",
-        frame.index > 0 ? path.join(dir, "frames", `${frame.action}_${frame.direction}_${String(frame.index - 1).padStart(2, "0")}.png`) : "",
+        frame.index > 0 ? path.join(dir, "frames", `${frameName(frame.action, frame.direction, 0)}.png`) : "",
+        frame.index > 0 ? path.join(dir, "frames", `${frameName(frame.action, frame.direction, frame.index - 1)}.png`) : "",
     ].filter(Boolean);
     const references = [];
     for (const candidate of candidates) {
@@ -221,7 +276,39 @@ export async function getGenerationTask(root, asset, requestedFrame) {
     if (references.length === 0) {
         throw new Error(`Asset '${asset}' has no usable tpose.png, input.png, or continuity frame.`);
     }
-    return { asset, frame, request, prompt: buildPrompt(asset, request, frame), reference_paths: references };
+    return { asset, frame, request, prompt: framePrompt(asset, request, frame), reference_paths: references };
+}
+export async function getAnimationOutline(root, asset, animation) {
+    const request = await loadRequest(root, asset);
+    const frames = frameSpecs(request).filter((frame) => frame.animation === animation);
+    const first = frames[0];
+    if (!first)
+        throw new Error(`Animation '${animation}' is not declared in ${asset}/request.yml.`);
+    const outline = frames.map((frame) => ({ name: frame.name, pose: poseFor(frame) }));
+    const facing = FACING[first.direction] ?? (first.direction ? `facing '${first.direction}'` : "");
+    return {
+        asset,
+        animation,
+        frames: outline,
+        prompt: [
+            `Animation '${animation}' of ${asset}: ${frames.length} frames${facing ? `, ${facing}` : ""}. Asset type: ${request.asset_type}. Style: ${request.style}.`,
+            FRAME_RULES[request.asset_type],
+            "Generate each frame as its own PNG with the exact name below; frame 0 sets scale, framing, and palette.",
+            ...outline.map((frame) => `  ${frame.name}: ${frame.pose}`),
+            `Output exactly ${request.frame_size}x${request.frame_size} PNG per frame. ${BACKGROUND_RULE}`,
+            LIGHTING_RULE,
+        ].join("\n"),
+    };
+}
+export async function getPendingTasks(root, asset) {
+    const request = await loadRequest(root, asset);
+    const tasks = [];
+    for (const frame of frameSpecs(request)) {
+        if (!await isFile(path.join(assetDirectory(root, asset), "frames", `${frame.name}.png`))) {
+            tasks.push(await getGenerationTask(root, asset, frame.name));
+        }
+    }
+    return tasks;
 }
 export function parsePng(buffer) {
     if (buffer.length < 24 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
@@ -286,7 +373,7 @@ export async function runDeterministicQa(root, asset) {
     return await new Promise((resolve, reject) => {
         const child = spawn("python3", args, {
             cwd: root,
-            env: { ...process.env, PYTHONPYCACHEPREFIX: "/private/tmp/aisprite-studio-mcp-pycache" },
+            env: { ...process.env, PYTHONPYCACHEPREFIX: path.join(tmpdir(), "aisprite-studio-mcp-pycache") },
             shell: false,
             stdio: ["ignore", "pipe", "pipe"],
         });
