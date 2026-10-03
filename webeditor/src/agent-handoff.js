@@ -20,7 +20,7 @@ const MANUAL_HANDOFF = 'Use “Copy active frame task”, give its prompt and re
  * @param {{
  *   staticMode: boolean,
  *   flashLabel: (button: HTMLElement, label: string, ok?: boolean) => void,
- *   activeFrameTask: () => object | string,
+ *   activeFrameTask: () => Promise<object | string>,
  * }} options  `activeFrameTask` returns the task, or a short reason when there is no usable frame.
  */
 export async function configureAgentHandoff({ staticMode, flashLabel, activeFrameTask }) {
@@ -41,7 +41,7 @@ export async function configureAgentHandoff({ staticMode, flashLabel, activeFram
     flashLabel(configButton, selected === 'manual' ? '✓ handoff copied' : '✓ MCP config copied');
   };
   taskButton.onclick = async () => {
-    const task = activeFrameTask();
+    const task = await activeFrameTask();
     if (typeof task === 'string') return flashLabel(taskButton, `✗ ${task}`, false);
     await navigator.clipboard.writeText(JSON.stringify(task, null, 2));
     flashLabel(taskButton, '✓ task copied');

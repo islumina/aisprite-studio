@@ -246,6 +246,7 @@ async function listAssets(projectRoot) {
       hasSheet,
       atlasPrefix: atlasPrefix ?? "",
       hasReference: await isFile(path.join(directory, "tpose.png")) || await isFile(path.join(directory, "input.png")),
+      hasInput: await isFile(path.join(directory, "input.png")),
     });
   }
   return result;
@@ -444,6 +445,16 @@ export function createStudioServer({ projectRoot = MODULE_ROOT } = {}) {
         const animation = url.searchParams.get("animation");
         if (!isAssetId(asset) || !NAME_ID.test(animation ?? "")) throw new HttpError(400, "char and animation required");
         return sendJson(response, await generationTask((module) => module.getAnimationOutline(resolvedRoot, asset, animation)));
+      }
+      if (request.method === "GET" && url.pathname === "/api/reference-task") {
+        const asset = url.searchParams.get("char");
+        if (!isAssetId(asset)) throw new HttpError(400, "char required");
+        const task = await generationTask((module) => module.getReferenceTask(resolvedRoot, asset));
+        return sendJson(response, {
+          asset,
+          prompt: task.prompt,
+          references: task.reference_paths.map((reference) => path.relative(resolvedRoot, reference)),
+        });
       }
       if (request.method === "GET" && url.pathname === "/api/agent-config") {
         if (!isLocalAddress(request.socket.remoteAddress)) throw new HttpError(403, "Agent config is available only from localhost.");

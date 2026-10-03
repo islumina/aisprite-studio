@@ -6,29 +6,21 @@ import * as preview from './preview.js';
 
 /**
  * @param {Record<string, HTMLElement>} els  The editor's element map (refPose*, tpose*, btnCopyTposeUrl).
- * @returns {{ showReferencePose: (charName: string) => Promise<void>, showTpose: (charName: string) => Promise<void> }}
+ * @returns {{ showReferencePose: (charName: string, hasInput: boolean) => void, showTpose: (charName: string) => Promise<void> }}
  */
 export function createPosePanels(els) {
   let tposeUrl = null; // object URL shown in the T-Pose panel, revoked when replaced
   let tposeRequest = 0; // latest showTpose() call; older ones drop their result
 
-  /** Show the user's original input.png as Reference Pose. */
-  async function showReferencePose(charName) {
-    const src = `assets/${charName}/input.png`;
-    try {
-      const res = await fetch(src, { method: 'HEAD' });
-      if (res.ok) {
-        els.refPoseImg.src = src;
-        els.refPoseImg.style.display = 'block';
-        els.refPoseInfo.style.display = 'block';
-        els.refPosePlaceholder.style.display = 'none';
-        els.refPoseFilename.textContent = 'input.png';
-        return;
-      }
-    } catch { /* ignore */ }
-    els.refPoseImg.style.display = 'none';
-    els.refPoseInfo.style.display = 'none';
-    els.refPosePlaceholder.style.display = 'block';
+  /** Show the user's original input.png as Reference Pose; /api/assets says whether it exists. */
+  function showReferencePose(charName, hasInput) {
+    if (hasInput) {
+      els.refPoseImg.src = `assets/${charName}/input.png`;
+      els.refPoseFilename.textContent = 'input.png';
+    }
+    els.refPoseImg.style.display = hasInput ? 'block' : 'none';
+    els.refPoseInfo.style.display = hasInput ? 'block' : 'none';
+    els.refPosePlaceholder.style.display = hasInput ? 'none' : 'block';
   }
 
   /** Show generated tpose.png in the T-Pose Grid section (keyed like the sheet) + load its prompt. */
@@ -56,12 +48,19 @@ export function createPosePanels(els) {
     tposeUrl = URL.createObjectURL(shown);
     els.tposeImg.src = tposeUrl;
 
-    // Load generation prompt if available
+    els.tposePromptText.textContent = await tposePrompt(charName);
+  }
+
+  /** The saved tpose prompt, else the MCP reference task's prompt. Both APIs answer 200 or a JSON error. */
+  async function tposePrompt(charName) {
     try {
-      const promptRes = await fetch(`assets/${charName}/prompts/tpose.txt`);
-      els.tposePromptText.textContent = promptRes.ok ? (await promptRes.text()).trim() : '(no tpose-prompt.txt found)';
+      const saved = await (await fetch(`/api/prompt?char=${encodeURIComponent(charName)}&name=tpose`)).json();
+      if (saved.exists) return saved.text.trim();
+      const response = await fetch(`/api/reference-task?char=${encodeURIComponent(charName)}`);
+      const task = await response.json();
+      return response.ok ? task.prompt : `(no reference task: ${task.error})`;
     } catch {
-      els.tposePromptText.textContent = '(failed to load prompt)';
+      return '(failed to load prompt)';
     }
   }
 
