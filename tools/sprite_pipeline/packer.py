@@ -1,8 +1,13 @@
-"""Spritesheet packer: key each frame, lay frames out on a grid, write the atlas.
+"""Spritesheet packer: key each frame, trim it, pack the rects, write the atlas.
 
 Produces in the output directory:
   - {asset}.png, plus {asset}.webp when cwebp is on PATH
-  - atlas.json (PixiJS spritesheet JSON, validates against atlas.schema.json)
+  - atlas.json: PixiJS spritesheet JSON (validates against atlas.schema.json) whose
+    meta also carries Aseprite `frameTags`, so Phaser's `load.aseprite` reads it too
+
+Each keyed frame is trimmed to its visible pixels plus a transparent margin and
+packed on shelves with a gutter, so texture filtering never samples a neighbour.
+Frames whose trimmed pixels and offset are identical share one rect.
 
 Frames are taken from request.yml in declared order. Tuning the editor already
 saved into atlas.json survives a re-pack: per-frame anchor and duration, and
@@ -12,6 +17,7 @@ initial, poses, animationConfig, ...).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -35,13 +41,51 @@ DEFAULT_FPS = 8
 PACKER_KEYS = frozenset({"meta", "assetType", "frames", "animations"})
 # Many mobile GPUs cap textures at 4096 px per side.
 MAX_SHEET_PX = 4096
+# Transparent pixels kept around each trimmed frame, inside its rect.
+TRIM_MARGIN_PX = 1
+# Empty pixels between packed rects.
+GUTTER_PX = 2
 
 
-def _grid_layout(n: int) -> tuple[int, int]:
-    """Calculate a near-square grid (cols, rows) for n items."""
-    cols = math.ceil(math.sqrt(n))
-    rows = math.ceil(n / cols)
-    return cols, rows
+def _trim(image: Image.Image) -> tuple[Image.Image, tuple[int, int]]:
+    """Crop a keyed frame to its visible pixels plus a margin; return the crop and its offset."""
+    alpha = np.asarray(image)[..., 3]
+    ys, xs = np.nonzero(alpha)
+    if len(xs) == 0:
+        return Image.new("RGBA", (1, 1)), (0, 0)
+    x0 = max(int(xs.min()) - TRIM_MARGIN_PX, 0)
+    y0 = max(int(ys.min()) - TRIM_MARGIN_PX, 0)
+    x1 = min(int(xs.max()) + 1 + TRIM_MARGIN_PX, image.width)
+    y1 = min(int(ys.max()) + 1 + TRIM_MARGIN_PX, image.height)
+    return image.crop((x0, y0, x1, y1)), (x0, y0)
+
+
+def _shelf_pack(sizes: list[tuple[int, int]], width: int) -> tuple[list[tuple[int, int]], int, int]:
+    """Place rects tallest-first on shelves no wider than `width`; return positions and sheet size."""
+    positions: list[tuple[int, int]] = [(0, 0)] * len(sizes)
+    x = y = shelf_height = used_width = 0
+    for index in sorted(range(len(sizes)), key=lambda i: (-sizes[i][1], -sizes[i][0])):
+        w, h = sizes[index]
+        if x and x + w > width:
+            x, y, shelf_height = 0, y + shelf_height + GUTTER_PX, 0
+        positions[index] = (x, y)
+        used_width = max(used_width, x + w)
+        x += w + GUTTER_PX
+        shelf_height = max(shelf_height, h)
+    return positions, used_width, y + shelf_height
+
+
+def _pack_rects(sizes: list[tuple[int, int]]) -> tuple[list[tuple[int, int]], int, int]:
+    """Try a few shelf widths around the square root of the area; keep the smallest sheet."""
+    area = sum((w + GUTTER_PX) * (h + GUTTER_PX) for w, h in sizes)
+    widest = max(w for w, _ in sizes)
+    best = None
+    for factor in (1.0, 1.15, 1.3, 1.5, 2.0):
+        layout = _shelf_pack(sizes, max(widest, math.ceil(math.sqrt(area) * factor)))
+        rank = (layout[1] * layout[2], max(layout[1], layout[2]))
+        if best is None or rank < best[0]:
+            best = (rank, layout)
+    return best[1]
 
 
 def _load_previous(atlas_path: Path) -> dict:
@@ -62,19 +106,27 @@ def _fit(image: Image.Image, size: int) -> Image.Image:
     return image.convert("RGBa").resize((size, size), Image.LANCZOS).convert("RGBA")
 
 
-def _auto_anchor(alphas: list[np.ndarray], asset_type: str) -> dict[str, float]:
+def _subject_box(image: Image.Image) -> tuple[int, int, int, int] | None:
+    """Bounding box (x0, y0, x1, y1) of a keyed frame's opaque subject, or None."""
+    ys, xs = np.nonzero(np.asarray(image)[..., 3] >= OPAQUE_ALPHA)
+    if len(xs) == 0:
+        return None
+    return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+
+
+def _auto_anchor(boxes: list[tuple[int, int, int, int] | None], size: int, asset_type: str) -> dict[str, float]:
     """Anchor shared by an animation's frames, from the union of their subject boxes.
 
     Characters and objects stand on the bottom of the box; effects pivot on its centre.
     """
-    union = np.logical_or.reduce([alpha >= OPAQUE_ALPHA for alpha in alphas])
-    if not union.any():
+    found = [box for box in boxes if box is not None]
+    if not found:
         return {"x": 0.5, "y": 0.5}
-    size = union.shape[0]
-    ys, xs = np.nonzero(union)
-    x = (xs.min() + xs.max() + 1) / 2 / size
-    y = (ys.min() + ys.max() + 1) / 2 / size if asset_type == "effect" else (ys.max() + 1) / size
-    return {"x": round(float(x), 3), "y": round(float(y), 3)}
+    x0, y0 = min(b[0] for b in found), min(b[1] for b in found)
+    x1, y1 = max(b[2] for b in found), max(b[3] for b in found)
+    x = (x0 + x1) / 2 / size
+    y = (y0 + y1) / 2 / size if asset_type == "effect" else y1 / size
+    return {"x": round(x, 3), "y": round(y, 3)}
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -139,17 +191,13 @@ def pack(asset_dir: Path, request: dict, fresh: bool = False) -> dict:
     previous = {} if fresh else _load_previous(atlas_path)
     previous_frames = previous.get("frames") if isinstance(previous.get("frames"), dict) else {}
 
-    cols, rows = _grid_layout(len(specs))
-    sheet_w, sheet_h = cols * frame_size, rows * frame_size
-    if max(sheet_w, sheet_h) > MAX_SHEET_PX:
-        log.warning("Sheet is %dx%d px, above the %d px many GPUs support.", sheet_w, sheet_h, MAX_SHEET_PX)
-    log.info("Packing %d frames into %dx%d grid (%dx%d px)", len(specs), cols, rows, sheet_w, sheet_h)
-
-    sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
     animations: dict[str, list[str]] = {}
-    alphas: dict[str, list[np.ndarray]] = {}
-    frames: dict[str, dict] = {}
-    for index, spec in enumerate(specs):
+    boxes: dict[str, list[tuple[int, int, int, int] | None]] = {}
+    rects: dict[str, int] = {}  # frame name -> index into `crops`
+    crops: list[tuple[Image.Image, tuple[int, int]]] = []
+    seen: dict[bytes, int] = {}
+    durations: dict[str, int] = {}
+    for spec in specs:
         name = spec["name"]
         with Image.open(frames_dir / f"{name}.png") as source:
             try:
@@ -157,22 +205,42 @@ def pack(asset_dir: Path, request: dict, fresh: bool = False) -> dict:
             except chroma.ChromaKeyError as exc:
                 raise ValueError(f"{name}.png: {exc}") from exc
         keyed = _fit(keyed, frame_size)
-        x, y = (index % cols) * frame_size, (index // cols) * frame_size
-        sheet.paste(keyed, (x, y))
         animations.setdefault(spec["animation"], []).append(name)
-        alphas.setdefault(spec["animation"], []).append(np.asarray(keyed)[..., 3])
+        boxes.setdefault(spec["animation"], []).append(_subject_box(keyed))
+
+        crop, offset = _trim(keyed)
+        digest = hashlib.sha256(repr((offset, crop.size)).encode() + crop.tobytes()).digest()
+        if digest not in seen:
+            seen[digest] = len(crops)
+            crops.append((crop, offset))
+        rects[name] = seen[digest]
+        durations[name] = round(1000 / (spec["fps"] or DEFAULT_FPS))
+
+    positions, sheet_w, sheet_h = _pack_rects([crop.size for crop, _ in crops])
+    if max(sheet_w, sheet_h) > MAX_SHEET_PX:
+        log.warning("Sheet is %dx%d px, above the %d px many GPUs support.", sheet_w, sheet_h, MAX_SHEET_PX)
+    log.info("Packing %d frames as %d rects into %dx%d px", len(specs), len(crops), sheet_w, sheet_h)
+    sheet = Image.new("RGBA", (sheet_w, sheet_h), (0, 0, 0, 0))
+    for (crop, _), position in zip(crops, positions):
+        sheet.paste(crop, position)
+
+    frames: dict[str, dict] = {}
+    for name, duration in durations.items():
+        crop, (ox, oy) = crops[rects[name]]
+        x, y = positions[rects[name]]
+        w, h = crop.size
         frames[name] = {
-            "frame": {"x": x, "y": y, "w": frame_size, "h": frame_size},
+            "frame": {"x": x, "y": y, "w": w, "h": h},
             "rotated": False,
-            "trimmed": False,
-            "spriteSourceSize": {"x": 0, "y": 0, "w": frame_size, "h": frame_size},
+            "trimmed": (w, h) != (frame_size, frame_size),
+            "spriteSourceSize": {"x": ox, "y": oy, "w": w, "h": h},
             "sourceSize": {"w": frame_size, "h": frame_size},
             "anchor": None,
-            "duration": round(1000 / (spec["fps"] or DEFAULT_FPS)),
+            "duration": duration,
         }
 
     for animation, names in animations.items():
-        anchor = _auto_anchor(alphas[animation], asset_type)
+        anchor = _auto_anchor(boxes[animation], frame_size, asset_type)
         for name in names:
             frames[name]["anchor"] = anchor
             tuned = previous_frames.get(name)
@@ -188,8 +256,19 @@ def pack(asset_dir: Path, request: dict, fresh: bool = False) -> dict:
         _atomic_write(png_path, buffer.read())
     image_path = _compress_webp(png_path) or png_path
 
+    order = list(frames)
+    frame_tags = [
+        {"name": animation, "from": order.index(names[0]), "to": order.index(names[-1]), "direction": "forward"}
+        for animation, names in animations.items()
+    ]
     atlas: dict = {
-        "meta": {"image": image_path.name, "size": {"w": sheet_w, "h": sheet_h}, "scale": "1"},
+        "meta": {
+            "image": image_path.name,
+            "format": "RGBA8888",
+            "size": {"w": sheet_w, "h": sheet_h},
+            "scale": "1",
+            "frameTags": frame_tags,
+        },
         "assetType": asset_type,
         "frames": frames,
         "animations": animations,

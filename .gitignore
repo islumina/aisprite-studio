@@ -19,3 +19,6 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Packed sheet PNGs are derivable from frames/; atlases reference the .webp
+assets/*/output/*.png
