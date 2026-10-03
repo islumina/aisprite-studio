@@ -24,6 +24,25 @@
           "type": "string",
           "description": "Texture scale factor as string (PixiJS convention)",
           "default": "1"
+        },
+        "format": {
+          "type": "string",
+          "description": "Pixel format of the sheet, as Aseprite writes it"
+        },
+        "frameTags": {
+          "type": "array",
+          "description": "Aseprite animation tags: inclusive frame index ranges in `frames` order. Lets Phaser's load.aseprite read the atlas.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "from": { "type": "integer", "minimum": 0 },
+              "to": { "type": "integer", "minimum": 0 },
+              "direction": { "type": "string", "enum": ["forward", "reverse", "pingpong"] }
+            },
+            "required": ["name", "from", "to", "direction"],
+            "additionalProperties": false
+          }
         }
       },
       "required": ["image", "size", "scale"],

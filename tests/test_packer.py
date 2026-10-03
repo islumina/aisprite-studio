@@ -62,12 +62,57 @@ class PackerTests(unittest.TestCase):
             # Characters stand on the bottom of the animation's union box, centred on it.
             self.assertEqual(atlas["frames"]["idle_front_01"]["anchor"], {"x": 0.5, "y": 0.875})
 
+            # Phaser's load.aseprite reads the same file: tags index frames in file order.
+            self.assertEqual(atlas["meta"]["frameTags"], [
+                {"name": "idle_front", "from": 0, "to": 1, "direction": "forward"},
+                {"name": "swim", "from": 2, "to": 2, "direction": "forward"},
+            ])
+
+    def test_trimmed_rects_rebuild_each_keyed_frame(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            asset = _asset(Path(tmp), self.REQUEST, self.BOXES)
+            atlas = packer.pack(asset, self.REQUEST)
             with Image.open(asset / "output" / "hero.png") as sheet:
                 pixels = np.asarray(sheet.convert("RGBA"))
-            first = atlas["frames"]["idle_front_00"]["frame"]
-            cell = pixels[first["y"]:first["y"] + 32, first["x"]:first["x"] + 32]
-            self.assertEqual(cell[0, 0, 3], 0)
-            self.assertEqual(tuple(cell[16, 16]), (30, 90, 250, 255))
+
+            first = atlas["frames"]["idle_front_00"]
+            # Box (8, 4, 24, 28) plus the one-pixel transparent margin.
+            self.assertEqual(first["spriteSourceSize"], {"x": 7, "y": 3, "w": 18, "h": 26})
+            self.assertEqual(first["frame"]["w"], 18)
+            self.assertTrue(first["trimmed"])
+
+            for name, (x0, y0, x1, y1) in self.BOXES.items():
+                entry = atlas["frames"][name]
+                rect, offset = entry["frame"], entry["spriteSourceSize"]
+                rebuilt = np.zeros((32, 32, 4), dtype=np.uint8)
+                rebuilt[offset["y"]:offset["y"] + rect["h"], offset["x"]:offset["x"] + rect["w"]] = pixels[
+                    rect["y"]:rect["y"] + rect["h"], rect["x"]:rect["x"] + rect["w"]
+                ]
+                expected = np.zeros((32, 32, 4), dtype=np.uint8)
+                expected[y0:y1, x0:x1] = (30, 90, 250, 255)
+                np.testing.assert_array_equal(rebuilt, expected, name)
+
+    def test_identical_frames_share_a_rect_and_rects_keep_a_gutter(self) -> None:
+        request = {"frame_size": 32, "animations": [{"action": "idle", "direction": "front", "frames": 4}]}
+        boxes = {
+            "idle_front_00": (8, 4, 24, 28),
+            "idle_front_01": (8, 4, 24, 28),
+            "idle_front_02": (2, 2, 30, 30),
+            "idle_front_03": (12, 10, 20, 20),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            asset = _asset(Path(tmp), request, boxes)
+            frames = packer.pack(asset, request)["frames"]
+            self.assertEqual(frames["idle_front_00"]["frame"], frames["idle_front_01"]["frame"])
+            rects = {tuple(f["frame"].values()) for f in frames.values()}
+            self.assertEqual(len(rects), 3)
+            for a in rects:
+                for b in rects:
+                    if a == b:
+                        continue
+                    apart_x = a[0] + a[2] + packer.GUTTER_PX <= b[0] or b[0] + b[2] + packer.GUTTER_PX <= a[0]
+                    apart_y = a[1] + a[3] + packer.GUTTER_PX <= b[1] or b[1] + b[3] + packer.GUTTER_PX <= a[1]
+                    self.assertTrue(apart_x or apart_y, (a, b))
 
     def test_repack_keeps_editor_tuning_unless_fresh(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
