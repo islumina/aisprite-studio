@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
@@ -24,6 +26,7 @@ import { mockAtlas } from "../webeditor/src/mock.js";
 import { resolveStudioMode } from "../webeditor/src/mode.js";
 import { createPreviewRuntime, previewControls, toSpriteGraph, validateAtlas } from "../webeditor/src/runtime.js";
 import { nextZoomScale, zoomAround, ZOOM } from "../webeditor/src/viewport.js";
+import { checkVendor, updateVendor } from "../tools/vendor-update.mjs";
 
 // An aispritejs graph whose animationConfig fps implies 167 ms while every frame stores 150 ms.
 function demoAtlas() {
@@ -410,4 +413,42 @@ test("the host bridge announces studio state and accepts only valid commands (ai
 
 test("there is no host bridge without an embedding page", () => {
   assert.equal(createStudioHostBridge({ onCommand() {} }), null);
+});
+
+test("vendor:check compares the exact vendored file set and bytes, and updates replace packages wholesale", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "aisprite-vendor-"));
+  const vendor = path.join(directory, "vendor");
+  const quiet = { vendorDirectory: vendor, log: () => {} };
+  try {
+    const { files } = await updateVendor(quiet);
+    assert.ok(files > 10);
+    await checkVendor(vendor);
+
+    await writeFile(path.join(vendor, "aispritejs", "chunk-STALE.js"), "export {};\n");
+    await assert.rejects(checkVendor(vendor), /stale vendor\/aispritejs\/chunk-STALE\.js/);
+    await updateVendor({ ...quiet, packages: ["aispritejs"] });
+    await checkVendor(vendor);
+
+    await appendFile(path.join(vendor, "pixi.min.mjs"), "\n");
+    await assert.rejects(checkVendor(vendor), /vendor\/pixi\.min\.mjs differs/);
+    await updateVendor({ ...quiet, packages: ["pixi.js"] });
+
+    await mkdir(path.join(vendor, "aifsmjs"));
+    await assert.rejects(checkVendor(vendor), /unexpected vendor\/aifsmjs/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("every import map entry and bare import in the editor resolves to a vendored file", async () => {
+  const html = await readWebeditor("index.html");
+  const imports = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+  for (const target of Object.values(imports)) await access(new URL(target, WEBEDITOR));
+  const files = (await readdir(new URL("src/", WEBEDITOR))).filter((file) => file.endsWith(".js"));
+  for (const file of files) {
+    const source = await readWebeditor(`src/${file}`);
+    for (const [, specifier] of source.matchAll(/^import\s[^'"]*['"]([^'"]+)['"]/gm)) {
+      if (!specifier.startsWith(".")) assert.ok(specifier in imports, `${file} imports unmapped ${specifier}`);
+    }
+  }
 });

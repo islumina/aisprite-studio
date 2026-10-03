@@ -12,7 +12,8 @@
   "dependencies": {
     "aibridgejs": "0.6.0",
     "aieventjs": "0.6.0",
-    "aispritejs": "0.6.0"
+    "aispritejs": "0.6.0",
+    "pixi.js": "8.18.1"
   },
   "scripts": {
     "plan": "node mcp-server/dist/plan.js",
