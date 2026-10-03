@@ -558,38 +558,62 @@ async function runPipeline(root: string, args: string[], timeoutMs: number): Pro
   });
 }
 
+const QA_TIMEOUT_MS = 60_000;
+const QA_OUTPUT_CHARS = 25_000;
+
 export async function runDeterministicQa(root: string, asset: string): Promise<{ exit_code: number; output: string }> {
   await loadRequest(root, asset);
   await assertDirectoryIfPresent(path.join(assetDirectory(root, asset), "frames"), `Asset '${asset}' frames path`);
-  const args = ["-m", "tools.sprite_pipeline.cli", "qa", path.join("assets", asset), "--skip-vision"];
-  return await new Promise((resolve, reject) => {
-    const child = spawn("python3", args, {
-      cwd: root,
-      env: { ...process.env, PYTHONPYCACHEPREFIX: path.join(tmpdir(), "aisprite-studio-mcp-pycache") },
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const chunks: Buffer[] = [];
-    let capturedBytes = 0;
-    const capture = (chunk: Buffer) => {
-      if (capturedBytes >= 25_000) return;
-      const remaining = 25_000 - capturedBytes;
-      const bounded = chunk.subarray(0, remaining);
-      chunks.push(bounded);
-      capturedBytes += bounded.length;
-    };
-    const timer = setTimeout(() => child.kill("SIGTERM"), 60_000);
-    child.stdout.on("data", capture);
-    child.stderr.on("data", capture);
-    child.once("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.once("close", (code) => {
-      clearTimeout(timer);
-      resolve({ exit_code: code ?? 1, output: Buffer.concat(chunks).toString("utf8") });
-    });
-  });
+  const result = await runPipeline(root, ["qa", path.join("assets", asset), "--skip-vision"], QA_TIMEOUT_MS);
+  return { exit_code: result.exit_code, output: result.output.slice(0, QA_OUTPUT_CHARS) };
+}
+
+// Only the fields the summary reads; the rest of qa-report.json passes through untouched.
+const QaReportSchema = z.object({
+  overall: z.string(),
+  score: z.number().optional(),
+  animations: z.record(z.string(), z.object({
+    score: z.number(),
+    hints: z.array(z.string()).default([]),
+  }).passthrough()).default({}),
+  frames: z.record(z.string(), z.object({
+    status: z.string(),
+    repair_hint: z.string().nullable().optional(),
+  }).passthrough()).default({}),
+}).passthrough();
+
+const SUMMARY_HINTS_PER_ANIMATION = 5;
+const SUMMARY_FAILING_FRAMES = 40;
+
+export interface QaSummary {
+  overall: string;
+  score: number | null;
+  animations: Record<string, { score: number; hints: string[]; more_hints: number }>;
+  failing_frames: { frame: string; status: string; repair_hint: string | null }[];
+  failing_frame_count: number;
+  visual_review: string;
+}
+
+// Compact view of qa-report.json for an agent: what failed and what to redraw.
+export function summariseQaReport(report: unknown): QaSummary {
+  const parsed = QaReportSchema.safeParse(report);
+  if (!parsed.success) throw new Error(`qa-report.json has an unexpected shape: ${parsed.error.issues[0]?.message ?? "invalid"}`);
+  const { overall, score, animations, frames } = parsed.data;
+  const failing = Object.entries(frames)
+    .filter(([, frame]) => frame.status === "fail")
+    .map(([frame, value]) => ({ frame, status: value.status, repair_hint: value.repair_hint ?? null }));
+  return {
+    overall,
+    score: score ?? null,
+    animations: Object.fromEntries(Object.entries(animations).map(([name, animation]) => [name, {
+      score: animation.score,
+      hints: animation.hints.slice(0, SUMMARY_HINTS_PER_ANIMATION),
+      more_hints: Math.max(0, animation.hints.length - SUMMARY_HINTS_PER_ANIMATION),
+    }])),
+    failing_frames: failing.slice(0, SUMMARY_FAILING_FRAMES),
+    failing_frame_count: failing.length,
+    visual_review: "Not performed. The score covers deterministic checks only; packing still needs visual_qa.status 'pass'.",
+  };
 }
 
 export async function readQaReport(root: string, asset: string): Promise<unknown> {

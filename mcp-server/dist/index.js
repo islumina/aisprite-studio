@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
-import { getGenerationTask, getReferenceTask, getRowTask, listAssets, readQaReport, runDeterministicQa, submitFrame, submitReference, submitRow, } from "./workspace.js";
+import { getGenerationTask, getReferenceTask, getRowTask, listAssets, readQaReport, runDeterministicQa, submitFrame, summariseQaReport, submitReference, submitRow, } from "./workspace.js";
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ROOT = path.resolve(process.env.AISPRITE_STUDIO_ROOT ?? process.env.AIPLAYBOOK_ROOT ?? DEFAULT_ROOT);
 const AssetId = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
@@ -185,7 +185,7 @@ export function createServer() {
     });
     server.registerTool("aisprite_studio_run_deterministic_qa", {
         title: "Run Deterministic Sprite QA",
-        description: "Run local file, dimension, chroma-key, coverage, and drift checks for an asset. This updates qa-report.json but does not perform or claim visual approval.",
+        description: "Run local checks for an asset and update qa-report.json: per frame file, dimension, chroma-key, coverage and drift; per animation duplicate frames, no motion, scale drift, colour drift and edge contact. Returns a summary: overall status, a 0-100 score per animation (the asset score is the lowest), repair hints, and the failing frames with their repair_hint. Deterministic QA does not perform or claim visual approval.",
         inputSchema: z.object({ asset: AssetId }).strict(),
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     }, async ({ asset }) => {
@@ -193,7 +193,9 @@ export function createServer() {
             const result = await runDeterministicQa(ROOT, asset);
             if (result.exit_code !== 0)
                 return failure(new Error(`QA exited ${result.exit_code}: ${result.output}`));
-            return success(result, "Deterministic QA completed. Visual review is still required before packing.");
+            const summary = summariseQaReport(await readQaReport(ROOT, asset));
+            const score = summary.score === null ? "" : `, score ${summary.score}/100`;
+            return success({ ...result, summary }, `Deterministic QA completed: overall ${summary.overall}${score}. Visual review is still required before packing.`);
         }
         catch (error) {
             return failure(error);

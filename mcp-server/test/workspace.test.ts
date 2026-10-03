@@ -14,9 +14,12 @@ import {
   getRowTask,
   listAssets,
   parsePng,
+  readQaReport,
+  runDeterministicQa,
   submitFrame,
   submitReference,
   submitRow,
+  summariseQaReport,
 } from "../src/workspace.js";
 
 function png(width: number, height: number): Buffer {
@@ -208,4 +211,62 @@ test("writes a submitted row as frames, and names the mismatch when it cannot", 
   assert.deepEqual(frame, { width: 64, height: 64 });
   await assert.rejects(submitRow(root, "hero", "idle_front", drawRow(root, 2), false), /already exist/);
   await assert.rejects(submitRow(root, "hero", "walk_front", drawRow(root, 2), false), /not declared/);
+});
+
+test("summarises a QA report into scores, hints and failing frames", () => {
+  const hints = Array.from({ length: 7 }, (_, index) => `hint ${index}`);
+  const summary = summariseQaReport({
+    asset: "hero",
+    overall: "fail",
+    score: 30,
+    animations: {
+      idle_front: { score: 30, issues: [{ check: "colour_drift", frames: ["idle_front_01"], detail: "x" }], hints },
+      walk_front: { score: 100, issues: [], hints: [] },
+    },
+    frames: {
+      idle_front_00: { status: "pass", checks: {} },
+      idle_front_01: { status: "fail", checks: {}, repair_hint: "Match idle_front_01's palette to idle_front_00." },
+      walk_front_00: { status: "fail", checks: {} },
+    },
+  });
+  assert.equal(summary.overall, "fail");
+  assert.equal(summary.score, 30);
+  assert.deepEqual(summary.animations.idle_front, { score: 30, hints: hints.slice(0, 5), more_hints: 2 });
+  assert.deepEqual(summary.animations.walk_front, { score: 100, hints: [], more_hints: 0 });
+  assert.deepEqual(summary.failing_frames, [
+    { frame: "idle_front_01", status: "fail", repair_hint: "Match idle_front_01's palette to idle_front_00." },
+    { frame: "walk_front_00", status: "fail", repair_hint: null },
+  ]);
+  assert.equal(summary.failing_frame_count, 2);
+  assert.match(summary.visual_review, /Not performed/);
+});
+
+test("summarises reports written before scores existed, and rejects other JSON", () => {
+  const summary = summariseQaReport({ overall: "pass", frames: { idle_front_00: { status: "pass" } } });
+  assert.equal(summary.score, null);
+  assert.deepEqual(summary.animations, {});
+  assert.throws(() => summariseQaReport([]), /unexpected shape/);
+  assert.throws(() => summariseQaReport({ overall: "pass", animations: { idle: { hints: [] } } }), /unexpected shape/);
+});
+
+test("runs deterministic QA and summarises the report it wrote", async () => {
+  const root = await rowFixture();
+  const script = [
+    "import sys",
+    "from PIL import Image, ImageDraw",
+    "for name in sys.argv[1:]:",
+    "    image = Image.new('RGB', (64, 64), (0, 255, 0))",
+    "    ImageDraw.Draw(image).rectangle((24, 12, 40, 52), fill=(200, 40, 40))",
+    "    image.save(f'assets/hero/frames/{name}.png')",
+  ].join("\n");
+  execFileSync("python3", ["-c", script, "idle_front_00", "idle_front_01"], { cwd: root });
+
+  const result = await runDeterministicQa(root, "hero");
+  assert.equal(result.exit_code, 0, result.output);
+  assert.match(result.output, /Score: 40\/100/);
+  const summary = summariseQaReport(await readQaReport(root, "hero"));
+  assert.equal(summary.overall, "fail");
+  assert.equal(summary.score, 40);
+  assert.match(summary.animations.idle_front!.hints[0]!, /near-identical to idle_front_00/);
+  assert.deepEqual(summary.failing_frames.map((frame) => frame.frame), ["idle_front_01"]);
 });
