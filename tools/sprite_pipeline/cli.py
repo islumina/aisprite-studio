@@ -188,6 +188,13 @@ async def _cmd_qa(args: argparse.Namespace) -> None:
     qa.write_report(report, out_path)
 
     print(f"Overall: {report['overall']}")
+    print(f"Score: {report['score']}/100 (lowest animation; deterministic checks only)")
+    for animation, summary in report["animations"].items():
+        print(f"  {animation}: {summary['score']}/100")
+        for hint in summary["hints"][:3]:
+            print(f"    - {hint}")
+        if len(summary["hints"]) > 3:
+            print(f"    - ...and {len(summary['hints']) - 3} more in qa-report.json")
     for name, fr in report["frames"].items():
         if fr["status"] != "pass":
             print(f"  {name}: {fr['status']}")
